@@ -246,19 +246,7 @@ export default function LoginSignup({ onLogin }) {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-black via-purple-950 to-black relative overflow-hidden">
-      {/* Smoke Effect from bottom - Dense white smoke */}
-      <div className="absolute bottom-0 left-0 right-0 h-full w-full pointer-events-none z-0">
-        <div className="smoke smoke-1"></div>
-        <div className="smoke smoke-2"></div>
-        <div className="smoke smoke-3"></div>
-        <div className="smoke smoke-4"></div>
-        <div className="smoke smoke-5"></div>
-        <div className="smoke smoke-6"></div>
-        <div className="smoke smoke-7"></div>
-        <div className="smoke smoke-8"></div>
-      </div>
-      
-      <div className="w-full max-w-md relative z-10">
+      <div className="w-full max-w-md relative">
         {/* Teddy Bear Character */}
         <div className="flex justify-center mb-6 -mt-8">
           <div 
