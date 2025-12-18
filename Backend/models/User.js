@@ -22,6 +22,18 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  phoneNumber: {
+    type: String,
+    default: ''
+  },
+  phoneVerified: {
+    type: Boolean,
+    default: false
+  },
+  address: {
+    type: String,
+    default: ''
+  },
   createdAt: {
     type: Date,
     default: Date.now

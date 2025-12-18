@@ -8,6 +8,7 @@ require('dotenv').config();
 
 const User = require('./models/User');
 const EmailOtp = require('./models/EmailOtp');
+const Cart = require('./models/Cart');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -181,8 +182,161 @@ app.get('/', (req, res) => {
   res.send('Backend is running!');
 });
 
+// -----------------------------
+// Cart endpoints (JWT required)
+// -----------------------------
+
+// Helper to find or create a cart
+const getOrCreateCart = async (userId) => {
+  let cart = await Cart.findOne({ userId });
+  if (!cart) {
+    cart = new Cart({ userId, items: [] });
+    await cart.save();
+  }
+  return cart;
+};
+
+// Get current user's cart
+app.get('/api/cart', authenticateToken, async (req, res) => {
+  try {
+    const cart = await getOrCreateCart(req.user.id);
+    res.json({ items: cart.items, count: cart.items.reduce((s, i) => s + i.quantity, 0) });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Add item to cart (or increase quantity if same product/variant exists)
+app.post('/api/cart', authenticateToken, async (req, res) => {
+  try {
+    const { productId, name, price, image, flavor = '', series = '', quantity = 1 } = req.body || {};
+    if (!productId || typeof price !== 'number') {
+      return res.status(400).json({ message: 'productId and numeric price are required' });
+    }
+    const qty = Math.max(1, parseInt(quantity, 10) || 1);
+    const cart = await getOrCreateCart(req.user.id);
+
+    const idx = cart.items.findIndex(
+      (it) => it.productId === productId && it.flavor === flavor && it.series === series
+    );
+    if (idx >= 0) {
+      cart.items[idx].quantity += qty;
+    } else {
+      cart.items.push({ productId, name, price, image, flavor, series, quantity: qty });
+    }
+    cart.updatedAt = new Date();
+    await cart.save();
+    res.json({ message: 'Added to cart', items: cart.items });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Update quantity of an item
+app.put('/api/cart', authenticateToken, async (req, res) => {
+  try {
+    const { productId, flavor = '', series = '', quantity } = req.body || {};
+    const qty = parseInt(quantity, 10);
+    if (!productId || !Number.isInteger(qty) || qty < 1) {
+      return res.status(400).json({ message: 'productId and quantity >= 1 are required' });
+    }
+    const cart = await getOrCreateCart(req.user.id);
+    const idx = cart.items.findIndex(
+      (it) => it.productId === productId && it.flavor === flavor && it.series === series
+    );
+    if (idx === -1) return res.status(404).json({ message: 'Item not found' });
+    cart.items[idx].quantity = qty;
+    cart.updatedAt = new Date();
+    await cart.save();
+    res.json({ message: 'Quantity updated', items: cart.items });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Remove an item from cart
+app.delete('/api/cart/item', authenticateToken, async (req, res) => {
+  try {
+    const { productId, flavor = '', series = '' } = req.body || {};
+    if (!productId) return res.status(400).json({ message: 'productId required' });
+    const cart = await getOrCreateCart(req.user.id);
+    const before = cart.items.length;
+    cart.items = cart.items.filter(
+      (it) => !(it.productId === productId && it.flavor === flavor && it.series === series)
+    );
+    if (cart.items.length === before) return res.status(404).json({ message: 'Item not found' });
+    cart.updatedAt = new Date();
+    await cart.save();
+    res.json({ message: 'Item removed', items: cart.items });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Clear the cart
+app.delete('/api/cart', authenticateToken, async (req, res) => {
+  try {
+    const cart = await getOrCreateCart(req.user.id);
+    cart.items = [];
+    cart.updatedAt = new Date();
+    await cart.save();
+    res.json({ message: 'Cart cleared', items: cart.items });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
+});
+
+// Account details
+app.get('/api/account', authenticateToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select('-password');
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    res.json({
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      emailVerified: user.emailVerified,
+      phoneNumber: user.phoneNumber || '',
+      phoneVerified: user.phoneVerified || false,
+      address: user.address || ''
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+app.put('/api/account', authenticateToken, async (req, res) => {
+  try {
+    const { name, phoneNumber, address } = req.body || {};
+    const updates = {};
+    if (typeof name === 'string' && name.trim()) updates.name = name.trim();
+    if (typeof phoneNumber === 'string') updates.phoneNumber = phoneNumber.trim();
+    if (typeof address === 'string') updates.address = address.trim();
+
+    const user = await User.findByIdAndUpdate(
+      req.user.id,
+      { $set: updates },
+      { new: true, runValidators: true }
+    ).select('-password');
+
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    res.json({
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      emailVerified: user.emailVerified,
+      phoneNumber: user.phoneNumber || '',
+      phoneVerified: user.phoneVerified || false,
+      address: user.address || ''
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
 });
 
 // Request Email OTP
@@ -260,6 +414,10 @@ app.post('/api/verify-email-otp', async (req, res) => {
     // If user exists, issue JWT (useful for login by OTP)
     const user = await User.findOne({ email });
     if (user) {
+      if (!user.emailVerified) {
+        user.emailVerified = true;
+        await user.save();
+      }
       const token = jwt.sign({ id: user._id, email: user.email }, JWT_SECRET, { expiresIn: '24h' });
       return res.json({ message: 'OTP verified', verified: true, token, user: { id: user._id, email: user.email, name: user.name } });
     }
