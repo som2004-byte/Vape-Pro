@@ -13,9 +13,9 @@ export default function CartPage({
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-black via-purple-950/20 to-black text-gray-100 p-4">
+    <div className="min-h-screen bg-gradient-to-b from-black via-darkPurple-950/20 to-black text-gray-100 p-4">
       <div className="container mx-auto px-4 py-8">
-        <h2 className="text-4xl font-bold mb-8 bg-gradient-to-r from-white via-yellow-400 to-white bg-clip-text text-transparent">
+        <h2 className="text-4xl font-bold mb-8 bg-gradient-to-r from-yellowGradient-start via-yellowGradient-end to-yellowGradient-start bg-clip-text text-transparent">
           Your Cart ({totalItems} items)
         </h2>
 
@@ -28,7 +28,7 @@ export default function CartPage({
               {cartItems.map((item) => (
                 <div
                   key={item.id}
-                  className="flex items-center bg-gradient-to-br from-purple-950/70 to-black/70 rounded-lg shadow-lg p-4 border border-purple-700/40"
+                  className="flex items-center bg-gradient-to-br from-darkPurple-950/70 to-black/70 rounded-lg shadow-lg p-4 border border-darkPurple-700/40"
                 >
                   <img
                     src={item.image}
@@ -45,14 +45,14 @@ export default function CartPage({
                       <button
                         onClick={() => onUpdateQuantity(item.id, item.quantity - 1)}
                         disabled={item.quantity <= 1}
-                        className="px-3 py-1 text-yellow-400 hover:bg-purple-800 rounded-l-md disabled:opacity-50"
+                        className="px-3 py-1 text-yellow-400 hover:bg-darkPurple-800 rounded-l-md disabled:opacity-50"
                       >
                         -
                       </button>
-                      <span className="px-3 py-1 text-white bg-purple-900/50">{item.quantity}</span>
+                      <span className="px-3 py-1 text-white bg-darkPurple-900/50">{item.quantity}</span>
                       <button
                         onClick={() => onUpdateQuantity(item.id, item.quantity + 1)}
-                        className="px-3 py-1 text-yellow-400 hover:bg-purple-800 rounded-r-md"
+                        className="px-3 py-1 text-yellow-400 hover:bg-darkPurple-800 rounded-r-md"
                       >
                         +
                       </button>
@@ -76,7 +76,7 @@ export default function CartPage({
             </div>
 
             {/* Order Summary */}
-            <div className="md:col-span-1 bg-gradient-to-br from-purple-950 to-black p-6 rounded-lg shadow-lg border border-purple-700/50 h-fit">
+            <div className="md:col-span-1 bg-gradient-to-br from-darkPurple-950 to-black p-6 rounded-lg shadow-lg border border-darkPurple-700/50 h-fit">
               <h3 className="text-2xl font-bold text-white mb-4">Order Summary</h3>
               <div className="flex justify-between items-center text-purple-200 mb-2">
                 <span>Subtotal ({totalItems} items):</span>

@@ -4,6 +4,16 @@ import { MAIN_CATEGORIES, BRANDS, PRICE_RANGES, PUFF_RANGES, getSubCategoriesByB
 export default function Navbar({ user, onLogout, currentCategory = 'all', onCategoryChange, onFilterChange, activeFilters = {}, onNavigate, cartItemCount }){
   const [activeDropdown, setActiveDropdown] = useState(null)
 
+  const scrollToProducts = () => {
+    if (typeof window === 'undefined') return
+    setTimeout(() => {
+      const el = document.getElementById('products')
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth' })
+      }
+    }, 200)
+  }
+
   const handleBrandFilter = (brand) => {
     onFilterChange?.({ type: 'brand', value: brand })
     // Clear sub-category when brand changes
@@ -11,6 +21,7 @@ export default function Navbar({ user, onLogout, currentCategory = 'all', onCate
     // Ensure we show all categories when filtering by brand so results aren't hidden
     onCategoryChange?.('all')
     onNavigate?.('home')
+    scrollToProducts()
     setActiveDropdown(null) // Close dropdown after filter is applied
   }
 
@@ -19,6 +30,7 @@ export default function Navbar({ user, onLogout, currentCategory = 'all', onCate
     // Keep on 'all' to make sure filtered products are visible
     onCategoryChange?.('all')
     onNavigate?.('home')
+    scrollToProducts()
     setActiveDropdown(null) // Close dropdown after filter is applied
   }
 
@@ -26,6 +38,7 @@ export default function Navbar({ user, onLogout, currentCategory = 'all', onCate
     onFilterChange?.({ type: 'price', value: range })
     onCategoryChange?.('all')
     onNavigate?.('home')
+    scrollToProducts()
     setActiveDropdown(null) // Close dropdown after filter is applied
   }
 
@@ -33,6 +46,7 @@ export default function Navbar({ user, onLogout, currentCategory = 'all', onCate
     onFilterChange?.({ type: 'puffs', value: range })
     onCategoryChange?.('all')
     onNavigate?.('home')
+    scrollToProducts()
     setActiveDropdown(null) // Close dropdown after filter is applied
   }
 
@@ -61,6 +75,7 @@ export default function Navbar({ user, onLogout, currentCategory = 'all', onCate
             onCategoryChange?.('all')
             onFilterChange?.({ type: 'clear' })
             onNavigate?.('home')
+            scrollToProducts()
           }}
           className="flex items-center gap-3 hover:opacity-80 transition-opacity"
         >
@@ -211,6 +226,7 @@ export default function Navbar({ user, onLogout, currentCategory = 'all', onCate
                     onNavigate?.('home')
                     setActiveDropdown(null)
                     onFilterChange?.({ type: 'clear' })
+                    scrollToProducts()
                   }}
                   className={`py-3 px-2 text-sm font-medium whitespace-nowrap transition-colors border-b-2 ${
                     isActive

@@ -58,14 +58,14 @@ export default function ProductGrid({
   return (
     <div className="space-y-6">
       {/* Filters and Sort Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-purple-900/30">
+      <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-darkPurple-900/30">
         <div className="flex items-center gap-4 flex-wrap">
           <span className="text-purple-300 text-sm font-medium">Filter:</span>
           
           <select
             value={filterAvailability}
             onChange={(e) => setFilterAvailability(e.target.value)}
-            className="px-4 py-2 bg-purple-950/50 border border-purple-800/50 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400/50 cursor-pointer"
+            className="px-4 py-2 bg-darkPurple-950/50 border border-darkPurple-800/50 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-yellowGradient-start/50 cursor-pointer"
           >
             <option value="all">Availability</option>
             <option value="in-stock">In Stock</option>
@@ -75,7 +75,7 @@ export default function ProductGrid({
           {hasActiveFilters && (
             <button
               onClick={clearFilters}
-              className="px-4 py-2 bg-gradient-to-r from-purple-900/50 to-purple-800/50 border border-purple-700/50 rounded-lg text-purple-200 text-sm hover:bg-purple-800/50 transition-colors"
+              className="px-4 py-2 bg-gradient-to-r from-darkPurple-900/50 to-darkPurple-800/50 border border-darkPurple-700/50 rounded-lg text-darkPurple-200 text-sm hover:bg-darkPurple-800/50 transition-colors"
             >
               Clear Filters
             </button>
@@ -83,22 +83,22 @@ export default function ProductGrid({
 
           {/* Active filter badges */}
           {activeFilters.brand && (
-            <span className="px-3 py-1 bg-yellow-400/20 border border-yellow-400/30 rounded-full text-yellow-400 text-xs font-medium">
+            <span className="px-3 py-1 bg-yellowGradient-start/20 border border-yellowGradient-end/30 rounded-full text-yellowGradient-end text-xs font-medium">
               Brand: {activeFilters.brand} ×
             </span>
           )}
           {activeFilters.subCategory && (
-            <span className="px-3 py-1 bg-yellow-400/20 border border-yellow-400/30 rounded-full text-yellow-400 text-xs font-medium">
+            <span className="px-3 py-1 bg-yellowGradient-start/20 border border-yellowGradient-end/30 rounded-full text-yellowGradient-end text-xs font-medium">
               Series: {activeFilters.subCategory} ×
             </span>
           )}
           {activeFilters.price && (
-            <span className="px-3 py-1 bg-yellow-400/20 border border-yellow-400/30 rounded-full text-yellow-400 text-xs font-medium">
+            <span className="px-3 py-1 bg-yellowGradient-start/20 border border-yellowGradient-end/30 rounded-full text-yellowGradient-end text-xs font-medium">
               Price: {activeFilters.price.label} ×
             </span>
           )}
           {activeFilters.puffs && (
-            <span className="px-3 py-1 bg-yellow-400/20 border border-yellow-400/30 rounded-full text-yellow-400 text-xs font-medium">
+            <span className="px-3 py-1 bg-yellowGradient-start/20 border border-yellowGradient-end/30 rounded-full text-yellowGradient-end text-xs font-medium">
               Puffs: {activeFilters.puffs.label} ×
             </span>
           )}
@@ -109,7 +109,7 @@ export default function ProductGrid({
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value)}
-            className="px-4 py-2 bg-purple-950/50 border border-purple-800/50 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400/50 cursor-pointer"
+            className="px-4 py-2 bg-darkPurple-950/50 border border-darkPurple-800/50 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-yellowGradient-start/50 cursor-pointer"
           >
             <option value="best-selling">Sort by: Best selling</option>
             <option value="price-low">Price: Low to High</option>

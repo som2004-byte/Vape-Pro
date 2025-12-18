@@ -45,7 +45,7 @@ export default function ProductModal({ product, onClose }){
           </div>
 
           <div className="space-y-3">
-            <div className="text-yellow-400 font-bold text-2xl">₹{product.price?.toLocaleString()}</div>
+            <div className="text-yellowGradient-end font-bold text-2xl">₹{product.price?.toLocaleString()}</div>
             <div className="space-y-1 text-gray-300">
               {product.type && <p className="text-sm"><span className="text-gray-500">Type:</span> {product.type}</p>}
               {product.puffs && <p className="text-sm"><span className="text-gray-500">Puffs:</span> {product.puffs.toLocaleString()}</p>}
@@ -53,7 +53,7 @@ export default function ProductModal({ product, onClose }){
               {product.features && <p className="text-sm"><span className="text-gray-500">Features:</span> {product.features}</p>}
             </div>
             <div className="flex gap-2 mt-4">
-              <button className="px-4 py-3 rounded-full bg-yellow-500 text-black font-semibold">Buy now</button>
+              <button className="px-4 py-3 rounded-full bg-yellowGradient-end text-black font-semibold">Buy now</button>
               <button className="px-4 py-3 rounded-full border border-neutral-700">Add to cart</button>
             </div>
             <div className="text-sm text-gray-400 mt-4">⚠️ Products may be subject to local law. Verify age and legality before purchase.</div>

@@ -6,7 +6,7 @@ export default function FloatingShowcase({ items = [] }){
       <div className="grid gap-6 md:grid-cols-3">
         {items.map((item, idx) => (
           <div key={item.src} className="relative rounded-2xl border border-neutral-800 bg-gradient-to-b from-neutral-900/70 to-black/60 p-5 overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-tr from-purple-800/20 via-transparent to-yellow-500/10 blur-3xl" aria-hidden="true" />
+            <div className="absolute inset-0 bg-gradient-to-tr from-darkPurple-800/20 via-transparent to-yellow-500/10 blur-3xl" aria-hidden="true" />
             <img
               src={item.src}
               alt={item.title}

@@ -1,10 +1,10 @@
 import React, { useState } from 'react'
 
-export default function ProductCard({ product, onOpen }){
+export default function ProductCard({ product, onOpen, onAddToCart }){
   const [imageError, setImageError] = useState(false)
 
   return (
-    <div className="group bg-gradient-to-br from-purple-950/30 via-black to-purple-950/30 border border-purple-900/30 rounded-lg overflow-hidden hover:border-yellow-400/50 transition-all duration-300 transform hover:-translate-y-2 hover:shadow-[0_20px_40px_rgba(168,85,247,0.2)]">
+    <div className="group bg-gradient-to-br from-darkPurple-950/30 via-black to-darkPurple-950/30 border border-darkPurple-900/30 rounded-lg overflow-hidden hover:border-yellowGradient-end/50 transition-all duration-300 transform hover:-translate-y-2 hover:shadow-[0_20px_40px_rgba(168,85,247,0.2)]">
       {/* Product Image Container */}
       <div className="relative h-72 bg-black flex items-center justify-center overflow-hidden">
         {product.cardImage && !imageError ? (
@@ -28,10 +28,10 @@ export default function ProductCard({ product, onOpen }){
         )}
         
         {/* View on hover overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-purple-950/90 via-purple-950/70 to-purple-950/90 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+        <div className="absolute inset-0 bg-gradient-to-t from-darkPurple-950/90 via-darkPurple-950/70 to-darkPurple-950/90 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
           <button 
             onClick={() => onOpen(product)}
-            className="bg-gradient-to-r from-yellow-400 to-yellow-300 text-black px-6 py-3 rounded-full font-semibold transform scale-0 group-hover:scale-100 transition-transform duration-300 hover:from-yellow-300 hover:to-yellow-400"
+            className="bg-gradient-to-r from-yellowGradient-start to-yellowGradient-end text-black px-6 py-3 rounded-full font-semibold transform scale-0 group-hover:scale-100 transition-transform duration-300 hover:from-yellowGradient-end hover:to-yellowGradient-start"
           >
             Quick View
           </button>
@@ -69,7 +69,7 @@ export default function ProductCard({ product, onOpen }){
 
         {/* Price */}
         <div className="flex items-center justify-between pt-2">
-          <div className="text-2xl font-bold bg-gradient-to-r from-yellow-400 to-yellow-300 bg-clip-text text-transparent">
+          <div className="text-2xl font-bold bg-gradient-to-r from-yellowGradient-start to-yellowGradient-end bg-clip-text text-transparent">
             ₹{product.price?.toLocaleString() || 'N/A'}
           </div>
           {product.originalPrice && product.originalPrice > product.price && (
@@ -83,25 +83,20 @@ export default function ProductCard({ product, onOpen }){
         <div className="flex gap-2 pt-2">
           <button 
             onClick={() => onOpen(product)}
-            className="flex-1 px-4 py-2.5 rounded-lg bg-purple-900/50 text-white text-sm font-semibold hover:bg-purple-800/50 border border-purple-800/50 transition-colors"
+            className="flex-1 px-4 py-2.5 rounded-lg bg-darkPurple-900/50 text-white text-sm font-semibold hover:bg-darkPurple-800/50 border border-darkPurple-800/50 transition-colors"
           >
             View
           </button>
-          <button 
-            disabled={product.soldOut}
-            className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-semibold transition-colors ${
-              product.soldOut 
-                ? 'bg-purple-950/30 text-purple-600 cursor-not-allowed border border-purple-900/30' 
-                : 'bg-gradient-to-r from-yellow-500 to-yellow-400 text-black hover:from-yellow-400 hover:to-yellow-300 border border-yellow-400/50'
-            }`}
-          >
-            {product.soldOut ? 'Sold Out' : 'Add'}
-          </button>
           <button
             onClick={() => onAddToCart(product)}
-            className="mt-2 w-full py-2 px-4 rounded-lg bg-yellow-500 text-black font-semibold text-sm hover:bg-yellow-400 transition-colors focus:outline-none focus:ring-2 focus:ring-yellow-400/70"
+            className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-semibold transition-colors ${
+              product.soldOut 
+                ? 'bg-darkPurple-950/30 text-darkPurple-600 cursor-not-allowed border border-darkPurple-900/30' 
+                : 'bg-gradient-to-r from-yellowGradient-start to-yellowGradient-end text-black hover:from-yellowGradient-end hover:to-yellowGradient-start border border-yellowGradient-end/50'
+            }`}
+            disabled={product.soldOut}
           >
-            Add to Cart
+            {product.soldOut ? 'Sold Out' : 'Add to Cart'}
           </button>
         </div>
       </div>
