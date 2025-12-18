@@ -17,6 +17,11 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  // Optional fields for future email verification state
+  emailVerified: {
+    type: Boolean,
+    default: false
+  },
   createdAt: {
     type: Date,
     default: Date.now
