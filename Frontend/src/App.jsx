@@ -2,13 +2,13 @@ import React, { useState, useMemo, useEffect } from 'react'
 import Navbar from './components/Navbar'
 import LandingHero from './components/LandingHero'
 import Hero3D from './components/Hero3D'
-import FloatingShowcase from './components/FloatingShowcase'
 import ProductGrid from './components/ProductGrid'
 import ProductModal from './components/ProductModal'
 import LoginSignup from './components/LoginSignup'
 import { PRODUCTS, MAIN_CATEGORIES } from './data'
 import AccountSection from './components/AccountSection'
 import CartPage from './components/CartPage' // Import CartPage
+import VapeSmokeEffect from './components/VapeSmokeEffect'
 
 export default function App(){
   const [selected, setSelected] = useState(null)
@@ -19,7 +19,7 @@ export default function App(){
   const [currentPage, setCurrentPage] = useState('home') // New state for current page
   const [accountTab, setAccountTab] = useState('profile') // New state for account sub-page
   const [cartItems, setCartItems] = useState([]) // State for cart items
-  const [toast, setToast] = useState(null) // Simple notification state
+  const [toast, setToast] = useState(null) // Snackbar / toast notification state
   const [customerProfile, setCustomerProfile] = useState(null) // Saved customer details for My Account
   const [orders, setOrders] = useState([]) // Simple in-memory order history
 
@@ -63,6 +63,7 @@ export default function App(){
   const handleLogout = () => {
     setIsLoggedIn(false)
     setUser(null)
+    setToast({ type: 'info', message: 'You have been logged out' })
   }
 
   // Auto-hide toast after a short delay
@@ -90,22 +91,32 @@ export default function App(){
     }
   }
 
-  const handleAddToCart = (product, quantity = 1) => {
+  const handleAddToCart = (product, quantity = 1, { redirectToCart = false } = {}) => {
+    let previousCart = []
     setCartItems(prevItems => {
+      previousCart = prevItems
       const existingItem = prevItems.find(item => item.id === product.id)
       if (existingItem) {
         return prevItems.map(item => 
-          item.id === product.id ? { ...item, quantity: item.quantity + quantity } : item
+          item.id === product.id ? { ...item, quantity: (item.quantity || 0) + quantity } : item
         )
       } else {
         return [...prevItems, { ...product, quantity }]
       }
     })
-    // Show a small notification and take user to the cart so they can see the item
+
     setToast({
+      type: 'success',
       message: `${product.series || product.name || 'Item'} added to cart`,
+      actionLabel: 'Undo',
+      onAction: () => {
+        setCartItems(previousCart)
+      }
     })
-    setCurrentPage('cart')
+
+    if (redirectToCart) {
+      setCurrentPage('cart')
+    }
   }
 
   const handleUpdateCartQuantity = (productId, quantity) => {
@@ -121,6 +132,10 @@ export default function App(){
 
   const handleRemoveFromCart = (productId) => {
     setCartItems(prevItems => prevItems.filter(item => item.id !== productId))
+    setToast({
+      type: 'info',
+      message: 'Item removed from cart',
+    })
   }
 
   const handleCheckout = () => {
@@ -143,7 +158,7 @@ export default function App(){
 
     setOrders(prev => [newOrder, ...prev])
     setCartItems([])
-    setToast({ message: 'Order placed successfully' })
+    setToast({ type: 'success', message: 'Order placed successfully' })
     setCurrentPage('account')
     setAccountTab('orders')
   }
@@ -226,7 +241,11 @@ export default function App(){
   }
   
   return (
-    <div className="min-h-screen bg-gradient-to-b from-black via-darkPurple-950/20 to-black text-gray-100">
+    <div className="relative min-h-screen bg-gradient-to-b from-black via-darkPurple-950/20 to-black text-gray-100 overflow-hidden">
+      {/* Site-wide subtle vape smoke background */}
+      <div className="fixed inset-0 -z-10 pointer-events-none opacity-80">
+        <VapeSmokeEffect density={40} speed={0.4} opacity={0.35} />
+      </div>
       <Navbar 
         user={user} 
         onLogout={handleLogout}
@@ -239,9 +258,42 @@ export default function App(){
       />
       {/* Simple toast notification for cart actions */}
       {toast && (
-        <div className="fixed top-24 right-4 z-[2000]">
-          <div className="bg-gradient-to-r from-yellowGradient-start to-yellowGradient-end text-black px-4 py-3 rounded-lg shadow-lg text-sm font-semibold">
-            {toast.message}
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[2000] px-4">
+          <div className="flex items-center gap-4 bg-neutral-900/95 border border-neutral-700/60 rounded-2xl px-5 py-3 shadow-[0_18px_40px_rgba(0,0,0,0.75)] min-w-[260px] max-w-md">
+            <div
+              className={`h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold
+                ${toast.type === 'success' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/50' :
+                  toast.type === 'error' ? 'bg-red-500/20 text-red-300 border border-red-400/50' :
+                  'bg-sky-500/20 text-sky-300 border border-sky-400/50'}`}
+            >
+              {toast.type === 'success' ? '✓' : toast.type === 'error' ? '!' : 'i'}
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-white">{toast.message}</p>
+              {toast.subTitle && (
+                <p className="text-xs text-neutral-400 mt-0.5">{toast.subTitle}</p>
+              )}
+            </div>
+            {toast.actionLabel && toast.onAction && (
+              <button
+                type="button"
+                onClick={() => {
+                  toast.onAction?.()
+                  setToast(null)
+                }}
+                className="text-xs font-semibold text-yellowGradient-end hover:text-yellowGradient-start px-2 py-1 rounded-lg hover:bg-white/5"
+              >
+                {toast.actionLabel}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setToast(null)}
+              className="text-neutral-500 hover:text-neutral-300 text-xs"
+              aria-label="Close notification"
+            >
+              ×
+            </button>
           </div>
         </div>
       )}
@@ -262,10 +314,10 @@ export default function App(){
                   onNavigate={handleNavigate}
                   onCategoryChange={setCurrentCategory}
                   onFilterChange={handleFilterChange}
+                  onOpenProduct={(p) => setSelected(p)}
                 />
               </div>
             )}
-            <FloatingShowcase items={floatingItems} />
           </>
         )}
         {currentPage === 'home' && (
@@ -279,7 +331,7 @@ export default function App(){
               category={currentCategory}
               activeFilters={activeFilters}
               onFilterChange={handleFilterChange}
-              onAddToCart={handleAddToCart} // Pass onAddToCart to ProductGrid
+              onAddToCart={(product) => handleAddToCart(product, 1, { redirectToCart: false })} // Add to cart but stay on page
             />
           </section>
         )}
@@ -287,8 +339,22 @@ export default function App(){
           <AccountSection
             activeTab={accountTab}
             profile={customerProfile}
-            onSaveProfile={setCustomerProfile}
+            onSaveProfile={(saved) => {
+              setCustomerProfile(saved)
+              setToast({
+                type: 'success',
+                message: customerProfile ? 'Profile updated successfully' : 'Profile added successfully',
+              })
+            }}
             orders={orders}
+            onNotify={(payload) => {
+              if (!payload) return
+              setToast({
+                type: payload.type || 'info',
+                message: payload.message || '',
+                subTitle: payload.subTitle,
+              })
+            }}
           />
         )}
         {currentPage === 'cart' && (
@@ -300,7 +366,16 @@ export default function App(){
           />
         )}
       </main>
-      {selected && <ProductModal product={selected} onClose={()=>setSelected(null)} />}
+      {selected && (
+        <ProductModal
+          product={selected}
+          onClose={() => setSelected(null)}
+          onAddToCart={(product) => handleAddToCart(product, 1, { redirectToCart: false })}
+          onBuyNow={(p) => {
+            handleAddToCart(p, 1, { redirectToCart: true })
+          }}
+        />
+      )}
     </div>
   )
 }

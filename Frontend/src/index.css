@@ -48,6 +48,15 @@ body {
   opacity: 0;
 }
 
+/* Hide scrollbars for horizontal nav scrollers (still scrollable) */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
+}
+
 /* Smoke Effect Animation - Dense white smoke rising from bottom */
 @keyframes smoke {
   0% {

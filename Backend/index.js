@@ -26,9 +26,14 @@ app.use(express.json());
 app.use(cors());
 
 // MongoDB Connection
-mongoose.connect(MONGODB_URI)
-  .then(() => console.log('✅ Connected to MongoDB'))
-  .catch((err) => console.error('❌ MongoDB connection error:', err));
+if (typeof MONGODB_URI === 'string' && MONGODB_URI.trim()) {
+  mongoose
+    .connect(MONGODB_URI.trim())
+    .then(() => console.log('✅ Connected to MongoDB'))
+    .catch((err) => console.error('❌ MongoDB connection error:', err));
+} else {
+  console.warn('⚠️ MONGODB_URI is not set. Skipping MongoDB connection.');
+}
 
 // Mail transporter (configured via env)
 let mailTransporter = null;

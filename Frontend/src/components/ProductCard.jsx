@@ -5,20 +5,30 @@ export default function ProductCard({ product, onOpen, onAddToCart }){
 
   return (
     <div
-      className="group bg-gradient-to-br from-darkPurple-900/40 via-darkPurple-800/40 to-black border border-darkPurple-900/40 rounded-2xl overflow-hidden hover:border-yellowGradient-end/60 transition-all duration-300 transform hover:-translate-y-2 hover:shadow-[0_25px_60px_rgba(34,211,238,0.35)] cursor-pointer"
+      className="group bg-black/40 border border-darkPurple-900/40 rounded-2xl overflow-hidden hover:border-yellowGradient-end/60 transition-all duration-300 transform hover:-translate-y-2 hover:shadow-[0_25px_60px_rgba(34,211,238,0.35)] cursor-pointer"
       onClick={() => onOpen(product)}
     >
       {/* Product Image Container */}
-      <div className="relative h-72 bg-gradient-to-br from-darkPurple-900 via-black to-darkPurple-800 flex items-center justify-center overflow-hidden">
-        {/* Soft colourful glow behind the product */}
-        <div className="pointer-events-none absolute inset-0 bg-radial-gradient from-yellowGradient-start/25 via-transparent to-transparent opacity-60 mix-blend-screen" />
+      <div className="relative h-[22rem] bg-gradient-to-br from-darkPurple-900 via-black to-darkPurple-800 flex items-center justify-center overflow-hidden">
+        {/* Blurred background using the same product image */}
+        {product.cardImage && !imageError && (
+          <div className="absolute inset-0 scale-110 opacity-60 pointer-events-none">
+            <img
+              src={product.cardImage}
+              alt=""
+              className="w-full h-full object-cover blur-2xl transform scale-110"
+            />
+            <div className="absolute inset-0 bg-gradient-to-tr from-black/80 via-black/40 to-black/90" />
+          </div>
+        )}
+
         {product.cardImage && !imageError ? (
-          <img 
-            src={product.cardImage} 
-            alt={product.series || product.name || `${product.brand} ${product.flavor}`} 
-            className="relative object-contain h-full w-full p-4 group-hover:scale-110 transition-transform duration-500 drop-shadow-[0_12px_30px_rgba(0,0,0,0.8)]"
-            onError={() => setImageError(true)}
-          />
+            <img 
+              src={product.cardImage} 
+              alt={product.series || product.name || `${product.brand} ${product.flavor}`} 
+              className="relative object-contain max-h-[17rem] w-auto px-6 py-8 group-hover:scale-110 transition-transform duration-500 drop-shadow-[0_22px_55px_rgba(0,0,0,0.95)] float-soft"
+              onError={() => setImageError(true)}
+            />
         ) : (
           <div className="text-gray-600 text-center p-8">
             <p className="text-sm">{product.series || product.name || `${product.brand} ${product.flavor}`}</p>

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
+import VapeSmokeEffect from './VapeSmokeEffect'
 
 // Bear expressions: IDLE, LOOK_LEFT, LOOK_RIGHT, HAPPY, SHOCK, COVER_EYES
 const BearCharacter = ({ expression, eyeAngle = null }) => {
@@ -170,6 +171,7 @@ export default function LoginSignup({ onLogin }) {
   const [focusedField, setFocusedField] = useState(null)
   const [showPassword, setShowPassword] = useState(false)
   const bearRef = useRef(null)
+  const videoSrc = '/videos/login-bg.mp4' // put your video file at Frontend/public/videos/login-bg.mp4
 
   // Track mouse movement to make eyes follow cursor in 360 degrees
   useEffect(() => {
@@ -245,8 +247,38 @@ export default function LoginSignup({ onLogin }) {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-darkPurple-900 via-darkPurple-800 to-black relative overflow-hidden">
-      <div className="w-full max-w-md relative">
+    <div className="relative min-h-screen overflow-hidden">
+      {/* Background video */}
+      <video
+        className="absolute inset-0 w-full h-full object-cover"
+        src={videoSrc}
+        autoPlay
+        muted
+        loop
+        playsInline
+      />
+
+      {/* Global vape smoke behind overlay */}
+      <VapeSmokeEffect density={55} speed={0.55} opacity={0.5} />
+
+      {/* Dark overlay for readability */}
+      <div className="absolute inset-0 bg-gradient-to-br from-black/55 via-black/35 to-black/70" />
+
+      {/* Content */}
+      <div className="relative min-h-screen flex flex-col items-center justify-center p-4">
+        {/* Brand logo in corner */}
+        <div className="absolute top-4 left-4 flex items-center gap-3 px-4 py-2 rounded-full bg-black/50 border border-darkPurple-600/70 backdrop-blur-lg shadow-[0_10px_30px_rgba(0,0,0,0.6)]">
+          <img
+            src="/images/vapesmart-logo.png"
+            alt="VapeSmart logo"
+            className="h-9 w-9 object-contain"
+          />
+          <span className="text-base font-semibold bg-gradient-to-r from-white via-yellowGradient-end to-white bg-clip-text text-transparent tracking-wide">
+            VapeSmart
+          </span>
+        </div>
+
+        <div className="w-full max-w-md relative mt-10">
         {/* Teddy Bear Character */}
         <div className="flex justify-center mb-6 -mt-8">
           <div 
@@ -262,8 +294,8 @@ export default function LoginSignup({ onLogin }) {
           </div>
         </div>
 
-        {/* Login/Signup Form */}
-        <div className="bg-black/40 backdrop-blur-lg rounded-2xl border border-darkPurple-900/50 shadow-2xl p-8">
+          {/* Login/Signup Form */}
+          <div className="bg-black/50 backdrop-blur-lg rounded-2xl border border-darkPurple-900/50 shadow-2xl p-8">
           {/* Toggle Buttons */}
           <div className="flex gap-2 mb-6 bg-darkPurple-950/50 rounded-xl p-1">
             <button
@@ -396,6 +428,7 @@ export default function LoginSignup({ onLogin }) {
               </button>
             </p>
           )}
+          </div>
         </div>
       </div>
     </div>

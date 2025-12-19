@@ -1,17 +1,32 @@
 import React from 'react'
 import VapeSmokeEffect from './VapeSmokeEffect'
 
+const heroVideoSrc = '/videos/login-bg.mp4' // reuse login video for hero background
+
 export default function LandingHero({ onNavigate, onCategoryChange, onFilterChange }){
   return (
     <section className="relative overflow-hidden rounded-3xl border border-gray-800 bg-black px-6 py-16 md:px-12 md:py-24 min-h-[600px] flex items-center justify-center shadow-[0_30px_80px_rgba(0,0,0,0.35)]">
-      {/* Luxury Vape Smoke Effect - Behind everything */}
+      {/* Background video (same style as login) */}
+      <video
+        className="absolute inset-0 w-full h-full object-cover"
+        src={heroVideoSrc}
+        autoPlay
+        muted
+        loop
+        playsInline
+      />
+
+      {/* Subtle vape smoke over video for extra depth */}
       <div className="absolute inset-0 z-0">
         <VapeSmokeEffect 
-          density={60} 
-          speed={0.6} 
-          opacity={0.5}
+          density={55} 
+          speed={0.55} 
+          opacity={0.45}
         />
       </div>
+
+      {/* Dark overlay for readability */}
+      <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/55 to-black/85" />
 
       {/* Background Logo */}
       <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none overflow-hidden">

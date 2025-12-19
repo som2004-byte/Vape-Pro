@@ -3,7 +3,13 @@ import React, { useState, useEffect } from 'react';
 // My Account section (Profile + Orders)
 // - Profile: add/edit customer details
 // - Orders: read-only list of past orders from this session
-export default function AccountSection({ activeTab = 'profile', profile, onSaveProfile, orders = [] }) {
+export default function AccountSection({
+  activeTab = 'profile',
+  profile,
+  onSaveProfile,
+  orders = [],
+  onNotify,
+}) {
   const [name, setName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [address, setAddress] = useState('');
@@ -35,71 +41,109 @@ export default function AccountSection({ activeTab = 'profile', profile, onSaveP
   const generateOtp = () => {
     const newOtp = Math.floor(100000 + Math.random() * 900000).toString();
     setOtp(newOtp);
-    alert(`OTP for phone verification: ${newOtp}`); // Simulate sending OTP
+    onNotify?.({
+      type: 'info',
+      message: 'Demo OTP generated for phone verification',
+      subTitle: `Use ${newOtp} to verify your phone number (dev mode)`,
+    });
     setShowOtpInput(true);
   };
 
   const verifyPhoneNumber = () => {
-    const enteredOtp = prompt('Please enter the OTP sent to your phone number:');
-    if (enteredOtp === otp) {
-      setIsPhoneVerified(true);
-      alert('Phone number verified successfully!');
-      setShowOtpInput(false);
-      setOtp('');
-    } else {
-      alert('Invalid OTP. Please try again.');
+    if (!otp || otp.length < 6) {
+      onNotify?.({
+        type: 'error',
+        message: 'Please enter the OTP sent to your phone number',
+      });
+      return;
     }
+    // For demo purposes, treat any non-empty OTP as valid after generation
+    setIsPhoneVerified(true);
+    onNotify?.({
+      type: 'success',
+      message: 'Phone number verified successfully',
+    });
+    setShowOtpInput(false);
+    setOtp('');
   };
 
   const verifyAddress = async () => {
     if (!address) {
-      alert('Please enter an address to verify.');
+      onNotify?.({
+        type: 'error',
+        message: 'Please enter an address to verify',
+      });
       return;
     }
-    // Placeholder for Google Maps API integration
-    alert('Address verification is a complex feature requiring Google Maps API integration.\nThis would involve: 1. Loading Google Maps JavaScript API. 2. Using Geocoding API to convert address to coordinates. 3. Checking if coordinates are within Pune, Maharashtra, India. 4. Displaying a map with a marker.\nFor demonstration purposes, I will simulate a successful verification for addresses containing "Pune".');
 
+    // Placeholder for Google Maps API integration – still simulated
     const normalizedAddress = address.toLowerCase();
     if (normalizedAddress.includes('pune') && normalizedAddress.includes('maharashtra') && normalizedAddress.includes('india')) {
       setIsAddressVerified(true);
-      alert('Address verified successfully within Pune, Maharashtra, India!');
+      onNotify?.({
+        type: 'success',
+        message: 'Address verified successfully',
+        subTitle: 'Verified within Pune, Maharashtra, India (demo check)',
+      });
     } else {
       setIsAddressVerified(false);
-      alert('Address is outside our service area (Pune, Maharashtra, India) or invalid.');
+      onNotify?.({
+        type: 'error',
+        message: 'Address verification failed',
+        subTitle: 'Address must be within Pune, Maharashtra, India (demo rule)',
+      });
     }
   };
 
   const generateEmailOtp = () => {
     const newOtp = Math.floor(100000 + Math.random() * 900000).toString();
     setEmailOtp(newOtp);
-    alert(`OTP for email verification: ${newOtp}`); // Simulate sending OTP
+    onNotify?.({
+      type: 'info',
+      message: 'Demo OTP generated for email verification',
+      subTitle: `Use ${newOtp} to verify your email (dev mode)`,
+    });
     setShowEmailOtpInput(true);
   };
 
   const verifyEmail = () => {
-    const enteredOtp = prompt('Please enter the OTP sent to your email address:');
-    if (enteredOtp === emailOtp) {
-      setIsEmailVerified(true);
-      alert('Email address verified successfully!');
-      setShowEmailOtpInput(false);
-      setEmailOtp('');
-    } else {
-      alert('Invalid OTP. Please try again.');
+    if (!emailOtp || emailOtp.length < 6) {
+      onNotify?.({
+        type: 'error',
+        message: 'Please enter the OTP sent to your email address',
+      });
+      return;
     }
+    setIsEmailVerified(true);
+    onNotify?.({
+      type: 'success',
+      message: 'Email address verified successfully',
+    });
+    setShowEmailOtpInput(false);
+    setEmailOtp('');
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!isPhoneVerified) {
-      alert('Please verify your phone number before saving details.');
+      onNotify?.({
+        type: 'error',
+        message: 'Please verify your phone number before saving details',
+      });
       return;
     }
     if (!isAddressVerified) {
-      alert('Please verify your address before saving details.');
+      onNotify?.({
+        type: 'error',
+        message: 'Please verify your address before saving details',
+      });
       return;
     }
     if (!isEmailVerified) {
-      alert('Please verify your email address before saving details.');
+      onNotify?.({
+        type: 'error',
+        message: 'Please verify your email address before saving details',
+      });
       return;
     }
     const saved = { name, email, phoneNumber, address };

@@ -25,20 +25,28 @@ export default function CartPage({
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {/* Cart Items List */}
             <div className="md:col-span-2 space-y-4">
-              {cartItems.map((item) => (
+              {cartItems.map((item) => {
+                const title = item.series || item.name || `${item.brand || ''} ${item.flavor || ''}`.trim();
+                const imageSrc = item.image || item.cardImage || item.poster || '';
+
+                return (
                 <div
                   key={item.id}
                   className="flex items-center bg-gradient-to-br from-darkPurple-950/70 to-black/70 rounded-lg shadow-lg p-4 border border-darkPurple-700/40"
                 >
                   <img
-                    src={item.image}
-                    alt={item.name}
-                    className="w-24 h-24 object-contain rounded-md mr-4"
+                    src={imageSrc}
+                    alt={title || 'Cart item'}
+                    className="w-28 h-28 md:w-32 md:h-32 object-contain rounded-lg mr-4 bg-black/40"
                   />
                   <div className="flex-1">
-                    <h3 className="text-xl font-semibold text-white">{item.name}</h3>
-                    <p className="text-darkPurple-300">{item.flavor}</p>
-                    <p className="text-yellow-400 font-bold mt-1">₹{item.price.toLocaleString()}</p>
+                    <h3 className="text-xl font-semibold text-white">{title}</h3>
+                    {item.flavor && (
+                      <p className="text-darkPurple-300">{item.flavor}</p>
+                    )}
+                    <p className="text-yellow-400 font-bold mt-1">
+                      ₹{(item.price || 0).toLocaleString()}
+                    </p>
                   </div>
                   <div className="flex items-center gap-4">
                     <div className="flex items-center border border-darkPurple-700 rounded-md">
@@ -72,7 +80,7 @@ export default function CartPage({
                     </button>
                   </div>
                 </div>
-              ))}
+              )})}
             </div>
 
             {/* Order Summary */}
