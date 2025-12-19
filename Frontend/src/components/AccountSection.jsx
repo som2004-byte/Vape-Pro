@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import VapeSmokeEffect from './VapeSmokeEffect';
 
 // My Account section (Profile + Orders)
 // - Profile: add/edit customer details
@@ -10,6 +11,7 @@ export default function AccountSection({
   orders = [],
   onNotify,
 }) {
+  const videoSrc = '/videos/login-bg.mp4';
   const [name, setName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [address, setAddress] = useState('');
@@ -68,7 +70,7 @@ export default function AccountSection({
   };
 
   const verifyAddress = async () => {
-    if (!address) {
+    if (!address || address.trim().length === 0) {
       onNotify?.({
         type: 'error',
         message: 'Please enter an address to verify',
@@ -76,21 +78,33 @@ export default function AccountSection({
       return;
     }
 
-    // Placeholder for Google Maps API integration – still simulated
-    const normalizedAddress = address.toLowerCase();
-    if (normalizedAddress.includes('pune') && normalizedAddress.includes('maharashtra') && normalizedAddress.includes('india')) {
+    // Check if address is valid (has minimum length)
+    const trimmedAddress = address.trim();
+    if (trimmedAddress.length < 10) {
+      setIsAddressVerified(false);
+      onNotify?.({
+        type: 'error',
+        message: 'Address verification failed',
+        subTitle: 'Please enter a complete address (at least 10 characters)',
+      });
+      return;
+    }
+
+    // Check if address contains Pune (case-insensitive)
+    const normalizedAddress = trimmedAddress.toLowerCase();
+    if (normalizedAddress.includes('pune')) {
       setIsAddressVerified(true);
       onNotify?.({
         type: 'success',
         message: 'Address verified successfully',
-        subTitle: 'Verified within Pune, Maharashtra, India (demo check)',
+        subTitle: 'Address verified within Pune',
       });
     } else {
       setIsAddressVerified(false);
       onNotify?.({
         type: 'error',
         message: 'Address verification failed',
-        subTitle: 'Address must be within Pune, Maharashtra, India (demo rule)',
+        subTitle: 'Address must be within Pune',
       });
     }
   };
@@ -158,8 +172,28 @@ export default function AccountSection({
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-black via-darkPurple-950/20 to-black text-gray-100 flex items-center justify-center p-4">
-      <div className="bg-gradient-to-br from-darkPurple-950 to-black p-8 rounded-lg shadow-lg max-w-md w-full border border-darkPurple-700/50">
+    <div className="relative min-h-screen overflow-hidden">
+      {/* Background video */}
+      <video
+        className="absolute inset-0 w-full h-full object-cover opacity-90"
+        src={videoSrc}
+        autoPlay
+        muted
+        loop
+        playsInline
+      />
+
+      {/* Global vape smoke - blended with video */}
+      <div className="absolute inset-0">
+        <VapeSmokeEffect density={55} speed={0.55} opacity={0.4} />
+      </div>
+
+      {/* Subtle overlay for readability - lighter to blend better */}
+      <div className="absolute inset-0 bg-gradient-to-br from-black/40 via-black/25 to-black/50" />
+
+      {/* Content */}
+      <div className="relative min-h-screen flex items-center justify-center p-4 py-8">
+        <div className="bg-gradient-to-br from-darkPurple-950/90 to-black/90 backdrop-blur-sm p-8 rounded-lg shadow-lg max-w-2xl w-full border border-darkPurple-700/50 max-h-[90vh] overflow-y-auto">
         <h2 className="text-3xl font-bold text-center mb-4 bg-gradient-to-r from-yellowGradient-start via-yellowGradient-end to-yellowGradient-start bg-clip-text text-transparent">
           My Account
         </h2>
@@ -198,43 +232,129 @@ export default function AccountSection({
                 You have not placed any orders yet.
               </p>
             ) : (
-              <div className="space-y-4 max-h-80 overflow-y-auto pr-1">
-                {orders.map(order => (
-                  <div
-                    key={order.id}
-                    className="border border-darkPurple-700/70 rounded-lg p-4 bg-black/40"
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="text-sm font-semibold text-gray-100">
-                        Order #{order.id.toString().slice(-6)}
+              <div className="space-y-4 pr-1">
+                {orders.map(order => {
+                  const status = order.status || 'processing';
+                  const paymentStatus = order.paymentStatus || 'completed';
+                  const getStatusColor = (status) => {
+                    switch(status) {
+                      case 'delivered': return 'text-green-400';
+                      case 'shipped': return 'text-blue-400';
+                      case 'processing': return 'text-yellow-400';
+                      case 'cancelled': return 'text-red-400';
+                      default: return 'text-gray-400';
+                    }
+                  };
+                  const getStatusBadge = (status) => {
+                    switch(status) {
+                      case 'delivered': return 'bg-green-500/20 border-green-500/50 text-green-400';
+                      case 'shipped': return 'bg-blue-500/20 border-blue-500/50 text-blue-400';
+                      case 'processing': return 'bg-yellow-500/20 border-yellow-500/50 text-yellow-400';
+                      case 'cancelled': return 'bg-red-500/20 border-red-500/50 text-red-400';
+                      default: return 'bg-gray-500/20 border-gray-500/50 text-gray-400';
+                    }
+                  };
+
+                  return (
+                    <div
+                      key={order.id}
+                      className="border border-darkPurple-700/70 rounded-lg p-4 bg-black/40"
+                    >
+                      {/* Order Header */}
+                      <div className="flex items-center justify-between mb-3">
+                        <div>
+                          <div className="text-sm font-semibold text-gray-100">
+                            {order.orderNumber || `Order #${order.id.toString().slice(-6)}`}
+                          </div>
+                          {order.trackingNumber && (
+                            <div className="text-xs text-darkPurple-400 mt-1">
+                              Tracking: <span className="text-yellow-400 font-mono">{order.trackingNumber}</span>
+                            </div>
+                          )}
+                        </div>
+                        <div className="text-right">
+                          <div className={`text-xs px-2 py-1 rounded border ${getStatusBadge(status)}`}>
+                            {status.charAt(0).toUpperCase() + status.slice(1)}
+                          </div>
+                          <div className="text-xs text-darkPurple-300 mt-1">
+                            {new Date(order.placedAt).toLocaleDateString()}
+                          </div>
+                        </div>
                       </div>
-                      <div className="text-xs text-darkPurple-300">
-                        {new Date(order.placedAt).toLocaleString()}
+
+                      {/* Payment Status */}
+                      <div className="mb-3 pb-3 border-b border-darkPurple-800/70">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-darkPurple-400">Payment Status:</span>
+                          <span className={paymentStatus === 'completed' ? 'text-green-400' : 'text-yellow-400'}>
+                            {paymentStatus === 'completed' ? '✓ Paid' : paymentStatus}
+                          </span>
+                        </div>
+                        {order.transactionId && (
+                          <div className="flex items-center justify-between text-xs mt-1">
+                            <span className="text-darkPurple-400">Transaction ID:</span>
+                            <span className="text-darkPurple-300 font-mono text-[10px]">{order.transactionId}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Order Items */}
+                      <div className="text-xs text-darkPurple-300 mb-2">
+                        {order.items.length} item{order.items.length > 1 ? 's' : ''}
+                      </div>
+                      <ul className="text-xs text-gray-200 space-y-1 mb-3">
+                        {order.items.map(item => (
+                          <li key={item.id} className="flex justify-between">
+                            <span>
+                              {item.series || item.name}{' '}
+                              {item.flavor && `- ${item.flavor}`}
+                            </span>
+                            <span>
+                              x{item.quantity || 1} · ₹
+                              {(item.price || 0).toLocaleString()}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+
+                      {/* Order Timeline */}
+                      {order.timeline && order.timeline.length > 0 && (
+                        <div className="mb-3 pt-3 border-t border-darkPurple-800/70">
+                          <div className="text-xs font-semibold text-darkPurple-300 mb-2">Order Timeline:</div>
+                          <div className="space-y-2">
+                            {order.timeline.map((event, idx) => (
+                              <div key={idx} className="flex items-start gap-2 text-xs">
+                                <div className={`w-2 h-2 rounded-full mt-1 ${
+                                  idx === order.timeline.length - 1 ? 'bg-yellow-400' : 'bg-green-400'
+                                }`}></div>
+                                <div className="flex-1">
+                                  <div className="text-gray-200">{event.message}</div>
+                                  <div className="text-darkPurple-400 text-[10px]">
+                                    {new Date(event.timestamp).toLocaleString()}
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Shipping Address */}
+                      {order.shippingAddress && (
+                        <div className="mb-3 pt-3 border-t border-darkPurple-800/70">
+                          <div className="text-xs text-darkPurple-400 mb-1">Shipping Address:</div>
+                          <div className="text-xs text-darkPurple-300">{order.shippingAddress}</div>
+                        </div>
+                      )}
+
+                      {/* Total */}
+                      <div className="flex justify-between items-center pt-2 border-t border-darkPurple-800/70 text-sm font-semibold text-yellowGradient-end">
+                        <span>Total</span>
+                        <span>₹{(order.total || 0).toLocaleString()}</span>
                       </div>
                     </div>
-                    <div className="text-xs text-darkPurple-300 mb-2">
-                      {order.items.length} item{order.items.length > 1 ? 's' : ''}
-                    </div>
-                    <ul className="text-xs text-gray-200 space-y-1 mb-2">
-                      {order.items.map(item => (
-                        <li key={item.id} className="flex justify-between">
-                          <span>
-                            {item.series || item.name}{' '}
-                            {item.flavor && `- ${item.flavor}`}
-                          </span>
-                          <span>
-                            x{item.quantity || 1} · ₹
-                            {(item.price || 0).toLocaleString()}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                    <div className="flex justify-between items-center pt-2 border-t border-darkPurple-800/70 text-sm font-semibold text-yellowGradient-end">
-                      <span>Total</span>
-                      <span>₹{(order.total || 0).toLocaleString()}</span>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -447,6 +567,7 @@ export default function AccountSection({
             )}
           </form>
         )}
+        </div>
       </div>
     </div>
   );

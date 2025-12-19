@@ -8,20 +8,53 @@ import LoginSignup from './components/LoginSignup'
 import { PRODUCTS, MAIN_CATEGORIES } from './data'
 import AccountSection from './components/AccountSection'
 import CartPage from './components/CartPage' // Import CartPage
+import PaymentPage from './components/PaymentPage' // Import PaymentPage
 import VapeSmokeEffect from './components/VapeSmokeEffect'
 
 export default function App(){
+  // Load persisted login state from localStorage
+  const loadPersistedState = () => {
+    try {
+      const savedUser = localStorage.getItem('vapesmart_user')
+      const savedLoginState = localStorage.getItem('vapesmart_isLoggedIn')
+      const savedCart = localStorage.getItem('vapesmart_cart')
+      const savedOrders = localStorage.getItem('vapesmart_orders')
+      const savedProfile = localStorage.getItem('vapesmart_profile')
+      
+      return {
+        user: savedUser ? JSON.parse(savedUser) : null,
+        isLoggedIn: savedLoginState === 'true',
+        cartItems: savedCart ? JSON.parse(savedCart) : [],
+        orders: savedOrders ? JSON.parse(savedOrders) : [],
+        profile: savedProfile ? JSON.parse(savedProfile) : null,
+      }
+    } catch (error) {
+      console.error('Error loading persisted state:', error)
+      return {
+        user: null,
+        isLoggedIn: false,
+        cartItems: [],
+        orders: [],
+        profile: null,
+      }
+    }
+  }
+
+  const persistedState = loadPersistedState()
+
   const [selected, setSelected] = useState(null)
-  const [isLoggedIn, setIsLoggedIn] = useState(false)
-  const [user, setUser] = useState(null)
+  const [isLoggedIn, setIsLoggedIn] = useState(persistedState.isLoggedIn)
+  const [user, setUser] = useState(persistedState.user)
   const [currentCategory, setCurrentCategory] = useState('all')
   const [activeFilters, setActiveFilters] = useState({})
+  const [searchQuery, setSearchQuery] = useState('') // Search query state
   const [currentPage, setCurrentPage] = useState('home') // New state for current page
   const [accountTab, setAccountTab] = useState('profile') // New state for account sub-page
-  const [cartItems, setCartItems] = useState([]) // State for cart items
+  const [cartItems, setCartItems] = useState(persistedState.cartItems) // State for cart items
   const [toast, setToast] = useState(null) // Snackbar / toast notification state
-  const [customerProfile, setCustomerProfile] = useState(null) // Saved customer details for My Account
-  const [orders, setOrders] = useState([]) // Simple in-memory order history
+  const [customerProfile, setCustomerProfile] = useState(persistedState.profile) // Saved customer details for My Account
+  const [orders, setOrders] = useState(persistedState.orders) // Simple in-memory order history
+  const [pendingOrder, setPendingOrder] = useState(null) // Order pending payment
 
   const handleNavigate = (page, subPage = 'profile') => {
     setCurrentPage(page)
@@ -58,11 +91,24 @@ export default function App(){
   const handleLogin = (userData) => {
     setUser(userData)
     setIsLoggedIn(true)
+    // Persist login state to localStorage
+    localStorage.setItem('vapesmart_user', JSON.stringify(userData))
+    localStorage.setItem('vapesmart_isLoggedIn', 'true')
   }
   
   const handleLogout = () => {
     setIsLoggedIn(false)
     setUser(null)
+    // Clear persisted data on logout
+    localStorage.removeItem('vapesmart_user')
+    localStorage.removeItem('vapesmart_isLoggedIn')
+    localStorage.removeItem('vapesmart_cart')
+    localStorage.removeItem('vapesmart_orders')
+    localStorage.removeItem('vapesmart_profile')
+    // Clear state
+    setCartItems([])
+    setOrders([])
+    setCustomerProfile(null)
     setToast({ type: 'info', message: 'You have been logged out' })
   }
 
@@ -96,13 +142,14 @@ export default function App(){
     setCartItems(prevItems => {
       previousCart = prevItems
       const existingItem = prevItems.find(item => item.id === product.id)
-      if (existingItem) {
-        return prevItems.map(item => 
-          item.id === product.id ? { ...item, quantity: (item.quantity || 0) + quantity } : item
-        )
-      } else {
-        return [...prevItems, { ...product, quantity }]
-      }
+      const newCart = existingItem
+        ? prevItems.map(item => 
+            item.id === product.id ? { ...item, quantity: (item.quantity || 0) + quantity } : item
+          )
+        : [...prevItems, { ...product, quantity }]
+      // Persist cart to localStorage
+      localStorage.setItem('vapesmart_cart', JSON.stringify(newCart))
+      return newCart
     })
 
     setToast({
@@ -111,6 +158,7 @@ export default function App(){
       actionLabel: 'Undo',
       onAction: () => {
         setCartItems(previousCart)
+        localStorage.setItem('vapesmart_cart', JSON.stringify(previousCart))
       }
     })
 
@@ -121,17 +169,24 @@ export default function App(){
 
   const handleUpdateCartQuantity = (productId, quantity) => {
     setCartItems(prevItems => {
-      if (quantity <= 0) {
-        return prevItems.filter(item => item.id !== productId)
-      }
-      return prevItems.map(item => 
-        item.id === productId ? { ...item, quantity } : item
-      )
+      const newCart = quantity <= 0
+        ? prevItems.filter(item => item.id !== productId)
+        : prevItems.map(item => 
+            item.id === productId ? { ...item, quantity } : item
+          )
+      // Persist cart to localStorage
+      localStorage.setItem('vapesmart_cart', JSON.stringify(newCart))
+      return newCart
     })
   }
 
   const handleRemoveFromCart = (productId) => {
-    setCartItems(prevItems => prevItems.filter(item => item.id !== productId))
+    setCartItems(prevItems => {
+      const newCart = prevItems.filter(item => item.id !== productId)
+      // Persist cart to localStorage
+      localStorage.setItem('vapesmart_cart', JSON.stringify(newCart))
+      return newCart
+    })
     setToast({
       type: 'info',
       message: 'Item removed from cart',
@@ -140,7 +195,18 @@ export default function App(){
 
   const handleCheckout = () => {
     if (cartItems.length === 0) {
-      alert('Your cart is empty.')
+      setToast({ type: 'error', message: 'Your cart is empty' })
+      return
+    }
+
+    if (!customerProfile) {
+      setToast({ 
+        type: 'error', 
+        message: 'Please complete your profile first',
+        subTitle: 'Go to My Account to add your details'
+      })
+      setCurrentPage('account')
+      setAccountTab('profile')
       return
     }
 
@@ -149,21 +215,126 @@ export default function App(){
       0
     )
 
-    const newOrder = {
+    // Create pending order (will be confirmed after payment)
+    const pendingOrderData = {
       id: Date.now(),
-      placedAt: new Date().toISOString(),
-      items: cartItems,
+      items: [...cartItems],
       total,
+      customerProfile: { ...customerProfile },
     }
 
-    setOrders(prev => [newOrder, ...prev])
-    setCartItems([])
-    setToast({ type: 'success', message: 'Order placed successfully' })
-    setCurrentPage('account')
-    setAccountTab('orders')
+    setPendingOrder(pendingOrderData)
+    setCurrentPage('payment')
   }
 
-  // Filter products based on category and active filters
+  const handlePaymentSuccess = (paymentData) => {
+    if (!pendingOrder) return
+
+    // Generate tracking number
+    const trackingNumber = `TRK${Date.now()}${Math.floor(Math.random() * 10000)}`
+    const now = new Date().toISOString()
+
+    // Create confirmed order with full details
+    const newOrder = {
+      id: pendingOrder.id,
+      orderNumber: `ORD${pendingOrder.id}`,
+      trackingNumber,
+      placedAt: now,
+      items: pendingOrder.items,
+      total: pendingOrder.total,
+      status: 'processing', // processing -> shipped -> delivered
+      paymentStatus: paymentData.paymentStatus || 'completed',
+      paymentMethod: paymentData.paymentMethod || 'card',
+      transactionId: paymentData.transactionId,
+      paidAt: paymentData.paidAt,
+      shippingAddress: pendingOrder.customerProfile.address || '',
+      // Tracking timeline
+      timeline: [
+        { status: 'order_placed', timestamp: now, message: 'Order placed successfully' },
+        ...(paymentData.paymentMethod === 'cod' 
+          ? [{ status: 'payment_pending', timestamp: now, message: 'Payment pending - Cash on Delivery' }]
+          : paymentData.paidAt 
+            ? [{ status: 'payment_completed', timestamp: paymentData.paidAt, message: 'Payment completed' }]
+            : []
+        ),
+        { status: 'processing', timestamp: now, message: 'Order is being processed' },
+      ],
+    }
+
+    setOrders(prev => {
+      const newOrders = [newOrder, ...prev]
+      // Persist orders to localStorage
+      localStorage.setItem('vapesmart_orders', JSON.stringify(newOrders))
+      return newOrders
+    })
+    setCartItems([])
+    localStorage.setItem('vapesmart_cart', JSON.stringify([]))
+    setPendingOrder(null)
+    setToast({ 
+      type: 'success', 
+      message: 'Order placed successfully!',
+      subTitle: `Tracking: ${trackingNumber}`
+    })
+    setCurrentPage('account')
+    setAccountTab('orders')
+
+    // Simulate order progression: Update status after delays
+    // After 5 seconds, mark as shipped
+    setTimeout(() => {
+      setOrders(prev => prev.map(order => 
+        order.id === newOrder.id 
+          ? {
+              ...order,
+              status: 'shipped',
+              timeline: [
+                ...order.timeline,
+                { 
+                  status: 'shipped', 
+                  timestamp: new Date().toISOString(), 
+                  message: 'Order has been shipped' 
+                }
+              ]
+            }
+          : order
+      ))
+      setToast({
+        type: 'info',
+        message: `Order ${newOrder.orderNumber} has been shipped!`,
+        subTitle: `Track with: ${trackingNumber}`
+      })
+    }, 5000)
+
+    // After 15 seconds, mark as delivered
+    setTimeout(() => {
+      setOrders(prev => prev.map(order => 
+        order.id === newOrder.id 
+          ? {
+              ...order,
+              status: 'delivered',
+              timeline: [
+                ...order.timeline,
+                { 
+                  status: 'delivered', 
+                  timestamp: new Date().toISOString(), 
+                  message: 'Order has been delivered' 
+                }
+              ]
+            }
+          : order
+      ))
+      setToast({
+        type: 'success',
+        message: `Order ${newOrder.orderNumber} has been delivered!`,
+      })
+    }, 15000)
+  }
+
+  const handlePaymentCancel = () => {
+    setPendingOrder(null)
+    setCurrentPage('cart')
+  }
+
+  // Filter products based on category, active filters, and search query
   const filteredProducts = useMemo(() => {
     let products = [...PRODUCTS]
 
@@ -224,8 +395,30 @@ export default function App(){
       products = products.filter(p => !!p.flavor)
     }
 
+    // Apply search query filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim()
+      products = products.filter(p => {
+        // Search in multiple fields
+        const searchFields = [
+          p.brand?.toLowerCase() || '',
+          p.series?.toLowerCase() || '',
+          p.name?.toLowerCase() || '',
+          p.flavor?.toLowerCase() || '',
+          p.type?.toLowerCase() || '',
+          p.features?.toLowerCase() || '',
+          p.short?.toLowerCase() || '',
+          p.puffs?.toString() || '',
+          p.nicotine?.toLowerCase() || '',
+        ]
+        
+        // Check if any field contains the search query
+        return searchFields.some(field => field.includes(query))
+      })
+    }
+
     return products
-  }, [currentCategory, activeFilters])
+  }, [currentCategory, activeFilters, searchQuery])
 
   const hasActiveFilters = Object.keys(activeFilters).length > 0
 
@@ -255,6 +448,8 @@ export default function App(){
         activeFilters={activeFilters}
         onNavigate={handleNavigate} // Pass onNavigate to Navbar
         cartItemCount={cartItems.reduce((sum, item) => sum + (item.quantity || 1), 0)}
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
       />
       {/* Simple toast notification for cart actions */}
       {toast && (
@@ -341,6 +536,8 @@ export default function App(){
             profile={customerProfile}
             onSaveProfile={(saved) => {
               setCustomerProfile(saved)
+              // Persist profile to localStorage
+              localStorage.setItem('vapesmart_profile', JSON.stringify(saved))
               setToast({
                 type: 'success',
                 message: customerProfile ? 'Profile updated successfully' : 'Profile added successfully',
@@ -363,6 +560,15 @@ export default function App(){
             onUpdateQuantity={handleUpdateCartQuantity}
             onRemoveItem={handleRemoveFromCart}
             onCheckout={handleCheckout}
+          />
+        )}
+        {currentPage === 'payment' && pendingOrder && (
+          <PaymentPage
+            cartItems={pendingOrder.items}
+            total={pendingOrder.total}
+            customerProfile={pendingOrder.customerProfile}
+            onPaymentSuccess={handlePaymentSuccess}
+            onCancel={handlePaymentCancel}
           />
         )}
       </main>

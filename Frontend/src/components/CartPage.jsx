@@ -1,4 +1,5 @@
 import React from 'react';
+import VapeSmokeEffect from './VapeSmokeEffect';
 
 export default function CartPage({
   cartItems = [],
@@ -6,6 +7,7 @@ export default function CartPage({
   onRemoveItem,
   onCheckout,
 }) {
+  const videoSrc = '/videos/login-bg.mp4';
   const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
   const subtotal = cartItems.reduce(
     (sum, item) => sum + item.quantity * item.price,
@@ -13,8 +15,28 @@ export default function CartPage({
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-black via-darkPurple-950/20 to-black text-gray-100 p-4">
-      <div className="container mx-auto px-4 py-8">
+    <div className="relative min-h-screen overflow-hidden">
+      {/* Background video */}
+      <video
+        className="absolute inset-0 w-full h-full object-cover opacity-90"
+        src={videoSrc}
+        autoPlay
+        muted
+        loop
+        playsInline
+      />
+
+      {/* Global vape smoke - blended with video */}
+      <div className="absolute inset-0">
+        <VapeSmokeEffect density={55} speed={0.55} opacity={0.4} />
+      </div>
+
+      {/* Subtle overlay for readability - lighter to blend better */}
+      <div className="absolute inset-0 bg-gradient-to-br from-black/40 via-black/25 to-black/50" />
+
+      {/* Content */}
+      <div className="relative min-h-screen text-gray-100 p-4">
+        <div className="container mx-auto px-4 py-8">
         <h2 className="text-4xl font-bold mb-8 bg-gradient-to-r from-yellowGradient-start via-yellowGradient-end to-yellowGradient-start bg-clip-text text-transparent">
           Your Cart ({totalItems} items)
         </h2>
@@ -108,6 +130,7 @@ export default function CartPage({
             </div>
           </div>
         )}
+        </div>
       </div>
     </div>
   );

@@ -83,24 +83,40 @@ export default function ProductGrid({
 
           {/* Active filter badges */}
           {activeFilters.brand && (
-            <span className="px-3 py-1 bg-yellowGradient-start/20 border border-yellowGradient-end/30 rounded-full text-yellowGradient-end text-xs font-medium">
-              Brand: {activeFilters.brand} ×
-            </span>
+            <button
+              onClick={() => onFilterChange?.({ type: 'brand', value: null })}
+              className="px-3 py-1 bg-yellowGradient-start/20 border border-yellowGradient-end/30 rounded-full text-yellowGradient-end text-xs font-medium hover:bg-yellowGradient-start/30 hover:border-yellowGradient-end/50 transition-colors flex items-center gap-1.5 cursor-pointer"
+            >
+              <span>Brand: {activeFilters.brand}</span>
+              <span className="text-base leading-none hover:text-red-400">×</span>
+            </button>
           )}
           {activeFilters.subCategory && (
-            <span className="px-3 py-1 bg-yellowGradient-start/20 border border-yellowGradient-end/30 rounded-full text-yellowGradient-end text-xs font-medium">
-              Series: {activeFilters.subCategory} ×
-            </span>
+            <button
+              onClick={() => onFilterChange?.({ type: 'subCategory', value: null })}
+              className="px-3 py-1 bg-yellowGradient-start/20 border border-yellowGradient-end/30 rounded-full text-yellowGradient-end text-xs font-medium hover:bg-yellowGradient-start/30 hover:border-yellowGradient-end/50 transition-colors flex items-center gap-1.5 cursor-pointer"
+            >
+              <span>Series: {activeFilters.subCategory}</span>
+              <span className="text-base leading-none hover:text-red-400">×</span>
+            </button>
           )}
           {activeFilters.price && (
-            <span className="px-3 py-1 bg-yellowGradient-start/20 border border-yellowGradient-end/30 rounded-full text-yellowGradient-end text-xs font-medium">
-              Price: {activeFilters.price.label} ×
-            </span>
+            <button
+              onClick={() => onFilterChange?.({ type: 'price', value: null })}
+              className="px-3 py-1 bg-yellowGradient-start/20 border border-yellowGradient-end/30 rounded-full text-yellowGradient-end text-xs font-medium hover:bg-yellowGradient-start/30 hover:border-yellowGradient-end/50 transition-colors flex items-center gap-1.5 cursor-pointer"
+            >
+              <span>Price: {activeFilters.price.label}</span>
+              <span className="text-base leading-none hover:text-red-400">×</span>
+            </button>
           )}
           {activeFilters.puffs && (
-            <span className="px-3 py-1 bg-yellowGradient-start/20 border border-yellowGradient-end/30 rounded-full text-yellowGradient-end text-xs font-medium">
-              Puffs: {activeFilters.puffs.label} ×
-            </span>
+            <button
+              onClick={() => onFilterChange?.({ type: 'puffs', value: null })}
+              className="px-3 py-1 bg-yellowGradient-start/20 border border-yellowGradient-end/30 rounded-full text-yellowGradient-end text-xs font-medium hover:bg-yellowGradient-start/30 hover:border-yellowGradient-end/50 transition-colors flex items-center gap-1.5 cursor-pointer"
+            >
+              <span>Puffs: {activeFilters.puffs.label}</span>
+              <span className="text-base leading-none hover:text-red-400">×</span>
+            </button>
           )}
         </div>
 

@@ -106,7 +106,7 @@ export default function Hero3D({ product, onNavigate, onCategoryChange, onFilter
 
       {/* Premium collection carousel */}
       <div
-        className="h-[26rem] rounded-2xl bg-black/40 p-4 flex flex-col justify-between overflow-hidden border border-neutral-800 group"
+        className="h-[32rem] md:h-[36rem] rounded-2xl bg-black/40 p-4 flex flex-col justify-between overflow-hidden border border-neutral-800 group"
         onTouchStart={handleSwipeStart}
         onTouchEnd={handleSwipeEnd}
       >
@@ -117,20 +117,23 @@ export default function Hero3D({ product, onNavigate, onCategoryChange, onFilter
           {!hasModel || !show3D ? (
             <>
               {/* Blurred background using same product image */}
-              <div className="absolute inset-0 scale-110 opacity-70">
+              <div className="absolute inset-0 scale-110 opacity-60">
                 <img
                   src={currentProduct?.poster}
                   alt=""
-                  className="w-full h-full object-cover blur-xl transform scale-110"
+                  className="w-full h-full object-cover blur-2xl transform scale-125"
                 />
-                <div className="absolute inset-0 bg-gradient-to-tr from-black/70 via-black/40 to-black/80" />
+                <div className="absolute inset-0 bg-gradient-to-tr from-black/75 via-black/50 to-black/85" />
               </div>
 
               {/* Foreground product */}
               <img
                 src={currentProduct?.poster}
                 alt={currentProduct?.name || currentProduct?.flavor || 'Premium collection product'}
-                className="relative object-contain max-h-[18rem] w-auto transition-transform duration-500 group-hover:scale-110 drop-shadow-[0_20px_60px_rgba(0,0,0,0.9)] float-soft-slower"
+                className="relative object-contain max-h-[26rem] md:max-h-[30rem] w-auto transition-transform duration-500 group-hover:scale-110 drop-shadow-[0_25px_70px_rgba(0,0,0,0.95)] float-soft-slower"
+                style={{
+                  filter: 'brightness(1.1) contrast(1.05)'
+                }}
               />
               {hasModel && (
                 <button

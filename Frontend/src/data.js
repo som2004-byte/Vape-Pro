@@ -683,13 +683,13 @@ export const PRODUCTS = [
   })),
 
   // ========== IGET Disposable Series ==========
-  ...Array(11).fill(null).map((_, i) => ({
-    id: `iget-disposable-${['strawberry-ice', 'grape-berry', 'cranberry-raspberry-ice', 'cranberry-cherry-ice', 'strawberry-lemon', 'mountain-spring-ice', 'strawberry-watermelon-kiwi', 'blackberry-ice', 'blueberry-mint', 'watermelon-ice', 'cranberry-lemon'][i]}`,
+  ...Array(10).fill(null).map((_, i) => ({
+    id: `iget-disposable-${['strawberry-ice', 'grape-berry', 'cranberry-raspberry-ice', 'strawberry-lemon', 'mountain-spring-ice', 'strawberry-watermelon-kiwi', 'blackberry-ice', 'blueberry-mint', 'watermelon-ice', 'cranberry-lemon'][i]}`,
     brand: "IGET",
     series: "Disposable",
     category: "iget-disposable",
     mainCategory: "disposable",
-    flavor: ['Strawberry Ice', 'Grape Berry', 'Cranberry Raspberry Ice', 'Cranberry Cherry Ice', 'Strawberry Lemon', 'Mountain Spring Ice', 'Strawberry Watermelon Kiwi', 'Blackberry Ice', 'Blueberry Mint', 'Watermelon Ice', 'Cranberry Lemon'][i],
+    flavor: ['Strawberry Ice', 'Grape Berry', 'Cranberry Raspberry Ice', 'Strawberry Lemon', 'Mountain Spring Ice', 'Strawberry Watermelon Kiwi', 'Blackberry Ice', 'Blueberry Mint', 'Watermelon Ice', 'Cranberry Lemon'][i],
     type: "Disposable Pod Device",
     puffs: 10000,
     nicotine: "5%",
@@ -697,32 +697,33 @@ export const PRODUCTS = [
     price: 999,
     originalPrice: null,
     soldOut: false,
-    isBestSelling: i === 1 || i === 9,
-    poster: `/images/products/iget-disposable/${['strawberry-ice', 'grape-berry', 'cranberry-raspberry-ice', 'cranberry-cherry-ice', 'strawberry-lemon', 'mountain-spring-ice', 'strawberry-watermelon-kiwi', 'blackberry-ice', 'blueberry-mint', 'watermelon-ice', 'cranberry-lemon'][i]}.png`,
-    cardImage: `/images/products/iget-disposable/${['strawberry-ice', 'grape-berry', 'cranberry-raspberry-ice', 'cranberry-cherry-ice', 'strawberry-lemon', 'mountain-spring-ice', 'strawberry-watermelon-kiwi', 'blackberry-ice', 'blueberry-mint', 'watermelon-ice', 'cranberry-lemon'][i]}.png`,
+    isBestSelling: i === 1 || i === 8,
+    poster: `/images/products/iget-disposable/${['strawberry-ice', 'grape-berry', 'cranberry-raspberry-ice', 'strawberry-lemon', 'mountain-spring-ice', 'strawberry-watermelon-kiwi', 'blackberry-ice', 'blueberry-mint', 'watermelon-ice', 'cranberry-lemon'][i]}.png`,
+    cardImage: `/images/products/iget-disposable/${['strawberry-ice', 'grape-berry', 'cranberry-raspberry-ice', 'strawberry-lemon', 'mountain-spring-ice', 'strawberry-watermelon-kiwi', 'blackberry-ice', 'blueberry-mint', 'watermelon-ice', 'cranberry-lemon'][i]}.png`,
     modelUrl: ""
   })),
 
   // ========== IGET FLAME B10000 Series ==========
-  ...Array(8).fill(null).map((_, i) => ({
-    id: `iget-flame-b10000-${['mountain-spring-mint', 'grape-berry', 'strawberry-watermelon-kiwi', 'blackberry-ice', 'strawberry-lemon', 'blueberry-mint', 'cranberry-raspberry-ice', 'watermelon-ice'][i]}`,
-    brand: "IGET",
-    series: "FLAME B10000",
-    category: "iget-flame-b10000",
-    mainCategory: "disposable",
-    flavor: ['Mountain Spring Mint', 'Grape Berry', 'Strawberry Watermelon Kiwi', 'Blackberry Ice', 'Strawberry Lemon', 'Blueberry Mint', 'Cranberry Raspberry Ice', 'Watermelon Ice'][i],
-    type: "Disposable Pod Device",
-    puffs: 10000,
-    nicotine: "5%",
-    features: null,
-    price: 1099,
-    originalPrice: null,
-    soldOut: false,
-    isBestSelling: i === 1,
-    poster: `/images/products/iget-flame-b10000/${['mountain-spring-mint', 'grape-berry', 'strawberry-watermelon-kiwi', 'blackberry-ice', 'strawberry-lemon', 'blueberry-mint', 'cranberry-raspberry-ice', 'watermelon-ice'][i]}.png`,
-    cardImage: `/images/products/iget-flame-b10000/${['mountain-spring-mint', 'grape-berry', 'strawberry-watermelon-kiwi', 'blackberry-ice', 'strawberry-lemon', 'blueberry-mint', 'cranberry-raspberry-ice', 'watermelon-ice'][i]}.png`,
-    modelUrl: ""
-  })),
+  // NOTE: Images directory doesn't exist yet - uncomment when images are added
+  // ...Array(8).fill(null).map((_, i) => ({
+  //   id: `iget-flame-b10000-${['mountain-spring-mint', 'grape-berry', 'strawberry-watermelon-kiwi', 'blackberry-ice', 'strawberry-lemon', 'blueberry-mint', 'cranberry-raspberry-ice', 'watermelon-ice'][i]}`,
+  //   brand: "IGET",
+  //   series: "FLAME B10000",
+  //   category: "iget-flame-b10000",
+  //   mainCategory: "disposable",
+  //   flavor: ['Mountain Spring Mint', 'Grape Berry', 'Strawberry Watermelon Kiwi', 'Blackberry Ice', 'Strawberry Lemon', 'Blueberry Mint', 'Cranberry Raspberry Ice', 'Watermelon Ice'][i],
+  //   type: "Disposable Pod Device",
+  //   puffs: 10000,
+  //   nicotine: "5%",
+  //   features: null,
+  //   price: 1099,
+  //   originalPrice: null,
+  //   soldOut: false,
+  //   isBestSelling: i === 1,
+  //   poster: `/images/products/iget-flame-b10000/${['mountain-spring-mint', 'grape-berry', 'strawberry-watermelon-kiwi', 'blackberry-ice', 'strawberry-lemon', 'blueberry-mint', 'cranberry-raspberry-ice', 'watermelon-ice'][i]}.png`,
+  //   cardImage: `/images/products/iget-flame-b10000/${['mountain-spring-mint', 'grape-berry', 'strawberry-watermelon-kiwi', 'blackberry-ice', 'strawberry-lemon', 'blueberry-mint', 'cranberry-raspberry-ice', 'watermelon-ice'][i]}.png`,
+  //   modelUrl: ""
+  // })),
 
   // ========== ELFWORLD MX25000 Series ==========
   {
