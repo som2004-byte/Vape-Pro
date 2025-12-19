@@ -1,8 +1,18 @@
-import React, { useState } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import { MAIN_CATEGORIES, BRANDS, PRICE_RANGES, PUFF_RANGES, getSubCategoriesByBrand } from '../data'
 
 export default function Navbar({ user, onLogout, currentCategory = 'all', onCategoryChange, onFilterChange, activeFilters = {}, onNavigate, cartItemCount, searchQuery = '', onSearchChange }){
   const [activeDropdown, setActiveDropdown] = useState(null)
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 })
+  const buttonRefs = useRef({})
+
+  // Update dropdown position when it opens
+  useEffect(() => {
+    if (activeDropdown && buttonRefs.current[activeDropdown]) {
+      const rect = buttonRefs.current[activeDropdown].getBoundingClientRect()
+      setDropdownPosition({ top: rect.bottom + 8, left: rect.left })
+    }
+  }, [activeDropdown])
 
   const scrollToProducts = () => {
     if (typeof window === 'undefined') return
@@ -67,7 +77,7 @@ export default function Navbar({ user, onLogout, currentCategory = 'all', onCate
   ]
 
   return (
-    <header className="sticky top-0 z-[1050] bg-gradient-to-b from-black via-darkPurple-950 to-black border-b border-darkPurple-900/30">
+    <header className="sticky top-0 bg-gradient-to-b from-black via-darkPurple-950 to-black border-b border-darkPurple-900/30" style={{ zIndex: 3000 }}>
       {/* Top bar with logo and icons */}
       <div className="container mx-auto px-6 py-4 flex items-center justify-between">
         <button
@@ -176,8 +186,8 @@ export default function Navbar({ user, onLogout, currentCategory = 'all', onCate
 
       {/* Category navigation bar */}
       <div className="border-t border-darkPurple-900/30 bg-gradient-to-r from-black via-darkPurple-950/50 to-black relative">
-        <div className="container mx-auto px-6 relative">
-          <nav className="flex items-center gap-6 py-0" style={{ overflowY: 'unset' }}>
+        <div className="container mx-auto px-6 relative" style={{ overflow: 'visible' }}>
+          <nav className="flex items-center gap-6 py-0 overflow-x-auto no-scrollbar" style={{ overflowY: 'visible' }}>
             {navigationItems.map((item) => {
               const isActive = currentCategory === item.key
               
@@ -196,10 +206,17 @@ export default function Navbar({ user, onLogout, currentCategory = 'all', onCate
                       : handlePuffFilter
                 
                 return (
-                  <div key={item.key} className="relative z-[1200]">
+                  <div key={item.key} className="relative" style={{ position: 'relative', zIndex: 3000 }}>
                     <button
+                      ref={(el) => {
+                        if (el) buttonRefs.current[item.type] = el
+                      }}
                       onClick={(e) => {
                         e.stopPropagation()
+                        const rect = buttonRefs.current[item.type]?.getBoundingClientRect()
+                        if (rect && !isDropdownOpen) {
+                          setDropdownPosition({ top: rect.bottom + 8, left: rect.left })
+                        }
                         setActiveDropdown(isDropdownOpen ? null : item.type)
                       }}
                       className={`py-3 px-2 text-sm font-medium whitespace-nowrap transition-colors border-b-2 flex items-center gap-2 ${
@@ -215,11 +232,15 @@ export default function Navbar({ user, onLogout, currentCategory = 'all', onCate
                     </button>
                     {isDropdownOpen && (
                       <div 
-                        className="absolute top-full left-0 mt-2 bg-gradient-to-b from-darkPurple-950 via-darkPurple-950 to-black border-2 border-darkPurple-700/90 rounded-lg shadow-2xl min-w-[220px] z-[1300] max-h-[unset] overflow-y-auto backdrop-blur-sm"
+                        className="fixed bg-gradient-to-b from-darkPurple-950 via-darkPurple-950 to-black border-2 border-darkPurple-700/90 rounded-lg shadow-2xl min-w-[220px] max-h-[unset] overflow-y-auto backdrop-blur-sm"
                         onClick={(e) => e.stopPropagation()}
                         style={{ 
                           backgroundColor: 'rgba(15, 23, 42, 0.98)',
-                          boxShadow: '0 10px 40px rgba(0, 0, 0, 0.8), 0 0 20px rgba(168, 85, 247, 0.3)'
+                          boxShadow: '0 10px 40px rgba(0, 0, 0, 0.8), 0 0 20px rgba(168, 85, 247, 0.3)',
+                          zIndex: 9999,
+                          position: 'fixed',
+                          top: `${dropdownPosition.top}px`,
+                          left: `${dropdownPosition.left}px`
                         }}
                       >
                         {options.map(option => {
@@ -304,11 +325,13 @@ export default function Navbar({ user, onLogout, currentCategory = 'all', onCate
                   </button>
                     {activeDropdown === 'subCategory' && (
                       <div 
-                        className="absolute top-full left-0 mt-2 bg-gradient-to-b from-darkPurple-950 via-darkPurple-950 to-black border-2 border-darkPurple-700/90 rounded-lg shadow-2xl min-w-[220px] z-[1300] max-h-[unset] overflow-y-auto backdrop-blur-sm"
+                        className="absolute top-full left-0 mt-2 bg-gradient-to-b from-darkPurple-950 via-darkPurple-950 to-black border-2 border-darkPurple-700/90 rounded-lg shadow-2xl min-w-[220px] max-h-[unset] overflow-y-auto backdrop-blur-sm"
                         onClick={(e) => e.stopPropagation()}
                         style={{ 
                           backgroundColor: 'rgba(15, 23, 42, 0.98)',
-                          boxShadow: '0 10px 40px rgba(0, 0, 0, 0.8), 0 0 20px rgba(168, 85, 247, 0.3)'
+                          boxShadow: '0 10px 40px rgba(0, 0, 0, 0.8), 0 0 20px rgba(168, 85, 247, 0.3)',
+                          zIndex: 3001,
+                          position: 'absolute'
                         }}
                       >
                       <button
@@ -360,7 +383,8 @@ export default function Navbar({ user, onLogout, currentCategory = 'all', onCate
       {/* Click outside to close dropdowns */}
       {activeDropdown && (
         <div 
-          className="fixed inset-0 z-[100]" 
+          className="fixed inset-0" 
+          style={{ zIndex: 2999 }}
           onClick={() => setActiveDropdown(null)}
         />
       )}
