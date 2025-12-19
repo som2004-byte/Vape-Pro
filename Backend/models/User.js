@@ -17,6 +17,23 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  // Optional fields for future email verification state
+  emailVerified: {
+    type: Boolean,
+    default: false
+  },
+  phoneNumber: {
+    type: String,
+    default: ''
+  },
+  phoneVerified: {
+    type: Boolean,
+    default: false
+  },
+  address: {
+    type: String,
+    default: ''
+  },
   createdAt: {
     type: Date,
     default: Date.now
