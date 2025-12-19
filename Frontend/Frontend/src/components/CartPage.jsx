@@ -20,7 +20,7 @@ export default function CartPage({
         </h2>
 
         {cartItems.length === 0 ? (
-          <p className="text-purple-300 text-lg">Your cart is empty. Start shopping now!</p>
+          <p className="text-darkPurple-300 text-lg">Your cart is empty. Start shopping now!</p>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {/* Cart Items List */}
@@ -37,11 +37,11 @@ export default function CartPage({
                   />
                   <div className="flex-1">
                     <h3 className="text-xl font-semibold text-white">{item.name}</h3>
-                    <p className="text-purple-300">{item.flavor}</p>
+                    <p className="text-darkPurple-300">{item.flavor}</p>
                     <p className="text-yellow-400 font-bold mt-1">₹{item.price.toLocaleString()}</p>
                   </div>
                   <div className="flex items-center gap-4">
-                    <div className="flex items-center border border-purple-700 rounded-md">
+                    <div className="flex items-center border border-darkPurple-700 rounded-md">
                       <button
                         onClick={() => onUpdateQuantity(item.id, item.quantity - 1)}
                         disabled={item.quantity <= 1}
@@ -78,15 +78,15 @@ export default function CartPage({
             {/* Order Summary */}
             <div className="md:col-span-1 bg-gradient-to-br from-darkPurple-950 to-black p-6 rounded-lg shadow-lg border border-darkPurple-700/50 h-fit">
               <h3 className="text-2xl font-bold text-white mb-4">Order Summary</h3>
-              <div className="flex justify-between items-center text-purple-200 mb-2">
+              <div className="flex justify-between items-center text-darkPurple-100 mb-2">
                 <span>Subtotal ({totalItems} items):</span>
                 <span className="font-semibold">₹{subtotal.toLocaleString()}</span>
               </div>
-              <div className="flex justify-between items-center text-purple-200 mb-4">
+              <div className="flex justify-between items-center text-darkPurple-100 mb-4">
                 <span>Shipping:</span>
                 <span className="font-semibold">Calculated at checkout</span>
               </div>
-              <div className="border-t border-purple-700 my-4"></div>
+              <div className="border-t border-darkPurple-700 my-4"></div>
               <div className="flex justify-between items-center text-white text-xl font-bold">
                 <span>Order Total:</span>
                 <span>₹{subtotal.toLocaleString()}</span>

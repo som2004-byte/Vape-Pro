@@ -14,8 +14,10 @@ export default function Hero3D({ product, onNavigate, onCategoryChange, onFilter
     <section className="grid md:grid-cols-2 gap-6 items-center py-10">
       <div>
         <div className="inline-block px-3 py-1 rounded-full bg-gradient-to-r from-darkPurple-700 to-yellowGradient-end text-black text-xs font-semibold">Premium Collection</div>
-        <h1 className="mt-6 text-5xl md:text-6xl font-serif leading-tight">BREATHE <span className="text-gradient">ROYALTY</span></h1>
-        <p className="mt-4 text-gray-300 max-w-xl">Experience the pinnacle of vaping technology — precision engineering, luxury finishes, and unforgettable flavours.</p>
+        <h1 className="mt-6 text-5xl md:text-6xl font-serif leading-tight text-white">
+          BREATHE <span className="text-yellowGradient-start">ROYALTY</span>
+        </h1>
+        <p className="mt-4 text-darkPurple-300 max-w-xl">Experience the pinnacle of vaping technology — precision engineering, luxury finishes, and unforgettable flavours.</p>
         <div className="mt-6 flex gap-3">
           <button
             className="px-6 py-3 rounded-full bg-gradient-to-r from-darkPurple-700 to-yellowGradient-end text-black font-semibold"
@@ -35,7 +37,7 @@ export default function Hero3D({ product, onNavigate, onCategoryChange, onFilter
             Shop now
           </button>
           <button
-            className="px-6 py-3 rounded-full border border-neutral-800 text-gray-100 hover:border-yellowGradient-end hover:text-yellowGradient-end transition-colors"
+            className="px-6 py-3 rounded-full border border-darkPurple-700 text-darkPurple-100 hover:border-yellowGradient-end hover:text-yellowGradient-end transition-colors"
             onClick={() => {
               // View this collection: filter by this product's brand so all its sub-variants show
               onNavigate?.('home')

@@ -245,7 +245,7 @@ export default function LoginSignup({ onLogin }) {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-black via-purple-950 to-black relative overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-darkPurple-900 via-darkPurple-800 to-black relative overflow-hidden">
       <div className="w-full max-w-md relative">
         {/* Teddy Bear Character */}
         <div className="flex justify-center mb-6 -mt-8">
@@ -263,9 +263,9 @@ export default function LoginSignup({ onLogin }) {
         </div>
 
         {/* Login/Signup Form */}
-        <div className="bg-black/40 backdrop-blur-lg rounded-2xl border border-purple-900/50 shadow-2xl p-8">
+        <div className="bg-black/40 backdrop-blur-lg rounded-2xl border border-darkPurple-900/50 shadow-2xl p-8">
           {/* Toggle Buttons */}
-          <div className="flex gap-2 mb-6 bg-purple-950/50 rounded-xl p-1">
+          <div className="flex gap-2 mb-6 bg-darkPurple-950/50 rounded-xl p-1">
             <button
               onClick={() => {
                 setIsLogin(true)
@@ -275,8 +275,8 @@ export default function LoginSignup({ onLogin }) {
               }}
               className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all ${
                 isLogin
-                  ? 'bg-gradient-to-r from-purple-600 to-purple-800 text-white shadow-lg'
-                  : 'text-purple-300 hover:text-white'
+                  ? 'bg-gradient-to-r from-darkPurple-600 to-darkPurple-800 text-white shadow-lg'
+                  : 'text-darkPurple-300 hover:text-white'
               }`}
             >
               Login
@@ -290,8 +290,8 @@ export default function LoginSignup({ onLogin }) {
               }}
               className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all ${
                 !isLogin
-                  ? 'bg-gradient-to-r from-purple-600 to-purple-800 text-white shadow-lg'
-                  : 'text-purple-300 hover:text-white'
+                  ? 'bg-gradient-to-r from-darkPurple-600 to-darkPurple-800 text-white shadow-lg'
+                  : 'text-darkPurple-300 hover:text-white'
               }`}
             >
               Sign Up
@@ -301,7 +301,7 @@ export default function LoginSignup({ onLogin }) {
           <form onSubmit={handleSubmit} className="space-y-4">
             {!isLogin && (
               <div>
-                <label className="block text-sm font-medium text-purple-200 mb-2">
+                <label className="block text-sm font-medium text-white mb-2">
                   Username
                 </label>
                 <input
@@ -310,14 +310,14 @@ export default function LoginSignup({ onLogin }) {
                   onChange={(e) => setUsername(e.target.value)}
                   onFocus={() => handleFocus('username')}
                   onBlur={handleBlur}
-                  className="w-full px-4 py-3 bg-purple-950/50 border border-purple-800/50 rounded-xl text-white placeholder-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-600 focus:border-transparent transition-all"
+                  className="w-full px-4 py-3 bg-darkPurple-950/50 border border-darkPurple-800/50 rounded-xl text-white placeholder-darkPurple-400 focus:outline-none focus:ring-2 focus:ring-darkPurple-600 focus:border-transparent transition-all"
                   placeholder="Enter your username"
                 />
               </div>
             )}
 
             <div>
-              <label className="block text-sm font-medium text-purple-200 mb-2">
+              <label className="block text-sm font-medium text-white mb-2">
                 {isLogin ? 'Username' : 'Email'}
               </label>
               <input
@@ -326,13 +326,13 @@ export default function LoginSignup({ onLogin }) {
                 onChange={(e) => isLogin ? setUsername(e.target.value) : setEmail(e.target.value)}
                 onFocus={() => handleFocus(isLogin ? 'username' : 'email')}
                 onBlur={handleBlur}
-                className="w-full px-4 py-3 bg-purple-950/50 border border-purple-800/50 rounded-xl text-white placeholder-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-600 focus:border-transparent transition-all"
+                className="w-full px-4 py-3 bg-darkPurple-950/50 border border-darkPurple-800/50 rounded-xl text-white placeholder-darkPurple-400 focus:outline-none focus:ring-2 focus:ring-darkPurple-600 focus:border-transparent transition-all"
                 placeholder={isLogin ? 'Enter your username' : 'Enter your email'}
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-purple-200 mb-2">
+              <label className="block text-sm font-medium text-white mb-2">
                 Password
               </label>
               <div className="relative">
@@ -342,13 +342,13 @@ export default function LoginSignup({ onLogin }) {
                   onChange={(e) => setPassword(e.target.value)}
                   onFocus={() => handleFocus('password')}
                   onBlur={handleBlur}
-                  className="w-full px-4 py-3 pr-12 bg-purple-950/50 border border-purple-800/50 rounded-xl text-white placeholder-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-600 focus:border-transparent transition-all"
+                  className="w-full px-4 py-3 pr-12 bg-darkPurple-950/50 border border-darkPurple-800/50 rounded-xl text-white placeholder-darkPurple-400 focus:outline-none focus:ring-2 focus:ring-darkPurple-600 focus:border-transparent transition-all"
                   placeholder="Enter your password"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-purple-300 hover:text-purple-100 transition-colors focus:outline-none"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-darkPurple-300 hover:text-darkPurple-100 transition-colors focus:outline-none"
                   aria-label={showPassword ? 'Hide password' : 'Show password'}
                 >
                   {showPassword ? (
@@ -367,11 +367,11 @@ export default function LoginSignup({ onLogin }) {
 
             {isLogin && (
               <div className="flex items-center justify-between text-sm">
-                <label className="flex items-center text-purple-300">
-                  <input type="checkbox" className="mr-2 rounded border-purple-600 bg-purple-950/50" />
+                <label className="flex items-center text-white">
+                  <input type="checkbox" className="mr-2 rounded border-darkPurple-600 bg-darkPurple-950/50" />
                   Remember me
                 </label>
-                <a href="#" className="text-purple-400 hover:text-purple-300 transition">
+                <a href="#" className="text-white hover:text-white transition">
                   Forgot password?
                 </a>
               </div>
@@ -379,18 +379,18 @@ export default function LoginSignup({ onLogin }) {
 
             <button
               type="submit"
-              className="w-full py-3 px-4 bg-gradient-to-r from-purple-600 to-purple-800 text-white font-semibold rounded-xl shadow-lg shadow-purple-900/50 hover:from-purple-700 hover:to-purple-900 transform hover:scale-[1.02] transition-all duration-200"
+              className="w-full py-3 px-4 bg-gradient-to-r from-darkPurple-600 to-darkPurple-800 text-white font-semibold rounded-xl shadow-lg shadow-darkPurple-900/50 hover:from-darkPurple-700 hover:to-darkPurple-900 transform hover:scale-[1.02] transition-all duration-200"
             >
               {isLogin ? 'Login' : 'Sign Up'}
             </button>
           </form>
 
           {!isLogin && (
-            <p className="mt-6 text-center text-sm text-purple-300">
+            <p className="mt-6 text-center text-sm text-white">
               Already have an account?{' '}
               <button
                 onClick={() => setIsLogin(true)}
-                className="text-purple-400 hover:text-purple-300 font-medium transition"
+                className="text-white hover:text-white font-medium transition"
               >
                 Login
               </button>

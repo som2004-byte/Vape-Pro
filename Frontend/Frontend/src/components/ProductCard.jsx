@@ -4,14 +4,19 @@ export default function ProductCard({ product, onOpen, onAddToCart }){
   const [imageError, setImageError] = useState(false)
 
   return (
-    <div className="group bg-gradient-to-br from-darkPurple-950/30 via-black to-darkPurple-950/30 border border-darkPurple-900/30 rounded-lg overflow-hidden hover:border-yellowGradient-end/50 transition-all duration-300 transform hover:-translate-y-2 hover:shadow-[0_20px_40px_rgba(168,85,247,0.2)]">
+    <div
+      className="group bg-gradient-to-br from-darkPurple-900/40 via-darkPurple-800/40 to-black border border-darkPurple-900/40 rounded-2xl overflow-hidden hover:border-yellowGradient-end/60 transition-all duration-300 transform hover:-translate-y-2 hover:shadow-[0_25px_60px_rgba(34,211,238,0.35)] cursor-pointer"
+      onClick={() => onOpen(product)}
+    >
       {/* Product Image Container */}
-      <div className="relative h-72 bg-black flex items-center justify-center overflow-hidden">
+      <div className="relative h-72 bg-gradient-to-br from-darkPurple-900 via-black to-darkPurple-800 flex items-center justify-center overflow-hidden">
+        {/* Soft colourful glow behind the product */}
+        <div className="pointer-events-none absolute inset-0 bg-radial-gradient from-yellowGradient-start/25 via-transparent to-transparent opacity-60 mix-blend-screen" />
         {product.cardImage && !imageError ? (
           <img 
             src={product.cardImage} 
             alt={product.series || product.name || `${product.brand} ${product.flavor}`} 
-            className="object-contain h-full w-full p-4 group-hover:scale-110 transition-transform duration-500"
+            className="relative object-contain h-full w-full p-4 group-hover:scale-110 transition-transform duration-500 drop-shadow-[0_12px_30px_rgba(0,0,0,0.8)]"
             onError={() => setImageError(true)}
           />
         ) : (
@@ -28,10 +33,10 @@ export default function ProductCard({ product, onOpen, onAddToCart }){
         )}
         
         {/* View on hover overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-darkPurple-950/90 via-darkPurple-950/70 to-darkPurple-950/90 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-darkPurple-950/85 to-black/90 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
           <button 
-            onClick={() => onOpen(product)}
-            className="bg-gradient-to-r from-yellowGradient-start to-yellowGradient-end text-black px-6 py-3 rounded-full font-semibold transform scale-0 group-hover:scale-100 transition-transform duration-300 hover:from-yellowGradient-end hover:to-yellowGradient-start"
+            onClick={(e) => { e.stopPropagation(); onOpen(product) }}
+            className="bg-gradient-to-r from-yellowGradient-start to-yellowGradient-end text-black px-6 py-3 rounded-full font-semibold transform scale-0 group-hover:scale-100 transition-transform duration-300 hover:from-yellowGradient-end hover:to-yellowGradient-start shadow-lg shadow-yellowGradient-end/40"
           >
             Quick View
           </button>
@@ -82,13 +87,13 @@ export default function ProductCard({ product, onOpen, onAddToCart }){
         {/* Action Buttons */}
         <div className="flex gap-2 pt-2">
           <button 
-            onClick={() => onOpen(product)}
+            onClick={(e) => { e.stopPropagation(); onOpen(product) }}
             className="flex-1 px-4 py-2.5 rounded-lg bg-darkPurple-900/50 text-white text-sm font-semibold hover:bg-darkPurple-800/50 border border-darkPurple-800/50 transition-colors"
           >
             View
           </button>
           <button
-            onClick={() => onAddToCart(product)}
+            onClick={(e) => { e.stopPropagation(); onAddToCart(product) }}
             className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-semibold transition-colors ${
               product.soldOut 
                 ? 'bg-darkPurple-950/30 text-darkPurple-600 cursor-not-allowed border border-darkPurple-900/30' 

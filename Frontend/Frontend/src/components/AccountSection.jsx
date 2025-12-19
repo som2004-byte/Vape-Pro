@@ -248,7 +248,7 @@ export default function AccountSection({ activeTab = 'profile', profile, onSaveP
         {currentTab === 'profile' && editMode && (
           <form onSubmit={handleSubmit} className="space-y-6 mt-4">
           <div>
-            <label htmlFor="name" className="block text-sm font-medium text-purple-300 mb-1">
+            <label htmlFor="name" className="block text-sm font-medium text-darkPurple-300 mb-1">
               Name
             </label>
             <input
@@ -262,7 +262,7 @@ export default function AccountSection({ activeTab = 'profile', profile, onSaveP
             />
           </div>
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-purple-300 mb-1">
+            <label htmlFor="email" className="block text-sm font-medium text-darkPurple-300 mb-1">
               Email Address
             </label>
             <div className="flex items-center gap-2">
@@ -310,7 +310,7 @@ export default function AccountSection({ activeTab = 'profile', profile, onSaveP
             )}
           </div>
           <div>
-            <label htmlFor="phoneNumber" className="block text-sm font-medium text-purple-300 mb-1">
+            <label htmlFor="phoneNumber" className="block text-sm font-medium text-darkPurple-300 mb-1">
               Phone Number
             </label>
             <div className="flex items-center gap-2">
@@ -358,7 +358,7 @@ export default function AccountSection({ activeTab = 'profile', profile, onSaveP
             )}
           </div>
           <div>
-            <label htmlFor="address" className="block text-sm font-medium text-purple-300 mb-1">
+            <label htmlFor="address" className="block text-sm font-medium text-darkPurple-300 mb-1">
               Address
             </label>
             <div className="flex items-center gap-2">

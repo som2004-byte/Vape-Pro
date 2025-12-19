@@ -60,7 +60,7 @@ export default function ProductGrid({
       {/* Filters and Sort Bar */}
       <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-darkPurple-900/30">
         <div className="flex items-center gap-4 flex-wrap">
-          <span className="text-purple-300 text-sm font-medium">Filter:</span>
+          <span className="text-darkPurple-300 text-sm font-medium">Filter:</span>
           
           <select
             value={filterAvailability}
@@ -105,7 +105,7 @@ export default function ProductGrid({
         </div>
 
         <div className="flex items-center gap-4">
-          <span className="text-purple-300 text-sm font-medium">{filteredProducts.length} products</span>
+          <span className="text-darkPurple-300 text-sm font-medium">{filteredProducts.length} products</span>
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value)}
@@ -138,11 +138,11 @@ export default function ProductGrid({
         </div>
       ) : (
         <div className="text-center py-12">
-          <p className="text-purple-400 text-lg">No products found</p>
+          <p className="text-darkPurple-300 text-lg">No products found</p>
           {hasActiveFilters && (
             <button
               onClick={clearFilters}
-              className="mt-4 px-6 py-2 bg-gradient-to-r from-purple-900/50 to-purple-800/50 border border-purple-700/50 rounded-lg text-purple-200 hover:bg-purple-800/50 transition-colors"
+              className="mt-4 px-6 py-2 bg-gradient-to-r from-darkPurple-900/50 to-darkPurple-800/50 border border-darkPurple-700/50 rounded-lg text-darkPurple-100 hover:bg-darkPurple-800/50 transition-colors"
             >
               Clear all filters
             </button>
