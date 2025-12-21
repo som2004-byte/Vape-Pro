@@ -15,9 +15,6 @@ export default function AccountSection({
   const [name, setName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [address, setAddress] = useState('');
-  const [isPhoneVerified, setIsPhoneVerified] = useState(false);
-  const [otp, setOtp] = useState('');
-  const [showOtpInput, setShowOtpInput] = useState(false);
   const [isAddressVerified, setIsAddressVerified] = useState(false);
   const [email, setEmail] = useState('');
   const [isEmailVerified, setIsEmailVerified] = useState(false);
@@ -40,33 +37,91 @@ export default function AccountSection({
     setCurrentTab(activeTab || 'profile');
   }, [activeTab]);
 
-  const generateOtp = () => {
-    const newOtp = Math.floor(100000 + Math.random() * 900000).toString();
-    setOtp(newOtp);
-    onNotify?.({
-      type: 'info',
-      message: 'Demo OTP generated for phone verification',
-      subTitle: `Use ${newOtp} to verify your phone number (dev mode)`,
-    });
-    setShowOtpInput(true);
-  };
+  const [verifying, setVerifying] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
 
-  const verifyPhoneNumber = () => {
-    if (!otp || otp.length < 6) {
+  const handleRequestOtp = async () => {
+    try {
+      setVerifying(true);
+      const response = await fetch('http://localhost:3000/api/request-email-otp', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ 
+          email,
+          purpose: 'email_verification'
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to send OTP');
+      }
+
+      setShowEmailOtpInput(true);
+      setOtpSent(true);
+      
+      onNotify?.({
+        type: 'success',
+        message: 'OTP sent to your email',
+      });
+    } catch (err) {
       onNotify?.({
         type: 'error',
-        message: 'Please enter the OTP sent to your phone number',
+        message: err.message || 'Failed to send OTP',
       });
-      return;
+    } finally {
+      setVerifying(false);
     }
-    // For demo purposes, treat any non-empty OTP as valid after generation
-    setIsPhoneVerified(true);
-    onNotify?.({
-      type: 'success',
-      message: 'Phone number verified successfully',
-    });
-    setShowOtpInput(false);
-    setOtp('');
+  };
+
+  const verifyOtp = async () => {
+    try {
+      setVerifying(true);
+      
+      if (!emailOtp || emailOtp.length < 6) {
+        throw new Error('Please enter a valid 6-digit OTP');
+      }
+
+      const response = await fetch('http://localhost:3000/api/verify-email-otp', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ 
+          email,
+          otp: emailOtp,
+          purpose: 'email_verification'
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.message || 'Invalid OTP');
+      }
+
+      setIsEmailVerified(true);
+      setShowEmailOtpInput(false);
+      setEmailOtp('');
+
+      onNotify?.({
+        type: 'success',
+        message: 'Email verified successfully',
+      });
+
+    } catch (err) {
+      onNotify?.({
+        type: 'error',
+        message: err.message || 'Verification failed',
+      });
+    } finally {
+      setVerifying(false);
+    }
   };
 
   const verifyAddress = async () => {
@@ -139,13 +194,6 @@ export default function AccountSection({
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!isPhoneVerified) {
-      onNotify?.({
-        type: 'error',
-        message: 'Please verify your phone number before saving details',
-      });
-      return;
-    }
     if (!isAddressVerified) {
       onNotify?.({
         type: 'error',
@@ -163,7 +211,6 @@ export default function AccountSection({
     const saved = { name, email, phoneNumber, address };
     console.log('Account Details:', {
       ...saved,
-      isPhoneVerified,
       isAddressVerified,
       isEmailVerified,
     });
@@ -273,11 +320,11 @@ export default function AccountSection({
                           )}
                         </div>
                         <div className="text-right">
-                          <div className={`text-xs px-2 py-1 rounded border ${getStatusBadge(status)}`}>
-                            {status.charAt(0).toUpperCase() + status.slice(1)}
+                          <div className={`text-xs px-2 py-1 rounded border ${getStatusBadge(order.status || 'processing')}`}>
+                            {(order.status || 'processing').charAt(0).toUpperCase() + (order.status || 'processing').slice(1)}
                           </div>
                           <div className="text-xs text-darkPurple-300 mt-1">
-                            {new Date(order.placedAt).toLocaleDateString()}
+                            {new Date(order.placedAt || order.createdAt || new Date()).toLocaleDateString()}
                           </div>
                         </div>
                       </div>
@@ -286,8 +333,8 @@ export default function AccountSection({
                       <div className="mb-3 pb-3 border-b border-darkPurple-800/70">
                         <div className="flex items-center justify-between text-xs">
                           <span className="text-darkPurple-400">Payment Status:</span>
-                          <span className={paymentStatus === 'completed' ? 'text-green-400' : 'text-yellow-400'}>
-                            {paymentStatus === 'completed' ? '✓ Paid' : paymentStatus}
+                          <span className={order.paymentStatus === 'completed' ? 'text-green-400' : 'text-yellow-400'}>
+                            {order.paymentStatus === 'completed' ? '✓ Paid' : order.paymentStatus || 'pending'}
                           </span>
                         </div>
                         {order.transactionId && (
@@ -440,35 +487,39 @@ export default function AccountSection({
                 required
                 disabled={isEmailVerified}
               />
-              {!isEmailVerified && (
-                <button
-                  type="button"
-                  onClick={generateEmailOtp}
-                  className="px-4 py-2 rounded-lg bg-yellow-500 text-black font-semibold text-sm hover:bg-yellow-400 transition-colors focus:outline-none focus:ring-2 focus:ring-yellow-400/70 whitespace-nowrap"
-                >
-                  Generate OTP
-                </button>
-              )}
-              {isEmailVerified && (
-                <span className="text-green-400 text-sm font-medium">Verified!</span>
-              )}
+              <div className="flex items-center gap-2">
+                {!isEmailVerified ? (
+                  <button
+                    type="button"
+                    onClick={handleRequestOtp}
+                    disabled={verifying || otpSent}
+                    className="px-4 py-2 rounded-lg bg-yellow-500 text-black font-semibold text-sm hover:bg-yellow-400 transition-colors focus:outline-none focus:ring-2 focus:ring-yellow-400/70 whitespace-nowrap disabled:opacity-50"
+                  >
+                    {otpSent ? 'OTP Sent' : 'Get OTP'}
+                  </button>
+                ) : (
+                  <span className="text-green-400 text-sm font-medium">Verified!</span>
+                )}
+              </div>
             </div>
             {showEmailOtpInput && !isEmailVerified && (
               <div className="flex items-center gap-2 mt-2">
                 <input
                   type="text"
                   className="w-full px-4 py-2 rounded-lg bg-darkPurple-900/50 border border-darkPurple-700 focus:outline-none focus:ring-2 focus:ring-yellow-400/50 text-white"
-                  placeholder="Enter Email OTP"
+                  placeholder="Enter 6-digit OTP"
                   value={emailOtp}
-                  onChange={(e) => setEmailOtp(e.target.value)}
+                  onChange={(e) => setEmailOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
                   required
+                  maxLength={6}
                 />
                 <button
                   type="button"
-                  onClick={verifyEmail}
-                  className="px-4 py-2 rounded-lg bg-blue-500 text-white font-semibold text-sm hover:bg-blue-400 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400/70 whitespace-nowrap"
+                  onClick={verifyOtp}
+                  disabled={verifying || emailOtp.length < 6}
+                  className="px-4 py-2 rounded-lg bg-blue-500 text-white font-semibold text-sm hover:bg-blue-400 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400/70 whitespace-nowrap disabled:opacity-50"
                 >
-                  Verify
+                  {verifying ? 'Verifying...' : 'Verify'}
                 </button>
               </div>
             )}
@@ -477,49 +528,15 @@ export default function AccountSection({
             <label htmlFor="phoneNumber" className="block text-sm font-medium text-darkPurple-300 mb-1">
               Phone Number
             </label>
-            <div className="flex items-center gap-2">
-              <input
-                type="tel"
-                id="phoneNumber"
-                className="w-full px-4 py-2 rounded-lg bg-darkPurple-900/50 border border-darkPurple-700 focus:outline-none focus:ring-2 focus:ring-yellow-400/50 text-white"
-                placeholder="e.g., +91 9876543210"
-                value={phoneNumber}
-                onChange={(e) => setPhoneNumber(e.target.value)}
-                required
-                disabled={isPhoneVerified}
-              />
-              {!isPhoneVerified && (
-                <button
-                  type="button"
-                  onClick={generateOtp}
-                  className="px-4 py-2 rounded-lg bg-yellow-500 text-black font-semibold text-sm hover:bg-yellow-400 transition-colors focus:outline-none focus:ring-2 focus:ring-yellow-400/70 whitespace-nowrap"
-                >
-                  Generate OTP
-                </button>
-              )}
-              {isPhoneVerified && (
-                <span className="text-green-400 text-sm font-medium">Verified!</span>
-              )}
-            </div>
-            {showOtpInput && !isPhoneVerified && (
-              <div className="flex items-center gap-2 mt-2">
-                <input
-                  type="text"
-                  className="w-full px-4 py-2 rounded-lg bg-darkPurple-900/50 border border-darkPurple-700 focus:outline-none focus:ring-2 focus:ring-yellow-400/50 text-white"
-                  placeholder="Enter OTP"
-                  value={otp}
-                  onChange={(e) => setOtp(e.target.value)}
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={verifyPhoneNumber}
-                  className="px-4 py-2 rounded-lg bg-blue-500 text-white font-semibold text-sm hover:bg-blue-400 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400/70 whitespace-nowrap"
-                >
-                  Verify
-                </button>
-              </div>
-            )}
+            <input
+              type="tel"
+              id="phoneNumber"
+              className="w-full px-4 py-2 rounded-lg bg-darkPurple-900/50 border border-darkPurple-700 focus:outline-none focus:ring-2 focus:ring-yellow-400/50 text-white"
+              placeholder="e.g., +91 9876543210"
+              value={phoneNumber}
+              onChange={(e) => setPhoneNumber(e.target.value)}
+              required
+            />
           </div>
           <div>
             <label htmlFor="address" className="block text-sm font-medium text-darkPurple-300 mb-1">

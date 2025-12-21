@@ -161,8 +161,9 @@ const BearCharacter = ({ expression, eyeAngle = null }) => {
   )
 }
 
-export default function LoginSignup({ onLogin }) {
+export default function LoginSignup({ onLogin, onAdminLogin }) {
   const [isLogin, setIsLogin] = useState(true)
+  const [isAdminMode, setIsAdminMode] = useState(false)
   const [expression, setExpression] = useState('IDLE')
   const [eyeAngle, setEyeAngle] = useState(null) // Angle in radians for 360-degree eye movement
   const [username, setUsername] = useState('')
@@ -226,28 +227,113 @@ export default function LoginSignup({ onLogin }) {
     setFocusedField(null)
   }
 
-  const handleSubmit = (e) => {
+  const [error, setError] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
+
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    // Show success expression briefly
-    setExpression('HAPPY')
-    
-    // Handle form submission here
-    console.log(isLogin ? 'Login' : 'Signup', { username: username || email, password })
-    
-    // After a brief delay, navigate to main page
-    setTimeout(() => {
-      if (onLogin) {
-        onLogin({
-          username: username || email,
-          email: email,
-          isLogin
-        })
+    setError('')
+    setIsLoading(true)
+    setExpression('THINKING')
+
+    try {
+      // Set the base URL for API requests
+      const API_BASE_URL = 'http://localhost:3000';
+      
+      // Determine the endpoint and request data based on login/signup and admin/user mode
+      let endpoint, requestData;
+      
+      if (isAdminMode) {
+        // Admin login
+        endpoint = `${API_BASE_URL}/api/admin/login`;
+        requestData = { email: email || username, password };
+      } else {
+        // User login/signup
+        if (isLogin) {
+          endpoint = `${API_BASE_URL}/api/login`;
+          requestData = { email: email || username, password };
+        } else {
+          endpoint = `${API_BASE_URL}/api/signup`;
+          requestData = { name: username, email, password };
+        }
       }
-    }, 1000)
-  }
+
+      console.log('Sending request to:', endpoint);
+      console.log('Request data:', requestData);
+
+      // Make the API request
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify(requestData)
+      });
+
+      console.log('Response status:', response.status);
+      
+      // Try to parse the response as JSON, but handle non-JSON responses
+      let data;
+      try {
+        const text = await response.text();
+        data = text ? JSON.parse(text) : {};
+      } catch (parseError) {
+        console.error('Error parsing response:', parseError);
+        throw new Error('Invalid response from server');
+      }
+
+      if (!response.ok) {
+        console.error('API Error Response:', data);
+        throw new Error(data.message || `HTTP error! status: ${response.status}`);
+      }
+
+      // On successful login/signup
+      setExpression('HAPPY');
+      
+      // Handle the response based on admin or user mode
+      if (isAdminMode) {
+        // For admin login
+        if (onAdminLogin) {
+          onAdminLogin(data.token, data.admin || data.user);
+        }
+      } else {
+        // For user login/signup
+        if (onLogin) {
+          onLogin({
+            id: data.user?._id || data.user?.id,
+            name: data.user?.name || username,
+            email: data.user?.email || email,
+            token: data.token,
+            isLogin: true
+          });
+        }
+      }
+    } catch (err) {
+      console.error('Login error:', err)
+      setExpression('SAD')
+      setError(err.message || 'Failed to authenticate. Please try again.')
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
-    <div className="relative min-h-screen overflow-hidden">
+    <div className="relative min-h-screen overflow-hidden bg-gray-100">
+      {/* Admin/User Toggle */}
+      <div className="absolute top-4 right-4 z-10">
+        <button
+          onClick={() => setIsAdminMode(!isAdminMode)}
+          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+            isAdminMode
+              ? 'bg-red-600 text-white hover:bg-red-700'
+              : 'bg-white text-gray-800 hover:bg-gray-200'
+          } shadow-md`}
+        >
+          {isAdminMode ? 'Switch to User Login' : 'Admin Login'}
+        </button>
+      </div>
       {/* Background video */}
       <video
         className="absolute inset-0 w-full h-full object-cover"
@@ -279,155 +365,206 @@ export default function LoginSignup({ onLogin }) {
         </div>
 
         <div className="w-full max-w-md relative mt-10">
-        {/* Teddy Bear Character */}
-        <div className="flex justify-center mb-6 -mt-8">
-          <div 
-            ref={bearRef}
-            className="relative animate-bounce" 
-            style={{ 
-              animationDuration: '3s',
-              animationTimingFunction: 'ease-in-out',
-              animationIterationCount: 'infinite'
-            }}
-          >
-            <BearCharacter expression={expression} eyeAngle={eyeAngle} />
+          {/* Teddy Bear Character */}
+          <div className="flex justify-center mb-6 -mt-8">
+            <div
+              ref={bearRef}
+              className="relative animate-bounce"
+              style={{
+                animationDuration: '3s',
+                animationTimingFunction: 'ease-in-out',
+                animationIterationCount: 'infinite',
+              }}
+            >
+              <BearCharacter expression={expression} eyeAngle={eyeAngle} />
+            </div>
           </div>
-        </div>
 
           {/* Login/Signup Form */}
           <div className="bg-black/50 backdrop-blur-lg rounded-2xl border border-darkPurple-900/50 shadow-2xl p-8">
-          {/* Toggle Buttons */}
-          <div className="flex gap-2 mb-6 bg-darkPurple-950/50 rounded-xl p-1">
-            <button
-              onClick={() => {
-                setIsLogin(true)
-                setUsername('')
-                setPassword('')
-                setEmail('')
-              }}
-              className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all ${
-                isLogin
-                  ? 'bg-gradient-to-r from-darkPurple-600 to-darkPurple-800 text-white shadow-lg'
-                  : 'text-darkPurple-300 hover:text-white'
-              }`}
-            >
-              Login
-            </button>
-            <button
-              onClick={() => {
-                setIsLogin(false)
-                setUsername('')
-                setPassword('')
-                setEmail('')
-              }}
-              className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all ${
-                !isLogin
-                  ? 'bg-gradient-to-r from-darkPurple-600 to-darkPurple-800 text-white shadow-lg'
-                  : 'text-darkPurple-300 hover:text-white'
-              }`}
-            >
-              Sign Up
-            </button>
-          </div>
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {!isLogin && (
-              <div>
-                <label className="block text-sm font-medium text-white mb-2">
-                  Username
-                </label>
-                <input
-                  type="text"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  onFocus={() => handleFocus('username')}
-                  onBlur={handleBlur}
-                  className="w-full px-4 py-3 bg-darkPurple-950/50 border border-darkPurple-800/50 rounded-xl text-white placeholder-darkPurple-400 focus:outline-none focus:ring-2 focus:ring-darkPurple-600 focus:border-transparent transition-all"
-                  placeholder="Enter your username"
-                />
-              </div>
-            )}
-
-            <div>
-              <label className="block text-sm font-medium text-white mb-2">
-                {isLogin ? 'Username' : 'Email'}
-              </label>
-              <input
-                type={isLogin ? 'text' : 'email'}
-                value={isLogin ? username : email}
-                onChange={(e) => isLogin ? setUsername(e.target.value) : setEmail(e.target.value)}
-                onFocus={() => handleFocus(isLogin ? 'username' : 'email')}
-                onBlur={handleBlur}
-                className="w-full px-4 py-3 bg-darkPurple-950/50 border border-darkPurple-800/50 rounded-xl text-white placeholder-darkPurple-400 focus:outline-none focus:ring-2 focus:ring-darkPurple-600 focus:border-transparent transition-all"
-                placeholder={isLogin ? 'Enter your username' : 'Enter your email'}
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-white mb-2">
-                Password
-              </label>
-              <div className="relative">
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  onFocus={() => handleFocus('password')}
-                  onBlur={handleBlur}
-                  className="w-full px-4 py-3 pr-12 bg-darkPurple-950/50 border border-darkPurple-800/50 rounded-xl text-white placeholder-darkPurple-400 focus:outline-none focus:ring-2 focus:ring-darkPurple-600 focus:border-transparent transition-all"
-                  placeholder="Enter your password"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-darkPurple-300 hover:text-darkPurple-100 transition-colors focus:outline-none"
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
-                >
-                  {showPassword ? (
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-                    </svg>
-                  ) : (
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                    </svg>
-                  )}
-                </button>
-              </div>
-            </div>
-
-            {isLogin && (
-              <div className="flex items-center justify-between text-sm">
-                <label className="flex items-center text-white">
-                  <input type="checkbox" className="mr-2 rounded border-darkPurple-600 bg-darkPurple-950/50" />
-                  Remember me
-                </label>
-                <a href="#" className="text-white hover:text-white transition">
-                  Forgot password?
-                </a>
-              </div>
-            )}
-
-            <button
-              type="submit"
-              className="w-full py-3 px-4 bg-gradient-to-r from-darkPurple-600 to-darkPurple-800 text-white font-semibold rounded-xl shadow-lg shadow-darkPurple-900/50 hover:from-darkPurple-700 hover:to-darkPurple-900 transform hover:scale-[1.02] transition-all duration-200"
-            >
-              {isLogin ? 'Login' : 'Sign Up'}
-            </button>
-          </form>
-
-          {!isLogin && (
-            <p className="mt-6 text-center text-sm text-white">
-              Already have an account?{' '}
+            {/* Toggle Buttons */}
+            <div className="flex gap-2 mb-6 bg-darkPurple-950/50 rounded-xl p-1">
               <button
-                onClick={() => setIsLogin(true)}
-                className="text-white hover:text-white font-medium transition"
+                onClick={() => {
+                  setIsLogin(true);
+                  setUsername('');
+                  setPassword('');
+                  setEmail('');
+                }}
+                className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all ${
+                  isLogin
+                    ? 'bg-gradient-to-r from-darkPurple-600 to-darkPurple-800 text-white shadow-lg'
+                    : 'text-darkPurple-300 hover:text-white'
+                }`}
               >
                 Login
               </button>
-            </p>
-          )}
+              <button
+                onClick={() => {
+                  setIsLogin(false);
+                  setUsername('');
+                  setPassword('');
+                  setEmail('');
+                }}
+                className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all ${
+                  !isLogin
+                    ? 'bg-gradient-to-r from-darkPurple-600 to-darkPurple-800 text-white shadow-lg'
+                    : 'text-darkPurple-300 hover:text-white'
+                }`}
+              >
+                Sign Up
+              </button>
+            </div>
+
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              handleSubmit(e);
+            }} className="space-y-4">
+              {!isLogin && (
+                <div>
+                  <label className="block text-sm font-medium text-white mb-2">
+                    Username
+                  </label>
+                  <input
+                    type="text"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    onFocus={() => handleFocus('username')}
+                    onBlur={handleBlur}
+                    className="w-full px-4 py-3 bg-darkPurple-950/50 border border-darkPurple-800/50 rounded-xl text-white placeholder-darkPurple-400 focus:outline-none focus:ring-2 focus:ring-darkPurple-600 focus:border-transparent transition-all"
+                    placeholder="Enter your username"
+                  />
+                </div>
+              )}
+
+              <div>
+                <label className="block text-sm font-medium text-white mb-2">
+                  {isLogin ? 'Username' : 'Email'}
+                </label>
+                <input
+                  type={isLogin ? 'text' : 'email'}
+                  value={isLogin ? username : email}
+                  onChange={(e) =>
+                    isLogin ? setUsername(e.target.value) : setEmail(e.target.value)
+                  }
+                  onFocus={() => handleFocus(isLogin ? 'username' : 'email')}
+                  onBlur={handleBlur}
+                  className="w-full px-4 py-3 bg-darkPurple-950/50 border border-darkPurple-800/50 rounded-xl text-white placeholder-darkPurple-400 focus:outline-none focus:ring-2 focus:ring-darkPurple-600 focus:border-transparent transition-all"
+                  placeholder={isLogin ? 'Enter your username' : 'Enter your email'}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-white mb-2">
+                  Password
+                </label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    onFocus={() => handleFocus('password')}
+                    onBlur={handleBlur}
+                    className="w-full px-4 py-3 pr-12 bg-darkPurple-950/50 border border-darkPurple-800/50 rounded-xl text-white placeholder-darkPurple-400 focus:outline-none focus:ring-2 focus:ring-darkPurple-600 focus:border-transparent transition-all"
+                    placeholder="Enter your password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-darkPurple-300 hover:text-darkPurple-100 transition-colors focus:outline-none"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? (
+                      <svg
+                        className="w-5 h-5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"
+                        />
+                      </svg>
+                    ) : (
+                      <svg
+                        className="w-5 h-5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                        />
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                        />
+                      </svg>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {isLogin && (
+                <div className="flex items-center justify-between text-sm">
+                  <label className="flex items-center text-white">
+                    <input
+                      type="checkbox"
+                      className="mr-2 rounded border-darkPurple-600 bg-darkPurple-950/50"
+                    />
+                    Remember me
+                  </label>
+                  <a
+                    href="#"
+                    className="text-white hover:text-white transition"
+                  >
+                    Forgot password?
+                  </a>
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={isLoading}
+                className={`w-full py-3 px-4 bg-gradient-to-r from-darkPurple-600 to-darkPurple-800 text-white font-semibold rounded-xl shadow-lg shadow-darkPurple-900/50 hover:from-darkPurple-700 hover:to-darkPurple-900 transform hover:scale-[1.02] transition-all duration-200 ${isLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
+              >
+                {isLoading ? (
+                  <span className="flex items-center justify-center">
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    {isLogin ? 'Logging in...' : 'Signing up...'}
+                  </span>
+                ) : isLogin ? 'Login' : 'Sign Up'}
+              </button>
+              
+              {error && (
+                <div className="mt-4 p-3 bg-red-600/20 border border-red-600/50 text-red-200 rounded-lg text-sm">
+                  {error}
+                </div>
+              )}
+            </form>
+
+            {!isLogin && (
+              <p className="mt-6 text-center text-sm text-white">
+                Already have an account?{' '}
+                <button
+                  onClick={() => setIsLogin(true)}
+                  className="text-white hover:text-white font-medium transition"
+                >
+                  Login
+                </button>
+              </p>
+            )}
           </div>
         </div>
       </div>
