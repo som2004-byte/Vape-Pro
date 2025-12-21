@@ -9,6 +9,8 @@ require('dotenv').config();
 const User = require('./models/User');
 const EmailOtp = require('./models/EmailOtp');
 const Cart = require('./models/Cart');
+const Order = require('./models/Order');
+const Admin = require('./models/Admin');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -20,6 +22,8 @@ const SMTP_SECURE = String(process.env.SMTP_SECURE || '').toLowerCase() === 'tru
 const SMTP_USER = process.env.SMTP_USER;
 const SMTP_PASS = process.env.SMTP_PASS;
 const SMTP_FROM = process.env.SMTP_FROM;
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
 
 // Middleware
 app.use(express.json());
@@ -170,6 +174,21 @@ const authenticateToken = (req, res, next) => {
   });
 };
 
+// Admin-only middleware
+const authenticateAdmin = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+  if (!token) return res.status(401).json({ message: 'Access token required' });
+  jwt.verify(token, JWT_SECRET, (err, payload) => {
+    if (err) return res.status(403).json({ message: 'Invalid or expired token' });
+    if (payload.role !== 'admin' || !payload.adminId) {
+      return res.status(403).json({ message: 'Admin access required' });
+    }
+    req.admin = { id: payload.adminId, email: payload.email };
+    next();
+  });
+};
+
 // Protected route example
 app.get('/api/profile', authenticateToken, async (req, res) => {
   try {
@@ -185,6 +204,66 @@ app.get('/api/profile', authenticateToken, async (req, res) => {
 
 app.get('/', (req, res) => {
   res.send('Backend is running!');
+});
+
+// -----------------------------
+// Admin auth
+// -----------------------------
+
+// Optional seed admin on startup
+const seedAdminIfNeeded = async () => {
+  if (!ADMIN_EMAIL || !ADMIN_PASSWORD) return; // skip when not configured
+  const existing = await Admin.findOne({ email: ADMIN_EMAIL });
+  if (existing) return;
+  const hashed = await bcrypt.hash(ADMIN_PASSWORD, 10);
+  await new Admin({ email: ADMIN_EMAIL, name: 'Administrator', password: hashed }).save();
+  console.log('✅ Seeded default admin from env');
+};
+seedAdminIfNeeded().catch((e) => console.warn('Admin seed skipped:', e.message));
+
+// Admin signup
+app.post('/api/admin/signup', async (req, res) => {
+  try {
+    const { name, email, password } = req.body || {};
+    if (!name || !email || !password) {
+      return res.status(400).json({ message: 'Name, email and password are required' });
+    }
+    const exists = await Admin.findOne({ email });
+    if (exists) return res.status(400).json({ message: 'Admin already exists' });
+    const hashed = await bcrypt.hash(password, 10);
+    const admin = await new Admin({ name, email, password: hashed }).save();
+    const token = jwt.sign({ adminId: admin._id, email: admin.email, role: 'admin' }, JWT_SECRET, { expiresIn: '24h' });
+    res.status(201).json({ message: 'Admin created', token, admin: { id: admin._id, name: admin.name, email: admin.email } });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Admin login
+app.post('/api/admin/login', async (req, res) => {
+  try {
+    const { email, password } = req.body || {};
+    if (!email || !password) return res.status(400).json({ message: 'Email and password are required' });
+    const admin = await Admin.findOne({ email });
+    if (!admin) return res.status(401).json({ message: 'Invalid credentials' });
+    const ok = await bcrypt.compare(password, admin.password);
+    if (!ok) return res.status(401).json({ message: 'Invalid credentials' });
+    const token = jwt.sign({ adminId: admin._id, email: admin.email, role: 'admin' }, JWT_SECRET, { expiresIn: '24h' });
+    res.json({ message: 'Login successful', token, admin: { id: admin._id, name: admin.name, email: admin.email } });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Admin profile
+app.get('/api/admin/me', authenticateAdmin, async (req, res) => {
+  try {
+    const admin = await Admin.findById(req.admin.id).select('-password');
+    if (!admin) return res.status(404).json({ message: 'Admin not found' });
+    res.json({ id: admin._id, name: admin.name, email: admin.email });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
 });
 
 // -----------------------------
@@ -314,6 +393,58 @@ app.get('/api/account', authenticateToken, async (req, res) => {
   }
 });
 
+// -----------------------------
+// Orders (user)
+// -----------------------------
+
+// Create order from cart and clear cart
+app.post('/api/orders/checkout', authenticateToken, async (req, res) => {
+  try {
+    const { shippingAddress } = req.body || {};
+    const cart = await getOrCreateCart(req.user.id);
+    if (!cart.items.length) return res.status(400).json({ message: 'Cart is empty' });
+
+    const total = cart.items.reduce((s, it) => s + (it.price || 0) * (it.quantity || 1), 0);
+
+    let addressToUse = shippingAddress;
+    if (!addressToUse) {
+      const u = await User.findById(req.user.id);
+      addressToUse = u?.address || '';
+    }
+
+    const order = await new Order({
+      userId: req.user.id,
+      items: cart.items.map(i => ({ ...i.toObject?.() || i })),
+      total,
+      status: 'processing',
+      paymentStatus: 'cod',
+      paymentMethod: 'cod',
+      shippingAddress: addressToUse,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    }).save();
+
+    // Clear cart after order
+    cart.items = [];
+    cart.updatedAt = new Date();
+    await cart.save();
+
+    res.status(201).json({ message: 'Order placed', orderId: order._id, total, status: order.status, payment: { method: 'cod', status: 'cod' } });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// List current user's orders
+app.get('/api/orders', authenticateToken, async (req, res) => {
+  try {
+    const orders = await Order.find({ userId: req.user.id }).sort({ createdAt: -1 });
+    res.json({ orders });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
 app.put('/api/account', authenticateToken, async (req, res) => {
   try {
     const { name, phoneNumber, address } = req.body || {};
@@ -431,6 +562,40 @@ app.post('/api/verify-email-otp', async (req, res) => {
     res.json({ message: 'OTP verified', verified: true });
   } catch (error) {
     console.error('OTP verify error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// -----------------------------
+// Orders (admin)
+// -----------------------------
+app.get('/api/admin/orders', authenticateAdmin, async (req, res) => {
+  try {
+    const orders = await Order.find().sort({ createdAt: -1 }).lean();
+    // Attach user summary (name, email, address)
+    const userIds = [...new Set(orders.map(o => String(o.userId)).filter(Boolean))];
+    const users = await User.find({ _id: { $in: userIds } }, { name: 1, email: 1, address: 1, phoneNumber: 1 }).lean();
+    const userMap = new Map(users.map(u => [String(u._id), u]));
+    const enriched = orders.map(o => ({
+      ...o,
+      user: userMap.get(String(o.userId)) || null
+    }));
+    res.json({ orders: enriched });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+app.patch('/api/admin/orders/:id', authenticateAdmin, async (req, res) => {
+  try {
+    const { status, paymentStatus } = req.body || {};
+    const updates = { updatedAt: new Date() };
+    if (status) updates.status = status;
+    if (paymentStatus) updates.paymentStatus = paymentStatus;
+    const order = await Order.findByIdAndUpdate(req.params.id, { $set: updates }, { new: true });
+    if (!order) return res.status(404).json({ message: 'Order not found' });
+    res.json({ message: 'Order updated', order });
+  } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
