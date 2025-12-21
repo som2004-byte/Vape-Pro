@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 
 const adminSchema = new mongoose.Schema({
   name: { type: String, required: true, trim: true },
@@ -10,6 +11,8 @@ const adminSchema = new mongoose.Schema({
 
 module.exports = mongoose.model('Admin', adminSchema);
 =======
+=======
+>>>>>>> Stashed changes
 const bcrypt = require('bcryptjs');
 
 const AdminSchema = new mongoose.Schema({
@@ -50,4 +53,7 @@ AdminSchema.methods.matchPassword = async function(enteredPassword) {
 
 module.exports = mongoose.model('Admin', AdminSchema);
 
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes

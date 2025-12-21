@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 const orderItemSchema = new mongoose.Schema(
   {
     productId: { type: String, required: true },
@@ -28,6 +29,8 @@ const orderSchema = new mongoose.Schema({
 
 module.exports = mongoose.model('Order', orderSchema);
 =======
+=======
+>>>>>>> Stashed changes
 const OrderItemSchema = new mongoose.Schema({
   productId: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', required: true },
   name: { type: String, required: true },
@@ -85,4 +88,7 @@ const OrderSchema = new mongoose.Schema({
 
 module.exports = mongoose.model('Order', OrderSchema);
 
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes

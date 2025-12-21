@@ -1,4 +1,5 @@
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
@@ -600,6 +601,8 @@ app.patch('/api/admin/orders/:id', authenticateAdmin, async (req, res) => {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 =======
+=======
+>>>>>>> Stashed changes
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
@@ -1185,5 +1188,8 @@ app.post('/api/verify-email-otp', async (req, res) => {
     console.error('OTP verify error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 });
