@@ -596,35 +596,41 @@ export default function Navbar({
                 src="/images/vapesmart-logo.png"
                 alt="VapeSmart"
               />
-              <span className="ml-2 text-xl font-bold bg-gradient-to-r from-purple-400 to-pink-600 bg-clip-text text-transparent">
-                VapeSmart {isAdminLoggedIn ? 'Admin' : ''}
-              </span>
+              <div className="flex flex-col">
+                <span className="text-xl font-bold bg-gradient-to-r from-purple-400 to-pink-600 bg-clip-text text-transparent leading-none">
+                  VapeSmart {isAdminLoggedIn ? 'Admin' : ''}
+                </span>
+                <span className="hidden md:block text-xs font-medium text-darkPurple-300 mt-0.5">
+                  Smart vaping starts here
+                </span>
+              </div>
             </button>
-            <div className="hidden md:block ml-2 font-semibold text-sm text-darkPurple-300">
-              Smart vaping starts here
-            </div>
           </div>
 
           {/* Search Bar - Hidden on mobile */}
-          <div className="hidden md:flex flex-1 max-w-xl mx-2 sm:mx-6">
+          <div className="hidden md:flex items-center flex-1 max-w-2xl px-4">
             <div className="relative w-full">
-              <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
               <input
                 type="text"
                 placeholder="Search products..."
-                className="block w-full pl-10 pr-3 py-2 border border-transparent rounded-md leading-5 bg-gray-700 text-gray-300 placeholder-gray-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500 sm:text-sm"
+                className="block w-full pl-9 pr-8 py-2 bg-gray-800/80 text-white placeholder-gray-400 rounded-md focus:outline-none focus:ring-1 focus:ring-purple-500 focus:bg-white focus:text-gray-900 text-sm h-9 transition-colors duration-200"
                 value={searchQuery}
                 onChange={(e) => onSearchChange?.(e.target.value)}
+                aria-label="Search products"
               />
               {searchQuery && (
                 <button
                   onClick={() => onSearchChange?.('')}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-white transition-colors"
+                  aria-label="Clear search"
                 >
-                  <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
               )}
