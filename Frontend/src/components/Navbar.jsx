@@ -1,64 +1,89 @@
-import React, { useState, useRef, useEffect } from 'react'
-import { MAIN_CATEGORIES, BRANDS, PRICE_RANGES, PUFF_RANGES, getSubCategoriesByBrand } from '../data'
+import React, { useState, useRef, useEffect } from 'react';
+import { MAIN_CATEGORIES, BRANDS, PRICE_RANGES, PUFF_RANGES, getSubCategoriesByBrand } from '../data';
 
-export default function Navbar({ user, onLogout, currentCategory = 'all', onCategoryChange, onFilterChange, activeFilters = {}, onNavigate, cartItemCount, searchQuery = '', onSearchChange }){
-  const [activeDropdown, setActiveDropdown] = useState(null)
-  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 })
-  const buttonRefs = useRef({})
+export default function Navbar({ 
+  user, 
+  onLogout, 
+  currentCategory = 'all', 
+  onCategoryChange, 
+  onFilterChange, 
+  activeFilters = {}, 
+  onNavigate, 
+  cartItemCount, 
+  searchQuery = '', 
+  onSearchChange, 
+  isAdminLoggedIn, 
+  adminUser, 
+  onAdminLogout, 
+  setTempAdminBypass 
+}) {
+  const [activeDropdown, setActiveDropdown] = useState(null);
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 });
+  const buttonRefs = useRef({});
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Update dropdown position when it opens
   useEffect(() => {
     if (activeDropdown && buttonRefs.current[activeDropdown]) {
-      const rect = buttonRefs.current[activeDropdown].getBoundingClientRect()
-      setDropdownPosition({ top: rect.bottom + 8, left: rect.left })
+      const rect = buttonRefs.current[activeDropdown].getBoundingClientRect();
+      setDropdownPosition({ top: rect.bottom + 8, left: rect.left });
     }
-  }, [activeDropdown])
+  }, [activeDropdown]);
 
   const scrollToProducts = () => {
-    if (typeof window === 'undefined') return
+    if (typeof window === 'undefined') return;
     setTimeout(() => {
-      const el = document.getElementById('products')
+      const el = document.getElementById('products');
       if (el) {
-        el.scrollIntoView({ behavior: 'smooth' })
+        el.scrollIntoView({ behavior: 'smooth' });
       }
-    }, 200)
-  }
+    }, 200);
+  };
 
   const handleBrandFilter = (brand) => {
-    onFilterChange?.({ type: 'brand', value: brand })
-    // Clear sub-category when brand changes
-    onFilterChange?.({ type: 'subCategory', value: null })
-    // Ensure we show all categories when filtering by brand so results aren't hidden
-    onCategoryChange?.('all')
-    onNavigate?.('home')
-    scrollToProducts()
-    setActiveDropdown(null) // Close dropdown after filter is applied
-  }
+    onFilterChange?.({ type: 'brand', value: brand });
+    onFilterChange?.({ type: 'subCategory', value: null });
+    onCategoryChange?.('all');
+    onNavigate?.('home');
+    scrollToProducts();
+    setActiveDropdown(null);
+    setMobileMenuOpen(false);
+  };
 
   const handleSubCategoryFilter = (series) => {
-    onFilterChange?.({ type: 'subCategory', value: series })
-    // Keep on 'all' to make sure filtered products are visible
-    onCategoryChange?.('all')
-    onNavigate?.('home')
-    scrollToProducts()
-    setActiveDropdown(null) // Close dropdown after filter is applied
-  }
+    onFilterChange?.({ type: 'subCategory', value: series });
+    onCategoryChange?.('all');
+    onNavigate?.('home');
+    scrollToProducts();
+    setActiveDropdown(null);
+    setMobileMenuOpen(false);
+  };
 
   const handlePriceFilter = (range) => {
-    onFilterChange?.({ type: 'price', value: range })
-    onCategoryChange?.('all')
-    onNavigate?.('home')
-    scrollToProducts()
-    setActiveDropdown(null) // Close dropdown after filter is applied
-  }
+    onFilterChange?.({ type: 'price', value: range });
+    onCategoryChange?.('all');
+    onNavigate?.('home');
+    scrollToProducts();
+    setActiveDropdown(null);
+    setMobileMenuOpen(false);
+  };
 
   const handlePuffFilter = (range) => {
-    onFilterChange?.({ type: 'puffs', value: range })
-    onCategoryChange?.('all')
-    onNavigate?.('home')
-    scrollToProducts()
-    setActiveDropdown(null) // Close dropdown after filter is applied
-  }
+    onFilterChange?.({ type: 'puffs', value: range });
+    onCategoryChange?.('all');
+    onNavigate?.('home');
+    scrollToProducts();
+    setActiveDropdown(null);
+    setMobileMenuOpen(false);
+  };
+
+  const handleClearFilters = () => {
+    onFilterChange?.({ type: 'clear' });
+    onCategoryChange?.('all');
+    onNavigate?.('home');
+    setActiveDropdown(null);
+    setMobileMenuOpen(false);
+  };
 
   const navigationItems = [
     { key: 'podkits', label: 'PODKITS', isCategory: true },
@@ -73,124 +98,154 @@ export default function Navbar({ user, onLogout, currentCategory = 'all', onCate
       { id: 'profile', label: 'Profile' },
       { id: 'orders', label: 'Orders' },
       { id: 'addresses', label: 'Addresses' }
-    ] }
-  ]
+    ] },
+    // Admin section
+    isAdminLoggedIn
+      ? { key: 'admin-dashboard', label: `ADMIN (${adminUser?.username?.toUpperCase() || 'DASHBOARD'})`, isCategory: false, type: 'adminDashboard' }
+      : { key: 'admin-login', label: 'ADMIN LOGIN', isCategory: false, type: 'adminLogin' }
+  ];
+
+  const renderAdminControls = () => {
+    if (isAdminLoggedIn) {
+      return (
+        <div className="flex items-center space-x-4">
+          <span className="text-sm font-medium text-purple-300">
+            Welcome, {adminUser?.username || 'Admin'}
+          </span>
+          <button
+            onClick={onAdminLogout}
+            className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-red-600 to-pink-600 rounded-md hover:from-red-700 hover:to-pink-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+          >
+            Logout
+          </button>
+        </div>
+      );
+    }
+    
+    return (
+      <button
+        onClick={() => onNavigate?.('adminLogin')}
+        className="ml-4 px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-purple-600 to-pink-600 rounded-md hover:from-purple-700 hover:to-pink-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+      >
+        Admin Login
+      </button>
+    );
+  };
 
   return (
-    <header className="sticky top-0 bg-gradient-to-b from-black via-darkPurple-950 to-black border-b border-darkPurple-900/30" style={{ zIndex: 3000 }}>
-      {/* Top bar with logo and icons */}
-      <div className="container mx-auto px-6 py-4 flex items-center justify-between">
-        <button
-          onClick={() => {
-            onCategoryChange?.('all')
-            onFilterChange?.({ type: 'clear' })
-            onNavigate?.('home')
-            scrollToProducts()
-          }}
-          className="flex items-center gap-3 hover:opacity-80 transition-opacity"
-        >
-          <img src="/images/vapesmart-logo.png" alt="logo" className="h-20 w-auto object-contain" />
-          <div>
-            <div className="font-bold text-xl bg-gradient-to-r from-white via-yellow-300 to-white bg-clip-text text-transparent">VapeSmart</div>
+    <nav className="fixed top-0 left-0 right-0 z-50 bg-black/80 backdrop-blur-sm border-b border-gray-800">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between h-16">
+          <div className="flex items-center">
+            <button 
+              onClick={() => onNavigate?.(isAdminLoggedIn ? 'adminDashboard' : 'home')} 
+              className="flex-shrink-0 flex items-center"
+            >
+              <img
+                className="h-8 w-auto"
+                src="/images/vapesmart-logo.png"
+                alt="VapeSmart"
+              />
+              <span className="ml-2 text-xl font-bold bg-gradient-to-r from-purple-400 to-pink-600 bg-clip-text text-transparent">
+                VapeSmart {isAdminLoggedIn ? 'Admin' : ''}
+              </span>
+            </button>
             <div className="font-semibold text-sm text-darkPurple-300">Smart vaping starts here</div>
           </div>
-        </button>
-
-        <div className="flex-1 max-w-xl mx-6">
-          <div className="relative">
-            <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-darkPurple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-            <input 
-              type="text"
-              aria-label="Search"
-              value={searchQuery}
-              onChange={(e) => {
-                onSearchChange?.(e.target.value)
-                // Navigate to home and scroll to products when searching
-                if (e.target.value.trim()) {
-                  onNavigate?.('home')
-                  setTimeout(() => {
-                    const productsSection = document.getElementById('products')
-                    if (productsSection) {
-                      productsSection.scrollIntoView({ behavior: 'smooth' })
-                    }
-                  }, 100)
-                }
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && searchQuery.trim()) {
-                  e.preventDefault()
-                  onNavigate?.('home')
-                  setTimeout(() => {
-                    const productsSection = document.getElementById('products')
-                    if (productsSection) {
-                      productsSection.scrollIntoView({ behavior: 'smooth' })
-                    }
-                  }, 100)
-                }
-              }}
-              className="w-full rounded-full py-2 pl-10 pr-4 bg-darkPurple-950/50 border border-darkPurple-800/50 text-white placeholder-darkPurple-400 focus:outline-none focus:ring-2 focus:ring-yellowGradient-start/50 focus:border-yellowGradient-start/50"
-              placeholder="Search flavour, puffs, brand..." 
-            />
-            {searchQuery && (
-              <button
-                onClick={() => {
-                  onSearchChange?.('')
-                  onNavigate?.('home')
-                }}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-darkPurple-400 hover:text-white transition-colors"
-                aria-label="Clear search"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            )}
+  
+          <div className="flex-1 max-w-xl mx-2 sm:mx-6">
+            <div className="relative">
+              <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              <input
+                type="text"
+                placeholder="Search products..."
+                className="block w-full pl-10 pr-3 py-2 border border-transparent rounded-md leading-5 bg-gray-700 text-gray-300 placeholder-gray-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500 sm:text-sm"
+                value={searchQuery}
+                onChange={(e) => onSearchChange?.(e.target.value)}
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => onSearchChange?.('')}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                >
+                  <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              )}
+            </div>
           </div>
-        </div>
 
-        <div className="flex items-center gap-4">
-          {user && (
-            <span className="text-darkPurple-300 text-sm px-3 py-2">
-              {user.username || user.email}
-            </span>
-          )}
-          <button 
-            onClick={() => onNavigate('account')}
-            className="p-2 text-darkPurple-400 hover:text-yellowGradient-start transition-colors"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-            </svg>
-          </button>
-          <button 
-            onClick={() => onNavigate('cart')}
-            className="p-2 text-darkPurple-400 hover:text-yellowGradient-start transition-colors relative"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-            </svg>
-            <span className="absolute top-0 right-0 bg-yellow-400 text-black text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">{cartItemCount}</span>
-          </button>
-          {user && (
+          <div className="flex items-center gap-4">
+            {user || isAdminLoggedIn ? (
+              <>
+                <span className="text-darkPurple-300 text-sm px-3 py-2">
+                  {(user && (user.username || user.email)) || (isAdminLoggedIn && adminUser && adminUser.username)}
+                </span>
+                <button 
+                  onClick={isAdminLoggedIn ? onAdminLogout : onLogout}
+                  className="px-4 py-2 rounded bg-darkPurple-900/50 text-white hover:bg-darkPurple-800/50 transition-colors border border-darkPurple-700/50"
+                >
+                  Logout
+                </button>
+              </>
+            ) : null}
             <button 
-              onClick={onLogout}
-              className="px-4 py-2 rounded bg-darkPurple-900/50 text-white hover:bg-darkPurple-800/50 transition-colors border border-darkPurple-700/50"
+              onClick={() => onNavigate('account')}
+              className="p-2 text-darkPurple-400 hover:text-yellowGradient-start transition-colors"
             >
-              Logout
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
             </button>
-          )}
+            <button 
+              onClick={() => onNavigate('cart')}
+              className="p-2 text-darkPurple-400 hover:text-yellowGradient-start transition-colors relative"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+              </svg>
+              <span className="absolute top-0 right-0 bg-yellow-400 text-black text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
+                {cartItemCount}
+              </span>
+            </button>
+          <button 
+            onClick={() => setTempAdminBypass(prev => !prev)}
+            className="px-4 py-2 rounded bg-red-600/50 text-white hover:bg-red-500/50 transition-colors border border-red-700/50"
+            title="TOGGLE ADMIN BYPASS (DEV ONLY)"
+          >
+            DEV ADMIN
+          </button>
         </div>
       </div>
+    </div>
 
-      {/* Category navigation bar */}
-      <div className="border-t border-darkPurple-900/30 bg-gradient-to-r from-black via-darkPurple-950/50 to-black relative">
-        <div className="container mx-auto px-6 relative" style={{ overflow: 'visible' }}>
-          <nav className="flex items-center gap-6 py-0 overflow-x-auto no-scrollbar" style={{ overflowY: 'visible' }}>
-            {navigationItems.map((item) => {
-              const isActive = currentCategory === item.key
+  
+  {/* Category navigation bar */}
+  <div className="border-t border-darkPurple-900/30 bg-gradient-to-r from-black via-darkPurple-950/50 to-black relative">
+    <div className="container mx-auto px-6 relative" style={{ overflow: 'visible' }}>
+      <div className="flex items-center gap-6 py-0 overflow-x-auto no-scrollbar" style={{ overflowY: 'visible' }}>
+        {navigationItems.map((item) => {
+          const isActive = currentCategory === item.key
               
+              // Render direct navigation for admin links
+              if (item.type === 'adminLogin' || item.type === 'adminDashboard') {
+                return (
+                  <button
+                    key={item.key}
+                    onClick={() => {
+                      onNavigate?.(item.type)
+                      setActiveDropdown(null)
+                    }}
+                    className={`py-3 px-2 text-sm font-medium whitespace-nowrap transition-colors border-b-2 flex items-center gap-2 text-yellowGradient-start border-yellowGradient-start`}
+                  >
+                    {item.label}
+                  </button>
+                )
+              }
+
               // Render dropdown filters
               if (!item.isCategory) {
                 const isDropdownOpen = activeDropdown === item.type
@@ -300,7 +355,7 @@ export default function Navbar({ user, onLogout, currentCategory = 'all', onCate
                 </button>
               )
             })}
-          </nav>
+          </div>
           
           {/* Sub-category filter dropdown - appears when a brand is selected */}
           {activeFilters.brand && (
@@ -323,6 +378,7 @@ export default function Navbar({ user, onLogout, currentCategory = 'all', onCate
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                     </svg>
                   </button>
+                </div>
                     {activeDropdown === 'subCategory' && (
                       <div 
                         className="absolute top-full left-0 mt-2 bg-gradient-to-b from-darkPurple-950 via-darkPurple-950 to-black border-2 border-darkPurple-700/90 rounded-lg shadow-2xl min-w-[220px] max-h-[unset] overflow-y-auto backdrop-blur-sm"
@@ -375,7 +431,6 @@ export default function Navbar({ user, onLogout, currentCategory = 'all', onCate
                   </button>
                 )}
               </div>
-            </div>
           )}
         </div>
       </div>
@@ -388,6 +443,6 @@ export default function Navbar({ user, onLogout, currentCategory = 'all', onCate
           onClick={() => setActiveDropdown(null)}
         />
       )}
-    </header>
-  )
+    </nav>
+  );
 }

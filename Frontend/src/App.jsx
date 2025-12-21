@@ -9,6 +9,9 @@ import { PRODUCTS, MAIN_CATEGORIES } from './data'
 import AccountSection from './components/AccountSection'
 import CartPage from './components/CartPage' // Import CartPage
 import PaymentPage from './components/PaymentPage' // Import PaymentPage
+import AdminLogin from './components/AdminLogin' // Import AdminLogin
+import AdminDashboard from './components/AdminDashboard' // Import AdminDashboard
+import AdminPortal from './components/AdminPortal' // Import AdminPortal
 import VapeSmokeEffect from './components/VapeSmokeEffect'
 
 export default function App(){
@@ -24,6 +27,8 @@ export default function App(){
       return {
         user: savedUser ? JSON.parse(savedUser) : null,
         isLoggedIn: savedLoginState === 'true',
+        isAdminLoggedIn: savedLoginState === 'true' && localStorage.getItem('vapesmart_isAdmin') === 'true',
+        adminUser: savedLoginState === 'true' && localStorage.getItem('vapesmart_adminUser') ? JSON.parse(localStorage.getItem('vapesmart_adminUser')) : null,
         cartItems: savedCart ? JSON.parse(savedCart) : [],
         orders: savedOrders ? JSON.parse(savedOrders) : [],
         profile: savedProfile ? JSON.parse(savedProfile) : null,
@@ -33,6 +38,8 @@ export default function App(){
       return {
         user: null,
         isLoggedIn: false,
+        isAdminLoggedIn: false,
+        adminUser: null,
         cartItems: [],
         orders: [],
         profile: null,
@@ -45,6 +52,8 @@ export default function App(){
   const [selected, setSelected] = useState(null)
   const [isLoggedIn, setIsLoggedIn] = useState(persistedState.isLoggedIn)
   const [user, setUser] = useState(persistedState.user)
+  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(persistedState.isAdminLoggedIn)
+  const [adminUser, setAdminUser] = useState(persistedState.adminUser)
   const [currentCategory, setCurrentCategory] = useState('all')
   const [activeFilters, setActiveFilters] = useState({})
   const [searchQuery, setSearchQuery] = useState('') // Search query state
@@ -55,6 +64,7 @@ export default function App(){
   const [customerProfile, setCustomerProfile] = useState(persistedState.profile) // Saved customer details for My Account
   const [orders, setOrders] = useState(persistedState.orders) // Simple in-memory order history
   const [pendingOrder, setPendingOrder] = useState(null) // Order pending payment
+  const [tempAdminBypass, setTempAdminBypass] = useState(false) // TEMPORARY: Admin bypass
 
   const handleNavigate = (page, subPage = 'profile') => {
     setCurrentPage(page)
@@ -96,12 +106,38 @@ export default function App(){
     localStorage.setItem('vapesmart_isLoggedIn', 'true')
   }
   
+  const handleAdminLogin = (token, adminData) => {
+    setIsAdminLoggedIn(true);
+    setAdminUser(adminData);
+    setCurrentPage('adminDashboard');
+    
+    // Persist admin login state
+    localStorage.setItem('vapesmart_adminToken', token);
+    localStorage.setItem('vapesmart_adminUser', JSON.stringify(adminData));
+    localStorage.setItem('vapesmart_isAdmin', 'true');
+    
+    setToast({ type: 'success', message: 'Admin login successful' });
+  };
+
+  const handleAdminLogout = () => {
+    setIsAdminLoggedIn(false)
+    setAdminUser(null)
+    localStorage.removeItem('vapesmart_adminUser')
+    localStorage.removeItem('vapesmart_isAdmin')
+    localStorage.removeItem('vapesmart_adminToken')
+    setToast({ type: 'info', message: 'Admin logged out' })
+  }
+  
   const handleLogout = () => {
     setIsLoggedIn(false)
     setUser(null)
+    setIsAdminLoggedIn(false)
+    setAdminUser(null)
     // Clear persisted data on logout
     localStorage.removeItem('vapesmart_user')
     localStorage.removeItem('vapesmart_isLoggedIn')
+    localStorage.removeItem('vapesmart_isAdmin')
+    localStorage.removeItem('vapesmart_adminUser')
     localStorage.removeItem('vapesmart_cart')
     localStorage.removeItem('vapesmart_orders')
     localStorage.removeItem('vapesmart_profile')
@@ -163,7 +199,7 @@ export default function App(){
     })
 
     if (redirectToCart) {
-      setCurrentPage('cart')
+    setCurrentPage('cart')
     }
   }
 
@@ -172,8 +208,8 @@ export default function App(){
       const newCart = quantity <= 0
         ? prevItems.filter(item => item.id !== productId)
         : prevItems.map(item => 
-            item.id === productId ? { ...item, quantity } : item
-          )
+        item.id === productId ? { ...item, quantity } : item
+      )
       // Persist cart to localStorage
       localStorage.setItem('vapesmart_cart', JSON.stringify(newCart))
       return newCart
@@ -429,10 +465,141 @@ export default function App(){
     return filteredProducts;
   }, [filteredProducts]);
   
-  if (!isLoggedIn) {
+  if (tempAdminBypass) {
+    return (
+      <div className="relative min-h-screen bg-gradient-to-b from-black via-darkPurple-950/20 to-black text-gray-100 overflow-hidden">
+        {/* Site-wide subtle vape smoke background */}
+        <div className="fixed inset-0 -z-10 pointer-events-none opacity-80">
+          <VapeSmokeEffect density={40} speed={0.4} opacity={0.35} />
+        </div>
+        <Navbar
+          user={adminUser} // Use adminUser for Navbar even in bypass
+          onLogout={handleAdminLogout}
+          isAdmin={true}
+          onNavigate={handleNavigate}
+          isAdminLoggedIn={isAdminLoggedIn}
+          adminUser={adminUser}
+          onAdminLogout={handleAdminLogout}
+          setTempAdminBypass={setTempAdminBypass} // Pass the setter
+        />
+        <AdminDashboard adminUser={adminUser} adminToken={localStorage.getItem('vapesmart_adminToken')} />
+      </div>
+    )
+  } else if (!isLoggedIn && currentPage !== 'adminLogin') {
     return <LoginSignup onLogin={handleLogin} />
+  } else if (currentPage === 'adminLogin' && !isAdminLoggedIn) {
+    return <AdminLogin onAdminLogin={handleAdminLogin} />
+  } else if ((currentPage === 'adminLogin' || currentPage === 'adminDashboard') && isAdminLoggedIn) {
+    return (
+      <div className="relative min-h-screen bg-gradient-to-b from-black via-darkPurple-950/20 to-black text-gray-100 overflow-hidden">
+        {/* Site-wide subtle vape smoke background */}
+        <div className="fixed inset-0 -z-10 pointer-events-none opacity-80">
+          <VapeSmokeEffect density={40} speed={0.4} opacity={0.35} />
+        </div>
+        <Navbar
+          user={adminUser}
+          onLogout={handleAdminLogout}
+          isAdmin={true}
+          onNavigate={handleNavigate}
+          isAdminLoggedIn={isAdminLoggedIn}
+          adminUser={adminUser}
+          onAdminLogout={handleAdminLogout}
+          setTempAdminBypass={setTempAdminBypass} // Pass the setter
+        />
+        <AdminDashboard adminUser={adminUser} adminToken={localStorage.getItem('vapesmart_adminToken')} />
+      </div>
+    )
   }
   
+  // Using the handleAdminLogin and handleAdminLogout functions defined earlier
+
+  // Render the appropriate interface based on login state
+  const renderContent = () => {
+    // Admin interface
+    if (isAdminLoggedIn) {
+      return (
+        <AdminDashboard 
+          adminUser={adminUser} 
+          onLogout={handleAdminLogout} 
+        />
+      );
+    }
+    
+    // User interface
+    return (
+      <>
+        <Navbar
+          user={user}
+          onLogout={handleLogout}
+          currentCategory={currentCategory}
+          onCategoryChange={setCurrentCategory}
+          onFilterChange={handleFilterChange}
+          activeFilters={activeFilters}
+          cartItemCount={cartItems.reduce((total, item) => total + (item.quantity || 1), 0)}
+          onNavigate={setCurrentPage}
+          currentPage={currentPage}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          isAdminLoggedIn={isAdminLoggedIn}
+          adminUser={adminUser}
+          onAdminLogout={handleAdminLogout}
+        />
+
+        <main className="min-h-screen">
+          {currentPage === 'home' && (
+            <>
+              <LandingHero />
+              <section id="products" className="py-16 px-4 sm:px-6 lg:px-8">
+                <ProductGrid 
+                  products={displayProducts} 
+                  onProductClick={setSelected} 
+                  onAddToCart={handleAddToCart}
+                  onFilterChange={handleFilterChange}
+                  activeFilters={activeFilters}
+                  hasActiveFilters={Object.keys(activeFilters).length > 0}
+                  onClearFilters={() => setActiveFilters({})}
+                />
+              </section>
+            </>
+          )}
+
+          {currentPage === 'account' && (
+            <AccountSection 
+              user={user} 
+              orders={orders}
+              profile={customerProfile}
+              onUpdateProfile={setCustomerProfile}
+              activeTab={accountTab}
+              onTabChange={setAccountTab}
+            />
+          )}
+
+          {currentPage === 'cart' && (
+            <CartPage 
+              cartItems={cartItems}
+              onUpdateQuantity={handleUpdateCartQuantity}
+              onRemoveItem={handleRemoveFromCart}
+              onCheckout={handleCheckout}
+              onContinueShopping={() => setCurrentPage('home')}
+            />
+          )}
+
+          {currentPage === 'payment' && pendingOrder && (
+            <PaymentPage 
+              order={pendingOrder}
+              onPaymentSuccess={handlePaymentSuccess}
+              onPaymentCancel={handlePaymentCancel}
+            />
+          )}
+
+          {currentPage === 'adminLogin' && !isAdminLoggedIn && (
+            <AdminLogin onAdminLogin={handleAdminLogin} />
+          )}
+        </main>
+      </>
+    );
+  };
+
   return (
     <div className="relative min-h-screen bg-gradient-to-b from-black via-darkPurple-950/20 to-black text-gray-100 overflow-hidden">
       {/* Site-wide subtle vape smoke background */}
@@ -450,6 +617,10 @@ export default function App(){
         cartItemCount={cartItems.reduce((sum, item) => sum + (item.quantity || 1), 0)}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
+        onAdminLogout={handleAdminLogout}
+        isAdminLoggedIn={isAdminLoggedIn}
+        adminUser={adminUser}
+        setTempAdminBypass={setTempAdminBypass} // Pass the setter for the bypass
       />
       {/* Simple toast notification for cart actions */}
       {toast && (
@@ -585,3 +756,4 @@ export default function App(){
     </div>
   )
 }
+
