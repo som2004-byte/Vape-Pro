@@ -15,10 +15,10 @@ const BackendTest = () => {
     try {
       // Test basic connection
       const connection = await checkBackendConnection(apiUrl);
-      
+
       if (connection.success) {
         setConnectionStatus('✅ Connected to backend');
-        
+
         // Test individual endpoints
         const results = await testEndpoints(apiUrl);
         setEndpointResults(results);
@@ -38,7 +38,7 @@ const BackendTest = () => {
   return (
     <div className="p-6 max-w-2xl mx-auto bg-white rounded-lg shadow-md">
       <h2 className="text-2xl font-bold mb-4">Backend Connection Test</h2>
-      
+
       <div className="mb-4">
         <label htmlFor="apiUrl" className="block text-sm font-medium text-gray-700 mb-1">
           Backend API URL:
@@ -61,7 +61,7 @@ const BackendTest = () => {
           </button>
         </div>
       </div>
-      
+
       <div className="mb-6 p-4 bg-gray-100 rounded">
         <h3 className="text-lg font-semibold mb-2">Connection Status:</h3>
         <p className={connectionStatus.includes('✅') ? 'text-green-600' : 'text-red-600'}>

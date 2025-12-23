@@ -5,23 +5,23 @@ import VapeSmokeEffect from './VapeSmokeEffect'
 const BearCharacter = ({ expression, eyeAngle = null }) => {
   const getEyes = () => {
     if (expression === 'COVER_EYES') return null
-    
+
     // Base eye positions (left eye, right eye) - center of each eye socket
     const baseLeftEyeX = 45
     const baseRightEyeX = 65
     const baseEyeY = 50
-    
+
     // Maximum distance eyes can move from center (in SVG units)
     const maxEyeMovement = 4
-    
+
     let leftEyeX, leftEyeY, rightEyeX, rightEyeY
-    
+
     if (eyeAngle !== null) {
       // Calculate eye positions based on angle (in radians)
       // Convert angle to eye offset
       const offsetX = Math.cos(eyeAngle) * maxEyeMovement
       const offsetY = Math.sin(eyeAngle) * maxEyeMovement
-      
+
       // Move both eyes in the same direction
       leftEyeX = baseLeftEyeX + offsetX
       leftEyeY = baseEyeY + offsetY
@@ -34,7 +34,7 @@ const BearCharacter = ({ expression, eyeAngle = null }) => {
       rightEyeX = baseRightEyeX
       rightEyeY = baseEyeY
     }
-    
+
     return (
       <>
         <circle cx={leftEyeX} cy={leftEyeY} r="3" fill="black" />
@@ -129,32 +129,32 @@ const BearCharacter = ({ expression, eyeAngle = null }) => {
     >
       {/* Body */}
       <ellipse cx="55" cy="75" rx="35" ry="30" fill="white" />
-      
+
       {/* Head */}
       <circle cx="55" cy="50" r="30" fill="white" />
-      
+
       {/* Ears */}
       <circle cx="35" cy="35" r="12" fill="white" />
       <circle cx="75" cy="35" r="12" fill="white" />
       <circle cx="35" cy="35" r="8" fill="#FFB6C1" />
       <circle cx="75" cy="35" r="8" fill="#FFB6C1" />
-      
+
       {/* Scarf */}
       <ellipse cx="55" cy="65" rx="25" ry="8" fill="#DC143C" />
       <rect x="45" y="60" width="20" height="15" fill="#DC143C" />
-      
+
       {/* Nose */}
       <ellipse cx="55" cy="58" rx="3" ry="2.5" fill="black" />
-      
+
       {/* Eyebrows */}
       {getEyebrows()}
-      
+
       {/* Eyes */}
       {getEyes()}
-      
+
       {/* Mouth */}
       {getMouth()}
-      
+
       {/* Arms */}
       {getArms()}
     </svg>
@@ -184,17 +184,17 @@ export default function LoginSignup({ onLogin, onAdminLogin }) {
         const bearRect = bearRef.current.getBoundingClientRect()
         const bearCenterX = bearRect.left + bearRect.width / 2
         const bearCenterY = bearRect.top + bearRect.height / 2
-        
+
         const mouseX = e.clientX
         const mouseY = e.clientY
-        
+
         // Calculate angle from bear center to cursor (in radians)
         const deltaX = mouseX - bearCenterX
         const deltaY = mouseY - bearCenterY
-        
+
         // Calculate angle using atan2 (gives full 360 degrees: -π to π)
         const angle = Math.atan2(deltaY, deltaX)
-        
+
         setEyeAngle(angle)
       }
     }
@@ -239,10 +239,10 @@ export default function LoginSignup({ onLogin, onAdminLogin }) {
     try {
       // Set the base URL for API requests
       const API_BASE_URL = 'http://localhost:3000';
-      
+
       // Determine the endpoint and request data based on login/signup and admin/user mode
       let endpoint, requestData;
-      
+
       if (isAdminMode) {
         // Admin login
         endpoint = `${API_BASE_URL}/api/admin/login`;
@@ -273,7 +273,7 @@ export default function LoginSignup({ onLogin, onAdminLogin }) {
       });
 
       console.log('Response status:', response.status);
-      
+
       // Try to parse the response as JSON, but handle non-JSON responses
       let data;
       try {
@@ -291,7 +291,7 @@ export default function LoginSignup({ onLogin, onAdminLogin }) {
 
       // On successful login/signup
       setExpression('HAPPY');
-      
+
       // Handle the response based on admin or user mode
       if (isAdminMode) {
         // For admin login
@@ -322,6 +322,8 @@ export default function LoginSignup({ onLogin, onAdminLogin }) {
   return (
     <div className="relative min-h-screen overflow-hidden bg-gray-100">
       {/* Admin/User Toggle */}
+      {/* Admin/User Toggle - Hidden for now */}
+      {/* 
       <div className="absolute top-4 right-4 z-10">
         <button
           onClick={() => setIsAdminMode(!isAdminMode)}
@@ -334,6 +336,7 @@ export default function LoginSignup({ onLogin, onAdminLogin }) {
           {isAdminMode ? 'Switch to User Login' : 'Admin Login'}
         </button>
       </div>
+      */}
       {/* Background video */}
       <video
         className="absolute inset-0 w-full h-full object-cover"
@@ -391,11 +394,10 @@ export default function LoginSignup({ onLogin, onAdminLogin }) {
                   setPassword('');
                   setEmail('');
                 }}
-                className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all ${
-                  isLogin
-                    ? 'bg-gradient-to-r from-darkPurple-600 to-darkPurple-800 text-white shadow-lg'
-                    : 'text-darkPurple-300 hover:text-white'
-                }`}
+                className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all ${isLogin
+                  ? 'bg-gradient-to-r from-darkPurple-600 to-darkPurple-800 text-white shadow-lg'
+                  : 'text-darkPurple-300 hover:text-white'
+                  }`}
               >
                 Login
               </button>
@@ -406,11 +408,10 @@ export default function LoginSignup({ onLogin, onAdminLogin }) {
                   setPassword('');
                   setEmail('');
                 }}
-                className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all ${
-                  !isLogin
-                    ? 'bg-gradient-to-r from-darkPurple-600 to-darkPurple-800 text-white shadow-lg'
-                    : 'text-darkPurple-300 hover:text-white'
-                }`}
+                className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all ${!isLogin
+                  ? 'bg-gradient-to-r from-darkPurple-600 to-darkPurple-800 text-white shadow-lg'
+                  : 'text-darkPurple-300 hover:text-white'
+                  }`}
               >
                 Sign Up
               </button>
@@ -546,7 +547,7 @@ export default function LoginSignup({ onLogin, onAdminLogin }) {
                   </span>
                 ) : isLogin ? 'Login' : 'Sign Up'}
               </button>
-              
+
               {error && (
                 <div className="mt-4 p-3 bg-red-600/20 border border-red-600/50 text-red-200 rounded-lg text-sm">
                   {error}

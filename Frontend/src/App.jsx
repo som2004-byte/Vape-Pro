@@ -23,7 +23,7 @@ import AdminPortal from './components/AdminPortal';
 //     const savedProfile = localStorage.getItem('vapesmart_profile');
 //     const savedAdminUser = localStorage.getItem('vapesmart_adminUser');
 //     const isAdmin = localStorage.getItem('vapesmart_isAdmin') === 'true';
-    
+
 //     return {
 //       user: savedUser ? JSON.parse(savedUser) : null,
 //       isLoggedIn: savedLoginState === 'true',
@@ -126,7 +126,7 @@ import AdminPortal from './components/AdminPortal';
 //               : item
 //           )
 //         : [...prevItems, { ...product, quantity: 1 }];
-      
+
 //       localStorage.setItem('vapesmart_cart', JSON.stringify(newItems));
 //       return newItems;
 //     });
@@ -136,7 +136,7 @@ import AdminPortal from './components/AdminPortal';
 //   // Handle updating cart item quantity
 //   const updateCartItemQuantity = (productId, newQuantity) => {
 //     if (newQuantity < 1) return;
-    
+
 //     setCartItems(prevItems => {
 //       const newItems = prevItems.map(item =>
 //         item.id === productId ? { ...item, quantity: newQuantity } : item
@@ -170,13 +170,13 @@ import AdminPortal from './components/AdminPortal';
 //       const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
 //                           product.description.toLowerCase().includes(searchQuery.toLowerCase());
 //       const matchesCategory = currentCategory === 'all' || product.category === currentCategory;
-      
+
 //       // Apply additional filters if any
 //       const matchesFilters = Object.entries(activeFilters).every(([key, value]) => {
 //         if (!value) return true;
 //         return product[key] === value;
 //       });
-      
+
 //       return matchesSearch && matchesCategory && matchesFilters;
 //     });
 //   }, [searchQuery, currentCategory, activeFilters]);
@@ -215,7 +215,7 @@ import AdminPortal from './components/AdminPortal';
 //         onNavigate={setCurrentPage}
 //         onSearchChange={setSearchQuery}
 //       />
-      
+
 //       <main className="container mx-auto px-4 py-8">
 //         {currentPage === 'home' && (
 //           <>
@@ -227,7 +227,7 @@ import AdminPortal from './components/AdminPortal';
 //             />
 //           </>
 //         )}
-        
+
 //         {currentPage === 'account' && (
 //           <AccountSection 
 //             user={user} 
@@ -235,7 +235,7 @@ import AdminPortal from './components/AdminPortal';
 //             onUpdateProfile={setCustomerProfile}
 //           />
 //         )}
-        
+
 //         {currentPage === 'cart' && (
 //           <CartPage 
 //             cartItems={cartItems}
@@ -244,7 +244,7 @@ import AdminPortal from './components/AdminPortal';
 //             onCheckout={() => setCurrentPage('checkout')}
 //           />
 //         )}
-        
+
 //         {currentPage === 'checkout' && (
 //           <PaymentPage 
 //             cartItems={cartItems}
@@ -320,7 +320,7 @@ import AdminPortal from './components/AdminPortal';
 //     { src: '/images/Screenshot_20250127_143406_Chrome-300x300-removebg-preview.png', title: 'Star Bar', flavor: 'Cosmic Mix' },
 //     { src: '/images/elfbar-watermelon.png', title: 'Elfbar BC20000', flavor: 'Watermelon Ice' }
 //   ]
-  
+
 //   const handleLogin = (userData) => {
 //     setUser(userData)
 //     setIsLoggedIn(true)
@@ -328,17 +328,17 @@ import AdminPortal from './components/AdminPortal';
 //     localStorage.setItem('vapesmart_user', JSON.stringify(userData))
 //     localStorage.setItem('vapesmart_isLoggedIn', 'true')
 //   }
-  
+
 //   const handleAdminLogin = (token, adminData) => {
 //     setIsAdminLoggedIn(true);
 //     setAdminUser(adminData);
 //     setCurrentPage('adminDashboard');
-    
+
 //     // Persist admin login state
 //     localStorage.setItem('vapesmart_adminToken', token);
 //     localStorage.setItem('vapesmart_adminUser', JSON.stringify(adminData));
 //     localStorage.setItem('vapesmart_isAdmin', 'true');
-    
+
 //     setToast({ type: 'success', message: 'Admin login successful' });
 //   };
 
@@ -350,7 +350,7 @@ import AdminPortal from './components/AdminPortal';
 //     localStorage.removeItem('vapesmart_adminToken')
 //     setToast({ type: 'info', message: 'Admin logged out' })
 //   }
-  
+
 //   const handleLogout = () => {
 //     setIsLoggedIn(false)
 //     setUser(null)
@@ -670,7 +670,7 @@ import AdminPortal from './components/AdminPortal';
 //           p.puffs?.toString() || '',
 //           p.nicotine?.toLowerCase() || '',
 //         ]
-        
+
 //         // Check if any field contains the search query
 //         return searchFields.some(field => field.includes(query))
 //       })
@@ -687,7 +687,7 @@ import AdminPortal from './components/AdminPortal';
 //     // and any filters (including flavour) are respected.
 //     return filteredProducts;
 //   }, [filteredProducts]);
-  
+
 //   if (tempAdminBypass) {
 //     return (
 //       <div className="relative min-h-screen bg-gradient-to-b from-black via-darkPurple-950/20 to-black text-gray-100 overflow-hidden">
@@ -733,7 +733,7 @@ import AdminPortal from './components/AdminPortal';
 //       </div>
 //     )
 //   }
-  
+
 //   // Using the handleAdminLogin and handleAdminLogout functions defined earlier
 
 //   // Render the appropriate interface based on login state
@@ -747,7 +747,7 @@ import AdminPortal from './components/AdminPortal';
 //         />
 //       );
 //     }
-    
+
 //     // User interface
 //     return (
 //       <>
@@ -981,7 +981,7 @@ import AdminPortal from './components/AdminPortal';
 // }
 
 
-export default function App(){
+export default function App() {
   // Load persisted login state from localStorage
   const loadPersistedState = () => {
     try {
@@ -990,7 +990,7 @@ export default function App(){
       const savedCart = localStorage.getItem('vapesmart_cart')
       const savedOrders = localStorage.getItem('vapesmart_orders')
       const savedProfile = localStorage.getItem('vapesmart_profile')
-      
+
       return {
         user: savedUser ? JSON.parse(savedUser) : null,
         isLoggedIn: savedLoginState === 'true',
@@ -1064,7 +1064,7 @@ export default function App(){
     { src: '/images/Screenshot_20250127_143406_Chrome-300x300-removebg-preview.png', title: 'Star Bar', flavor: 'Cosmic Mix' },
     { src: '/images/elfbar-watermelon.png', title: 'Elfbar BC20000', flavor: 'Watermelon Ice' }
   ]
-  
+
   const handleLogin = (userData) => {
     setUser(userData)
     setIsLoggedIn(true)
@@ -1072,17 +1072,17 @@ export default function App(){
     localStorage.setItem('vapesmart_user', JSON.stringify(userData))
     localStorage.setItem('vapesmart_isLoggedIn', 'true')
   }
-  
+
   const handleAdminLogin = (token, adminData) => {
     setIsAdminLoggedIn(true);
     setAdminUser(adminData);
     setCurrentPage('adminDashboard');
-    
+
     // Persist admin login state
     localStorage.setItem('vapesmart_adminToken', token);
     localStorage.setItem('vapesmart_adminUser', JSON.stringify(adminData));
     localStorage.setItem('vapesmart_isAdmin', 'true');
-    
+
     setToast({ type: 'success', message: 'Admin login successful' });
   };
 
@@ -1094,7 +1094,7 @@ export default function App(){
     localStorage.removeItem('vapesmart_adminToken')
     setToast({ type: 'info', message: 'Admin logged out' })
   }
-  
+
   const handleLogout = () => {
     setIsLoggedIn(false)
     setUser(null)
@@ -1146,9 +1146,9 @@ export default function App(){
       previousCart = prevItems
       const existingItem = prevItems.find(item => item.id === product.id)
       const newCart = existingItem
-        ? prevItems.map(item => 
-            item.id === product.id ? { ...item, quantity: (item.quantity || 0) + quantity } : item
-          )
+        ? prevItems.map(item =>
+          item.id === product.id ? { ...item, quantity: (item.quantity || 0) + quantity } : item
+        )
         : [...prevItems, { ...product, quantity }]
       // Persist cart to localStorage
       localStorage.setItem('vapesmart_cart', JSON.stringify(newCart))
@@ -1166,7 +1166,7 @@ export default function App(){
     })
 
     if (redirectToCart) {
-    setCurrentPage('cart')
+      setCurrentPage('cart')
     }
   }
 
@@ -1174,9 +1174,9 @@ export default function App(){
     setCartItems(prevItems => {
       const newCart = quantity <= 0
         ? prevItems.filter(item => item.id !== productId)
-        : prevItems.map(item => 
-        item.id === productId ? { ...item, quantity } : item
-      )
+        : prevItems.map(item =>
+          item.id === productId ? { ...item, quantity } : item
+        )
       // Persist cart to localStorage
       localStorage.setItem('vapesmart_cart', JSON.stringify(newCart))
       return newCart
@@ -1203,8 +1203,8 @@ export default function App(){
     }
 
     if (!customerProfile) {
-      setToast({ 
-        type: 'error', 
+      setToast({
+        type: 'error',
         message: 'Please complete your profile first',
         subTitle: 'Go to My Account to add your details'
       })
@@ -1254,9 +1254,9 @@ export default function App(){
       // Tracking timeline
       timeline: [
         { status: 'order_placed', timestamp: now, message: 'Order placed successfully' },
-        ...(paymentData.paymentMethod === 'cod' 
+        ...(paymentData.paymentMethod === 'cod'
           ? [{ status: 'payment_pending', timestamp: now, message: 'Payment pending - Cash on Delivery' }]
-          : paymentData.paidAt 
+          : paymentData.paidAt
             ? [{ status: 'payment_completed', timestamp: paymentData.paidAt, message: 'Payment completed' }]
             : []
         ),
@@ -1273,8 +1273,8 @@ export default function App(){
     setCartItems([])
     localStorage.setItem('vapesmart_cart', JSON.stringify([]))
     setPendingOrder(null)
-    setToast({ 
-      type: 'success', 
+    setToast({
+      type: 'success',
       message: 'Order placed successfully!',
       subTitle: `Tracking: ${trackingNumber}`
     })
@@ -1284,20 +1284,20 @@ export default function App(){
     // Simulate order progression: Update status after delays
     // After 5 seconds, mark as shipped
     setTimeout(() => {
-      setOrders(prev => prev.map(order => 
-        order.id === newOrder.id 
+      setOrders(prev => prev.map(order =>
+        order.id === newOrder.id
           ? {
-              ...order,
-              status: 'shipped',
-              timeline: [
-                ...order.timeline,
-                { 
-                  status: 'shipped', 
-                  timestamp: new Date().toISOString(), 
-                  message: 'Order has been shipped' 
-                }
-              ]
-            }
+            ...order,
+            status: 'shipped',
+            timeline: [
+              ...order.timeline,
+              {
+                status: 'shipped',
+                timestamp: new Date().toISOString(),
+                message: 'Order has been shipped'
+              }
+            ]
+          }
           : order
       ))
       setToast({
@@ -1309,20 +1309,20 @@ export default function App(){
 
     // After 15 seconds, mark as delivered
     setTimeout(() => {
-      setOrders(prev => prev.map(order => 
-        order.id === newOrder.id 
+      setOrders(prev => prev.map(order =>
+        order.id === newOrder.id
           ? {
-              ...order,
-              status: 'delivered',
-              timeline: [
-                ...order.timeline,
-                { 
-                  status: 'delivered', 
-                  timestamp: new Date().toISOString(), 
-                  message: 'Order has been delivered' 
-                }
-              ]
-            }
+            ...order,
+            status: 'delivered',
+            timeline: [
+              ...order.timeline,
+              {
+                status: 'delivered',
+                timestamp: new Date().toISOString(),
+                message: 'Order has been delivered'
+              }
+            ]
+          }
           : order
       ))
       setToast({
@@ -1414,7 +1414,7 @@ export default function App(){
           p.puffs?.toString() || '',
           p.nicotine?.toLowerCase() || '',
         ]
-        
+
         // Check if any field contains the search query
         return searchFields.some(field => field.includes(query))
       })
@@ -1431,7 +1431,7 @@ export default function App(){
     // and any filters (including flavour) are respected.
     return filteredProducts;
   }, [filteredProducts]);
-  
+
   if (tempAdminBypass) {
     return (
       <div className="relative min-h-screen bg-gradient-to-b from-black via-darkPurple-950/20 to-black text-gray-100 overflow-hidden">
@@ -1449,14 +1449,37 @@ export default function App(){
           onAdminLogout={handleAdminLogout}
           setTempAdminBypass={setTempAdminBypass} // Pass the setter
         />
-        <AdminDashboard adminUser={adminUser} adminToken={localStorage.getItem('vapesmart_adminToken')} />
+        <main className="pt-32">
+          <AdminDashboard adminUser={adminUser} adminToken={localStorage.getItem('vapesmart_adminToken')} />
+        </main>
       </div>
     )
-  } else if (!isLoggedIn && currentPage !== 'adminLogin') {
+  } else if (!isLoggedIn && (currentPage !== 'adminLogin' && currentPage !== 'adminDashboard')) {
     return <LoginSignup onLogin={handleLogin} />
   } else if (currentPage === 'adminLogin' && !isAdminLoggedIn) {
     return <AdminLogin onAdminLogin={handleAdminLogin} />
-  } else if ((currentPage === 'adminLogin' || currentPage === 'adminDashboard') && isAdminLoggedIn) {
+  } else if (currentPage === 'adminDashboard') {
+    return (
+      <div className="relative min-h-screen bg-gradient-to-b from-black via-darkPurple-950/20 to-black text-gray-100 overflow-hidden">
+        {/* Site-wide subtle vape smoke background */}
+        <div className="fixed inset-0 -z-10 pointer-events-none opacity-80">
+          <VapeSmokeEffect density={40} speed={0.4} opacity={0.35} />
+        </div>
+        <Navbar
+          user={adminUser || user}
+          onLogout={handleAdminLogout}
+          isAdmin={true}
+          onNavigate={handleNavigate}
+          isAdminLoggedIn={true}
+          adminUser={adminUser || { username: 'Temporary Admin' }}
+          onAdminLogout={handleAdminLogout}
+        />
+        <main className="pt-32">
+          <AdminDashboard adminUser={adminUser || { username: 'Temporary Admin' }} adminToken={localStorage.getItem('vapesmart_adminToken')} />
+        </main>
+      </div>
+    )
+  } else if (currentPage === 'adminLogin' && isAdminLoggedIn) {
     return (
       <div className="relative min-h-screen bg-gradient-to-b from-black via-darkPurple-950/20 to-black text-gray-100 overflow-hidden">
         {/* Site-wide subtle vape smoke background */}
@@ -1477,7 +1500,7 @@ export default function App(){
       </div>
     )
   }
-  
+
   // Using the handleAdminLogin and handleAdminLogout functions defined earlier
 
   // Render the appropriate interface based on login state
@@ -1485,13 +1508,13 @@ export default function App(){
     // Admin interface
     if (isAdminLoggedIn) {
       return (
-        <AdminDashboard 
-          adminUser={adminUser} 
-          onLogout={handleAdminLogout} 
+        <AdminDashboard
+          adminUser={adminUser}
+          onLogout={handleAdminLogout}
         />
       );
     }
-    
+
     // User interface
     return (
       <>
@@ -1517,9 +1540,9 @@ export default function App(){
             <>
               <LandingHero />
               <section id="products" className="py-16 px-4 sm:px-6 lg:px-8">
-                <ProductGrid 
-                  products={displayProducts} 
-                  onProductClick={setSelected} 
+                <ProductGrid
+                  products={displayProducts}
+                  onProductClick={setSelected}
                   onAddToCart={handleAddToCart}
                   onFilterChange={handleFilterChange}
                   activeFilters={activeFilters}
@@ -1531,8 +1554,8 @@ export default function App(){
           )}
 
           {currentPage === 'account' && (
-            <AccountSection 
-              user={user} 
+            <AccountSection
+              user={user}
               orders={orders}
               profile={customerProfile}
               onUpdateProfile={setCustomerProfile}
@@ -1542,7 +1565,7 @@ export default function App(){
           )}
 
           {currentPage === 'cart' && (
-            <CartPage 
+            <CartPage
               cartItems={cartItems}
               onUpdateQuantity={handleUpdateCartQuantity}
               onRemoveItem={handleRemoveFromCart}
@@ -1552,7 +1575,7 @@ export default function App(){
           )}
 
           {currentPage === 'payment' && pendingOrder && (
-            <PaymentPage 
+            <PaymentPage
               order={pendingOrder}
               onPaymentSuccess={handlePaymentSuccess}
               onPaymentCancel={handlePaymentCancel}
@@ -1573,8 +1596,8 @@ export default function App(){
       <div className="fixed inset-0 -z-10 pointer-events-none opacity-80">
         <VapeSmokeEffect density={40} speed={0.4} opacity={0.35} />
       </div>
-      <Navbar 
-        user={user} 
+      <Navbar
+        user={user}
         onLogout={handleLogout}
         currentCategory={currentCategory}
         onCategoryChange={setCurrentCategory}
@@ -1596,7 +1619,7 @@ export default function App(){
               className={`h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold
                 ${toast.type === 'success' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/50' :
                   toast.type === 'error' ? 'bg-red-500/20 text-red-300 border border-red-400/50' :
-                  'bg-sky-500/20 text-sky-300 border border-sky-400/50'}`}
+                    'bg-sky-500/20 text-sky-300 border border-sky-400/50'}`}
             >
               {toast.type === 'success' ? '✓' : toast.type === 'error' ? '!' : 'i'}
             </div>
@@ -1629,11 +1652,11 @@ export default function App(){
           </div>
         </div>
       )}
-      <main className="container mx-auto px-4 py-8 overflow-visible">
+      <main className="container mx-auto px-4 pt-32 pb-8 overflow-visible">
         {currentPage === 'home' && (
           <>
             {currentCategory === 'all' && !hasActiveFilters && (
-              <LandingHero 
+              <LandingHero
                 onNavigate={handleNavigate}
                 onCategoryChange={setCurrentCategory}
                 onFilterChange={handleFilterChange}
@@ -1657,9 +1680,9 @@ export default function App(){
             <h2 className="text-4xl font-bold mb-6 bg-gradient-to-r from-yellowGradient-start via-yellowGradient-end to-yellowGradient-start bg-clip-text text-transparent">
               {currentCategory === 'all' ? 'Featured Products' : MAIN_CATEGORIES[currentCategory] || 'Products'}
             </h2>
-            <ProductGrid 
-              products={displayProducts} 
-              onOpen={(p)=>setSelected(p)}
+            <ProductGrid
+              products={displayProducts}
+              onOpen={(p) => setSelected(p)}
               category={currentCategory}
               activeFilters={activeFilters}
               onFilterChange={handleFilterChange}
@@ -1692,7 +1715,7 @@ export default function App(){
           />
         )}
         {currentPage === 'cart' && (
-          <CartPage 
+          <CartPage
             cartItems={cartItems}
             onUpdateQuantity={handleUpdateCartQuantity}
             onRemoveItem={handleRemoveFromCart}
