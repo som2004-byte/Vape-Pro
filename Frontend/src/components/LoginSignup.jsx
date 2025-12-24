@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import VapeSmokeEffect from './VapeSmokeEffect'
+import API_BASE_URL from '../config'
+
 
 // Bear expressions: IDLE, LOOK_LEFT, LOOK_RIGHT, HAPPY, SHOCK, COVER_EYES
 const BearCharacter = ({ expression, eyeAngle = null }) => {
@@ -237,23 +239,23 @@ export default function LoginSignup({ onLogin, onAdminLogin }) {
     setExpression('THINKING')
 
     try {
-      // Set the base URL for API requests
-      const API_BASE_URL = 'http://localhost:3000';
+      // Set the base URL from config
+      const endpointBase = API_BASE_URL;
 
       // Determine the endpoint and request data based on login/signup and admin/user mode
       let endpoint, requestData;
 
       if (isAdminMode) {
         // Admin login
-        endpoint = `${API_BASE_URL}/api/admin/login`;
+        endpoint = `${endpointBase}/api/admin/login`;
         requestData = { email: email || username, password };
       } else {
         // User login/signup
         if (isLogin) {
-          endpoint = `${API_BASE_URL}/api/login`;
+          endpoint = `${endpointBase}/api/login`;
           requestData = { email: email || username, password };
         } else {
-          endpoint = `${API_BASE_URL}/api/signup`;
+          endpoint = `${endpointBase}/api/signup`;
           requestData = { name: username, email, password };
         }
       }

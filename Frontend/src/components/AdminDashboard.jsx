@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import API_BASE_URL_ROOT from '../config';
+
 
 export default function AdminDashboard({ adminUser, adminToken }) {
   // Stats and Data states
@@ -19,7 +21,7 @@ export default function AdminDashboard({ adminUser, adminToken }) {
   const [newOrderStatus, setNewOrderStatus] = useState('');
   const [newTransitInfo, setNewTransitInfo] = useState('');
 
-  const API_BASE_URL = 'http://localhost:3000/api/admin';
+  const API_BASE_URL = `${API_BASE_URL_ROOT}/api/admin`;
 
   // Mock data for demonstration purposes
   const MOCK_DATA = {
@@ -172,8 +174,8 @@ export default function AdminDashboard({ adminUser, adminToken }) {
               key={item.id}
               onClick={() => setActiveTab(item.id)}
               className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${activeTab === item.id
-                  ? 'bg-yellowGradient-start text-darkPurple-950 font-bold shadow-lg shadow-yellowGradient-start/20'
-                  : 'text-darkPurple-300 hover:bg-white/5 hover:text-white'
+                ? 'bg-yellowGradient-start text-darkPurple-950 font-bold shadow-lg shadow-yellowGradient-start/20'
+                : 'text-darkPurple-300 hover:bg-white/5 hover:text-white'
                 }`}
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -429,8 +431,8 @@ export default function AdminDashboard({ adminUser, adminToken }) {
                               key={status}
                               onClick={() => setNewOrderStatus(status)}
                               className={`px-3 py-2 rounded-xl text-[10px] font-bold border transition-all ${newOrderStatus === status
-                                  ? 'bg-yellowGradient-start text-darkPurple-950 border-yellowGradient-start'
-                                  : 'bg-darkPurple-800/50 border-darkPurple-700 text-darkPurple-300 hover:border-darkPurple-500'
+                                ? 'bg-yellowGradient-start text-darkPurple-950 border-yellowGradient-start'
+                                : 'bg-darkPurple-800/50 border-darkPurple-700 text-darkPurple-300 hover:border-darkPurple-500'
                                 }`}
                             >
                               {status.toUpperCase()}
@@ -477,8 +479,8 @@ export default function AdminDashboard({ adminUser, adminToken }) {
                   <div key={req.id} className="relative bg-darkPurple-900/30 p-8 rounded-[2rem] border border-darkPurple-800 hover:border-darkPurple-600 transition-all duration-300 group overflow-hidden">
                     <div className="absolute top-0 right-0 p-4">
                       <span className={`px-3 py-1 text-[10px] font-bold rounded-full border ${req.status === 'Urgent' ? 'bg-rose-500/10 text-rose-400 border-rose-500/40' :
-                          req.status === 'New' ? 'bg-sky-500/10 text-sky-400 border-sky-500/40' :
-                            'bg-amber-500/10 text-amber-400 border-amber-500/40'
+                        req.status === 'New' ? 'bg-sky-500/10 text-sky-400 border-sky-500/40' :
+                          'bg-amber-500/10 text-amber-400 border-amber-500/40'
                         }`}>
                         {req.status}
                       </span>

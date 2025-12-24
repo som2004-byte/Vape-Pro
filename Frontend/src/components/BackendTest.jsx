@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { checkBackendConnection, testEndpoints } from '../utils/api';
+import API_BASE_URL from '../config';
+
 
 const BackendTest = () => {
   const [connectionStatus, setConnectionStatus] = useState('Click the button to test connection');
   const [endpointResults, setEndpointResults] = useState([]);
   const [isTesting, setIsTesting] = useState(false);
-  const [apiUrl, setApiUrl] = useState('http://localhost:3000/api');
+  const [apiUrl, setApiUrl] = useState(`${API_BASE_URL}/api`);
 
   const testConnection = async () => {
     setIsTesting(true);

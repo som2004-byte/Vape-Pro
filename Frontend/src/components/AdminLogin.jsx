@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import VapeSmokeEffect from './VapeSmokeEffect';
+import API_BASE_URL from '../config';
+
 import logo from '../../public/images/vapesmart-logo.png';
 
 export default function AdminLogin({ onAdminLogin }) {
@@ -18,7 +20,7 @@ export default function AdminLogin({ onAdminLogin }) {
     setLoading(true);
 
     try {
-      const response = await fetch('http://localhost:3000/api/admin/login', {
+      const response = await fetch(`${API_BASE_URL}/api/admin/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
@@ -50,7 +52,7 @@ export default function AdminLogin({ onAdminLogin }) {
     setLoading(true);
 
     try {
-      const response = await fetch('http://localhost:3000/api/admin/signup', {
+      const response = await fetch(`${API_BASE_URL}/api/admin/signup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, email, password }),

@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import VapeSmokeEffect from './VapeSmokeEffect';
+import API_BASE_URL from '../config';
+
 
 // My Account section (Profile + Orders)
 // - Profile: add/edit customer details
@@ -43,7 +45,7 @@ export default function AccountSection({
   const handleRequestOtp = async () => {
     try {
       setVerifying(true);
-      const response = await fetch('http://localhost:3000/api/request-email-otp', {
+      const response = await fetch(`${API_BASE_URL}/api/request-email-otp`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -86,7 +88,7 @@ export default function AccountSection({
         throw new Error('Please enter a valid 6-digit OTP');
       }
 
-      const response = await fetch('http://localhost:3000/api/verify-email-otp', {
+      const response = await fetch(`${API_BASE_URL}/api/verify-email-otp`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

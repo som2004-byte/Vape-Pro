@@ -603,6 +603,13 @@ export default function Navbar({
                 </span>
               </div>
             </button>
+            <button
+              onClick={() => setTempAdminBypass(prev => !prev)}
+              className="ml-4 px-2 py-1 text-xs rounded bg-red-600/50 text-white hover:bg-red-500/50 transition-colors border border-red-700/50"
+              title="TOGGLE ADMIN BYPASS (DEV ONLY)"
+            >
+              DEV
+            </button>
           </div>
 
           {/* Search Bar - Hidden on mobile */}
