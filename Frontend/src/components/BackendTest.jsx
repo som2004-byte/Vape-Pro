@@ -52,7 +52,7 @@ const BackendTest = () => {
             value={apiUrl}
             onChange={(e) => setApiUrl(e.target.value)}
             className="flex-1 p-2 border border-gray-300 rounded-md"
-            placeholder="http://localhost:3000/api"
+            placeholder="https://vape-pro-2.onrender.com/api"
           />
           <button
             onClick={testConnection}
@@ -96,9 +96,9 @@ const BackendTest = () => {
       <div className="mt-6 p-4 bg-blue-50 rounded">
         <h3 className="font-semibold mb-2">Troubleshooting Tips:</h3>
         <ul className="list-disc pl-5 space-y-1 text-sm">
-          <li>Make sure the backend server is running on port 3000</li>
+          <li>Make sure the backend server is running on Render</li>
           <li>Check for CORS errors in the browser console</li>
-          <li>Verify the backend URL in <code>src/utils/api.js</code></li>
+          <li>Verify the backend URL in <code>src/config.js</code></li>
           <li>Check if any firewall is blocking the connection</li>
         </ul>
       </div>

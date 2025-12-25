@@ -30,8 +30,10 @@ app.use(express.json());
 
 // Configure CORS to allow requests from the frontend
 const allowedOrigins = [
-  'http://localhost:5174',
   'http://localhost:5173',
+  'http://localhost:5174',
+  'http://127.0.0.1:5173',
+  'http://127.0.0.1:5174',
   'https://vape-pro-5838.vercel.app',
   'https://vape-pro-jvkd.vercel.app'
 ];
@@ -41,17 +43,22 @@ const corsOptions = {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
 
-    if (allowedOrigins.indexOf(origin) !== -1 || origin.endsWith('.vercel.app')) {
+    const isWhiteListed = allowedOrigins.includes(origin) || origin.endsWith('.vercel.app');
+
+    if (isWhiteListed) {
       callback(null, true);
     } else {
+      console.warn(`CORS blocked for origin: ${origin}`);
       callback(new Error('Not allowed by CORS'));
     }
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true
+  credentials: true,
+  optionsSuccessStatus: 200 // some legacy browsers (IE11, various SmartTVs) choke on 204
 };
 app.use(cors(corsOptions));
+
 
 // MongoDB Connection
 if (typeof MONGODB_URI === 'string' && MONGODB_URI.trim()) {

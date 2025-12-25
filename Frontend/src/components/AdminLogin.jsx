@@ -2,7 +2,9 @@ import React, { useState } from 'react';
 import VapeSmokeEffect from './VapeSmokeEffect';
 import API_BASE_URL from '../config';
 
-import logo from '../../public/images/vapesmart-logo.png';
+// Use public URL instead of importing
+const logo = '/images/vapesmart-logo.png';
+
 
 export default function AdminLogin({ onAdminLogin }) {
   const [isLogin, setIsLogin] = useState(true);
