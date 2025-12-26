@@ -3,11 +3,12 @@
 @tailwind utilities;
 
 .text-gradient {
-  background: linear-gradient(90deg,#7C3AED,#F5C26B);
+  background: linear-gradient(90deg, #7C3AED, #F5C26B);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
 }
+
 body {
   min-height: 100vh;
   background: radial-gradient(120% 120% at 20% 20%, #3c1b6d 0%, #110b24 35%, #05030b 70%, #010005 100%);
@@ -15,28 +16,59 @@ body {
 }
 
 @keyframes floaty {
-  0% { transform: translateY(0px); }
-  50% { transform: translateY(-12px); }
-  100% { transform: translateY(0px); }
+  0% {
+    transform: translateY(0px);
+  }
+
+  50% {
+    transform: translateY(-12px);
+  }
+
+  100% {
+    transform: translateY(0px);
+  }
 }
 
-.float-soft { animation: floaty 6s ease-in-out infinite; }
-.float-soft-delay { animation: floaty 7s ease-in-out infinite; animation-delay: -1s; }
-.float-soft-slower { animation: floaty 8s ease-in-out infinite; animation-delay: -2s; }
+.float-soft {
+  animation: floaty 6s ease-in-out infinite;
+}
+
+.float-soft-delay {
+  animation: floaty 7s ease-in-out infinite;
+  animation-delay: -1s;
+}
+
+.float-soft-slower {
+  animation: floaty 8s ease-in-out infinite;
+  animation-delay: -2s;
+}
 
 @keyframes spin3d {
-  0% { transform: rotateY(0deg); }
-  100% { transform: rotateY(360deg); }
+  0% {
+    transform: rotateY(0deg);
+  }
+
+  100% {
+    transform: rotateY(360deg);
+  }
 }
 
-.spin-once { animation: spin3d 1.3s ease-in-out 1; transform-origin: center; }
-.hover-spin:hover { animation: spin3d 1.6s linear infinite; transform-origin: center; }
+.spin-once {
+  animation: spin3d 1.3s ease-in-out 1;
+  transform-origin: center;
+}
+
+.hover-spin:hover {
+  animation: spin3d 1.6s linear infinite;
+  transform-origin: center;
+}
 
 @keyframes fade-in {
   from {
     opacity: 0;
     transform: translateY(20px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -52,9 +84,12 @@ body {
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
 .no-scrollbar {
-  -ms-overflow-style: none; /* IE and Edge */
-  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none;
+  /* IE and Edge */
+  scrollbar-width: none;
+  /* Firefox */
 }
 
 /* Smoke Effect Animation - Dense white smoke rising from bottom */
@@ -63,21 +98,26 @@ body {
     transform: translateY(0) translateX(0) scale(0.8);
     opacity: 0;
   }
+
   3% {
     opacity: 0.9;
   }
+
   20% {
     opacity: 1;
     transform: translateY(-10vh) translateX(var(--smoke-offset, 0)) scale(1.2);
   }
+
   50% {
     opacity: 0.8;
     transform: translateY(-50vh) translateX(calc(var(--smoke-offset, 0) * 1.5)) scale(2);
   }
+
   80% {
     opacity: 0.4;
     transform: translateY(-80vh) translateX(calc(var(--smoke-offset, 0) * 2)) scale(3);
   }
+
   100% {
     transform: translateY(-100vh) translateX(calc(var(--smoke-offset, 0) * 2.5)) scale(4);
     opacity: 0;
@@ -90,13 +130,13 @@ body {
   width: 300px;
   height: 400px;
   border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
-  background: radial-gradient(ellipse at center bottom, 
-    rgba(255, 255, 255, 0.9) 0%, 
-    rgba(240, 240, 240, 0.8) 15%,
-    rgba(220, 220, 220, 0.7) 30%,
-    rgba(200, 200, 200, 0.5) 50%,
-    rgba(180, 180, 180, 0.3) 70%,
-    transparent 100%);
+  background: radial-gradient(ellipse at center bottom,
+      rgba(255, 255, 255, 0.9) 0%,
+      rgba(240, 240, 240, 0.8) 15%,
+      rgba(220, 220, 220, 0.7) 30%,
+      rgba(200, 200, 200, 0.5) 50%,
+      rgba(180, 180, 180, 0.3) 70%,
+      transparent 100%);
   filter: blur(60px);
   animation: smoke 25s infinite ease-out;
   opacity: 0;
@@ -174,4 +214,35 @@ body {
   width: 310px;
   height: 440px;
   animation-duration: 29s;
+}
+
+/* Error Popup Animations */
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-100px) scale(0.9);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes shrink {
+  from {
+    width: 100%;
+  }
+
+  to {
+    width: 0%;
+  }
+}
+
+.animate-slideDown {
+  animation: slideDown 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.animate-shrink {
+  animation: shrink linear forwards;
 }

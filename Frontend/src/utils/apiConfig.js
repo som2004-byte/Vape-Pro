@@ -65,7 +65,7 @@ export const getAuthHeaders = (token) => ({
     'Authorization': token ? `Bearer ${token}` : '',
 });
 
-// Helper function for API calls
+// Helper function for API calls with enhanced error handling
 export const apiCall = async (url, options = {}) => {
     try {
         const response = await fetch(url, {
@@ -77,15 +77,34 @@ export const apiCall = async (url, options = {}) => {
         });
 
         if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.message || 'API request failed');
+            let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+
+            try {
+                const errorData = await response.json();
+                errorMessage = errorData.message || errorData.error || errorMessage;
+            } catch (e) {
+                // If response is not JSON, use status text
+            }
+
+            const error = new Error(errorMessage);
+            error.status = response.status;
+            error.statusText = response.statusText;
+            throw error;
         }
 
         return await response.json();
     } catch (error) {
+        // Enhanced error for network failures
+        if (error.message === 'Failed to fetch' || error.name === 'TypeError') {
+            const networkError = new Error('Network error: Unable to connect to server. Please check your internet connection.');
+            networkError.originalError = error;
+            throw networkError;
+        }
+
         console.error('API Error:', error);
         throw error;
     }
 };
+
 
 export default API_BASE_URL;
