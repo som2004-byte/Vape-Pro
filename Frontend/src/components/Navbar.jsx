@@ -101,7 +101,7 @@ export default function Navbar({
         { id: 'addresses', label: 'Addresses' }
       ]
     },
-    { key: 'admin-portal', label: 'ADMIN PORTAL', isCategory: false, type: 'adminDashboard' }
+    // { key: 'admin-portal', label: 'ADMIN PORTAL', isCategory: false, type: 'adminDashboard' }
   ];
 
   const renderAdminControls = () => {
