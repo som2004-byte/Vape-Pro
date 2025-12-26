@@ -17,12 +17,14 @@ const orderSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', index: true },
   items: { type: [orderItemSchema], default: [] },
   total: { type: Number, required: true, min: 0 },
-  status: { type: String, enum: ['processing', 'shipped', 'delivered', 'cancelled'], default: 'processing' },
+  status: { type: String, enum: ['pending', 'processing', 'shipped', 'delivered', 'cancelled'], default: 'pending' },
+  transitInfo: { type: String, default: '' },
   paymentStatus: { type: String, enum: ['pending', 'completed', 'failed', 'cod'], default: 'cod' },
   paymentMethod: { type: String, default: 'cod' },
   shippingAddress: { type: String, default: '' },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
+
 });
 
 module.exports = mongoose.model('Order', orderSchema);

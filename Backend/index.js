@@ -11,8 +11,10 @@ const EmailOtp = require('./models/EmailOtp');
 const Cart = require('./models/Cart');
 const Order = require('./models/Order');
 const Admin = require('./models/Admin');
+const adminRoutes = require('./routes/admin');
 
 const app = express();
+
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 const MONGODB_URI = process.env.MONGODB_URI;
@@ -59,8 +61,11 @@ const corsOptions = {
 };
 app.use(cors(corsOptions));
 
+// Use Admin Routes
+app.use('/api/admin', adminRoutes);
 
 // MongoDB Connection
+
 if (typeof MONGODB_URI === 'string' && MONGODB_URI.trim()) {
   mongoose
     .connect(MONGODB_URI.trim())
@@ -205,20 +210,7 @@ const authenticateToken = (req, res, next) => {
   });
 };
 
-// Admin-only middleware
-const authenticateAdmin = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
-  if (!token) return res.status(401).json({ message: 'Access token required' });
-  jwt.verify(token, JWT_SECRET, (err, payload) => {
-    if (err) return res.status(403).json({ message: 'Invalid or expired token' });
-    if (payload.role !== 'admin' || !payload.adminId) {
-      return res.status(403).json({ message: 'Admin access required' });
-    }
-    req.admin = { id: payload.adminId, email: payload.email };
-    next();
-  });
-};
+
 
 // Protected route example
 app.get('/api/profile', authenticateToken, async (req, res) => {
@@ -252,50 +244,7 @@ const seedAdminIfNeeded = async () => {
 };
 seedAdminIfNeeded().catch((e) => console.warn('Admin seed skipped:', e.message));
 
-// Admin signup
-app.post('/api/admin/signup', async (req, res) => {
-  try {
-    const { name, email, password } = req.body || {};
-    if (!name || !email || !password) {
-      return res.status(400).json({ message: 'Name, email and password are required' });
-    }
-    const exists = await Admin.findOne({ email });
-    if (exists) return res.status(400).json({ message: 'Admin already exists' });
-    const hashed = await bcrypt.hash(password, 10);
-    const admin = await new Admin({ name, email, password: hashed }).save();
-    const token = jwt.sign({ adminId: admin._id, email: admin.email, role: 'admin' }, JWT_SECRET, { expiresIn: '24h' });
-    res.status(201).json({ message: 'Admin created', token, admin: { id: admin._id, name: admin.name, email: admin.email } });
-  } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
-  }
-});
 
-// Admin login
-app.post('/api/admin/login', async (req, res) => {
-  try {
-    const { email, password } = req.body || {};
-    if (!email || !password) return res.status(400).json({ message: 'Email and password are required' });
-    const admin = await Admin.findOne({ email });
-    if (!admin) return res.status(401).json({ message: 'Invalid credentials' });
-    const ok = await bcrypt.compare(password, admin.password);
-    if (!ok) return res.status(401).json({ message: 'Invalid credentials' });
-    const token = jwt.sign({ adminId: admin._id, email: admin.email, role: 'admin' }, JWT_SECRET, { expiresIn: '24h' });
-    res.json({ message: 'Login successful', token, admin: { id: admin._id, name: admin.name, email: admin.email } });
-  } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
-  }
-});
-
-// Admin profile
-app.get('/api/admin/me', authenticateAdmin, async (req, res) => {
-  try {
-    const admin = await Admin.findById(req.admin.id).select('-password');
-    if (!admin) return res.status(404).json({ message: 'Admin not found' });
-    res.json({ id: admin._id, name: admin.name, email: admin.email });
-  } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
-  }
-});
 
 // -----------------------------
 // Cart endpoints (JWT required)
@@ -597,36 +546,3 @@ app.post('/api/verify-email-otp', async (req, res) => {
   }
 });
 
-// -----------------------------
-// Orders (admin)
-// -----------------------------
-app.get('/api/admin/orders', authenticateAdmin, async (req, res) => {
-  try {
-    const orders = await Order.find().sort({ createdAt: -1 }).lean();
-    // Attach user summary (name, email, address)
-    const userIds = [...new Set(orders.map(o => String(o.userId)).filter(Boolean))];
-    const users = await User.find({ _id: { $in: userIds } }, { name: 1, email: 1, address: 1, phoneNumber: 1 }).lean();
-    const userMap = new Map(users.map(u => [String(u._id), u]));
-    const enriched = orders.map(o => ({
-      ...o,
-      user: userMap.get(String(o.userId)) || null
-    }));
-    res.json({ orders: enriched });
-  } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
-  }
-});
-
-app.patch('/api/admin/orders/:id', authenticateAdmin, async (req, res) => {
-  try {
-    const { status, paymentStatus } = req.body || {};
-    const updates = { updatedAt: new Date() };
-    if (status) updates.status = status;
-    if (paymentStatus) updates.paymentStatus = paymentStatus;
-    const order = await Order.findByIdAndUpdate(req.params.id, { $set: updates }, { new: true });
-    if (!order) return res.status(404).json({ message: 'Order not found' });
-    res.json({ message: 'Order updated', order });
-  } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
-  }
-});

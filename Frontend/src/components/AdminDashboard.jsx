@@ -73,8 +73,36 @@ export default function AdminDashboard({ adminUser, adminToken }) {
         if (endpoint === '/client-requirements') setter(MOCK_DATA.requirements);
       } else {
         const data = await response.json();
-        setter(data);
+
+        // Handle paginated responses (like from /orders)
+        let finalData = data;
+        if (data.orders && Array.isArray(data.orders)) {
+          finalData = data.orders;
+        } else if (data.users && Array.isArray(data.users)) {
+          finalData = data.users;
+        } else if (data.products && Array.isArray(data.products)) {
+          finalData = data.products;
+        }
+
+        // Map backend fields to frontend expected fields if necessary
+        if (Array.isArray(finalData)) {
+          finalData = finalData.map(item => ({
+            ...item,
+            // Map 'status' to 'orderStatus' if it's an order
+            orderStatus: item.orderStatus || item.status,
+            // Map 'total' to 'totalAmount'
+            totalAmount: item.totalAmount || item.total,
+            // Map 'user' object to 'userId' for template compatibility
+            userId: item.userId || item.user,
+            // Map 'createdAt' to 'date' for requirements and common display
+            date: item.date || (item.createdAt ? new Date(item.createdAt).toLocaleDateString() : new Date().toLocaleDateString())
+          }));
+        }
+
+
+        setter(finalData);
       }
+
     } catch (err) {
       console.error(`Error fetching ${endpoint}:`, err);
       // Final fallback
@@ -92,25 +120,49 @@ export default function AdminDashboard({ adminUser, adminToken }) {
     fetchData('/users', setUsers);
     fetchData('/orders', setOrders);
     fetchData('/client-requirements', setClientRequirements);
+
+    // Fetch dashboard stats
+    const fetchStats = async () => {
+      if (!adminToken) return;
+      try {
+        const response = await fetch(`${API_BASE_URL}/stats`, {
+          headers: { Authorization: `Bearer ${adminToken}` },
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setStats({
+            totalUsers: data.totalUsers,
+            totalOrders: data.totalOrders,
+            totalRevenue: data.totalRevenue,
+            pendingOrders: data.recentOrders.filter(o => o.status === 'pending').length || 0
+          });
+        }
+      } catch (err) {
+        console.error('Error fetching stats:', err);
+      }
+    };
+    fetchStats();
   }, [adminToken]);
 
   useEffect(() => {
-    // Calculate stats whenever data changes
-    if (users.length >= 0 || orders.length >= 0) {
-      const revenue = orders
-        .filter(o => o.orderStatus !== 'cancelled')
-        .reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+    // If we have live data, use it to refresh stats locally too
+    if (users.length > 0 || (orders && orders.length > 0)) {
+      const liveOrders = Array.isArray(orders) ? orders : (orders.orders || []);
+      const revenue = liveOrders
+        .filter(o => o.orderStatus !== 'cancelled' && o.status !== 'cancelled')
+        .reduce((sum, o) => sum + (o.totalAmount || o.total || 0), 0);
 
-      const pending = orders.filter(o => o.orderStatus === 'pending' || o.orderStatus === 'processing').length;
+      const pending = liveOrders.filter(o => o.orderStatus === 'pending' || o.status === 'pending').length;
 
-      setStats({
-        totalUsers: users.length || MOCK_DATA.users.length,
-        totalOrders: orders.length || MOCK_DATA.orders.length,
-        totalRevenue: revenue || MOCK_DATA.orders.reduce((sum, o) => sum + o.totalAmount, 0),
-        pendingOrders: pending || MOCK_DATA.orders.filter(o => o.orderStatus === 'pending').length
-      });
+      setStats(prev => ({
+        totalUsers: users.length || prev.totalUsers,
+        totalOrders: liveOrders.length || prev.totalOrders,
+        totalRevenue: revenue || prev.totalRevenue,
+        pendingOrders: pending || prev.pendingOrders
+      }));
     }
   }, [users, orders]);
+
 
   const handleUpdateOrderStatus = async (orderId) => {
     try {
@@ -232,9 +284,10 @@ export default function AdminDashboard({ adminUser, adminToken }) {
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                 {[
                   { label: 'Platform Users', value: stats.totalUsers, icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z', color: 'text-sky-400' },
-                  { label: 'Total Volume', value: stats.totalOrders, icon: 'M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z', color: 'text-indigo-400' },
-                  { label: 'Annual Revenue', value: stats.totalRevenue.toLocaleString('en-IN', { style: 'currency', currency: 'INR' }), icon: 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z', color: 'text-emerald-400' },
-                  { label: 'Active Pipeline', value: stats.pendingOrders, icon: 'M13 10V3L4 14h7v7l9-11h-7z', color: 'text-amber-400' }
+                  { label: 'Total Volume', value: stats.totalOrders || 0, icon: 'M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z', color: 'text-indigo-400' },
+                  { label: 'Total Revenue', value: (stats.totalRevenue || 0).toLocaleString('en-IN', { style: 'currency', currency: 'INR' }), icon: 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z', color: 'text-emerald-400' },
+                  { label: 'Active Pipeline', value: stats.pendingOrders || 0, icon: 'M13 10V3L4 14h7v7l9-11h-7z', color: 'text-amber-400' }
+
                 ].map((stat, idx) => (
                   <div key={idx} className="bg-darkPurple-900/30 border border-darkPurple-800 p-6 rounded-3xl hover:border-darkPurple-600 transition-all duration-300 group">
                     <div className="flex justify-between items-start mb-4">
@@ -489,9 +542,22 @@ export default function AdminDashboard({ adminUser, adminToken }) {
                       <svg className="w-6 h-6 text-yellowGradient-start" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" strokeWidth={2} /></svg>
                     </div>
                     <h3 className="text-lg font-bold text-white mb-2">{req.title}</h3>
-                    <p className="text-darkPurple-300 text-sm leading-relaxed mb-6 h-20 overflow-y-auto custom-scrollbar">{req.description}</p>
+                    <p className="text-darkPurple-300 text-sm leading-relaxed mb-4 h-16 overflow-y-auto custom-scrollbar">{req.description}</p>
+
+                    <div className="mb-4 pt-4 border-t border-darkPurple-800/50">
+                      <div className="flex items-center gap-2 mb-1">
+                        <svg className="w-4 h-4 text-darkPurple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                        <p className="text-xs text-gray-300">{req.name || 'Unknown Contact'}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <svg className="w-4 h-4 text-darkPurple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+                        <p className="text-xs text-gray-300 truncate">{req.email || 'No Email'}</p>
+                      </div>
+                    </div>
+
                     <div className="flex justify-between items-center mt-auto border-t border-darkPurple-800/50 pt-4">
                       <span className="text-[10px] font-bold text-darkPurple-500 uppercase tracking-widest">{req.date}</span>
+
                       <button className="text-xs font-bold text-yellowGradient-start hover:text-white transition-colors">Process Ticket</button>
                     </div>
                   </div>

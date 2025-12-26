@@ -1,13 +1,17 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 const { body, validationResult } = require('express-validator');
+
 const { authorizeAdmin } = require('../middleware/auth');
 const User = require('../models/User');
 const Admin = require('../models/Admin');
 const Order = require('../models/Order');
 const Product = require('../models/Product');
+const ClientRequirement = require('../models/ClientRequirement');
 
 const router = express.Router();
+
 
 // Admin login
 router.post(
@@ -55,6 +59,53 @@ router.post(
     }
   }
 );
+
+// Admin signup
+router.post(
+  '/signup',
+  [
+    body('name').trim().notEmpty(),
+    body('email').isEmail().normalizeEmail(),
+    body('password').isLength({ min: 6 }),
+  ],
+  async (req, res) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+      }
+
+      const { name, email, password } = req.body;
+
+      // Check if admin exists
+      const existingAdmin = await Admin.findOne({ email });
+      if (existingAdmin) {
+        return res.status(400).json({ message: 'Admin account already exists' });
+      }
+
+      // Hash password
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      // Create admin
+      const admin = new Admin({
+        name,
+        email,
+        password: hashedPassword,
+      });
+
+      await admin.save();
+
+      res.status(201).json({
+        message: 'Admin account created successfully',
+        admin: { id: admin._id, email: admin.email, name: admin.name },
+      });
+    } catch (error) {
+      console.error('Admin signup error:', error);
+      res.status(500).json({ message: 'Server error', error: error.message });
+    }
+  }
+);
+
 
 // Get all users (admin only)
 router.get('/users', authorizeAdmin, async (req, res) => {
@@ -129,7 +180,7 @@ router.put(
 router.delete('/users/:userId', authorizeAdmin, async (req, res) => {
   try {
     const user = await User.findByIdAndDelete(req.params.userId);
-    
+
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
@@ -153,7 +204,7 @@ router.get('/orders', authorizeAdmin, async (req, res) => {
   try {
     const { status, page = 1, limit = 10 } = req.query;
     const query = {};
-    
+
     if (status) {
       query.status = status;
     }
@@ -179,18 +230,26 @@ router.get('/orders', authorizeAdmin, async (req, res) => {
   }
 });
 
-// Update order status (admin only)
+// Update order (admin only)
 router.put(
-  '/orders/:orderId/status',
+  ['/orders/:orderId/status', '/orders/:orderId'],
   authorizeAdmin,
   [
-    body('status').isIn([
+    body('orderStatus').optional().isIn([
       'pending',
       'processing',
       'shipped',
       'delivered',
       'cancelled',
     ]),
+    body('status').optional().isIn([
+      'pending',
+      'processing',
+      'shipped',
+      'delivered',
+      'cancelled',
+    ]),
+    body('transitInfo').optional().trim(),
   ],
   async (req, res) => {
     try {
@@ -199,10 +258,16 @@ router.put(
         return res.status(400).json({ errors: errors.array() });
       }
 
-      const { status } = req.body;
+      const { status, orderStatus, transitInfo } = req.body;
+      const finalStatus = status || orderStatus;
+
+      const updateData = {};
+      if (finalStatus) updateData.status = finalStatus;
+      if (transitInfo !== undefined) updateData.transitInfo = transitInfo;
+
       const order = await Order.findByIdAndUpdate(
         req.params.orderId,
-        { status },
+        { $set: updateData },
         { new: true }
       )
         .populate('user', 'name email')
@@ -212,19 +277,17 @@ router.put(
         return res.status(404).json({ message: 'Order not found' });
       }
 
-      // Here you might want to send email notifications to the user
-      // about the order status update
-
       res.json({
-        message: 'Order status updated successfully',
+        message: 'Order updated successfully',
         order,
       });
     } catch (error) {
-      console.error('Update order status error:', error);
+      console.error('Update order error:', error);
       res.status(500).json({ message: 'Server error', error: error.message });
     }
   }
 );
+
 
 // Get order details (admin only)
 router.get('/orders/:orderId', authorizeAdmin, async (req, res) => {
@@ -323,7 +386,7 @@ router.put(
 router.delete('/products/:productId', authorizeAdmin, async (req, res) => {
   try {
     const product = await Product.findByIdAndDelete(req.params.productId);
-    
+
     if (!product) {
       return res.status(404).json({ message: 'Product not found' });
     }
@@ -346,11 +409,11 @@ router.get('/products', authorizeAdmin, async (req, res) => {
   try {
     const { category, search, page = 1, limit = 10 } = req.query;
     const query = {};
-    
+
     if (category) {
       query.category = category;
     }
-    
+
     if (search) {
       query.$or = [
         { name: { $regex: search, $options: 'i' } },
@@ -381,11 +444,11 @@ router.get('/products', authorizeAdmin, async (req, res) => {
 router.get('/products/:productId', authorizeAdmin, async (req, res) => {
   try {
     const product = await Product.findById(req.params.productId);
-    
+
     if (!product) {
       return res.status(404).json({ message: 'Product not found' });
     }
-    
+
     res.json(product);
   } catch (error) {
     console.error('Get product error:', error);
@@ -398,28 +461,28 @@ router.get('/stats', authorizeAdmin, async (req, res) => {
   try {
     // Get total number of users
     const totalUsers = await User.countDocuments();
-    
+
     // Get total number of orders
     const totalOrders = await Order.countDocuments();
-    
+
     // Get total revenue (sum of all completed orders)
     const result = await Order.aggregate([
       { $match: { status: 'delivered' } },
       { $group: { _id: null, total: { $sum: '$total' } } },
     ]);
-    
+
     const totalRevenue = result.length > 0 ? result[0].total : 0;
-    
+
     // Get recent orders
     const recentOrders = await Order.find()
       .sort({ createdAt: -1 })
       .limit(5)
       .populate('user', 'name email');
-    
+
     // Get sales by month for the last 6 months
     const sixMonthsAgo = new Date();
     sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-    
+
     const salesByMonth = await Order.aggregate([
       { $match: { createdAt: { $gte: sixMonthsAgo } } },
       {
@@ -431,7 +494,7 @@ router.get('/stats', authorizeAdmin, async (req, res) => {
       },
       { $sort: { _id: 1 } },
     ]);
-    
+
     res.json({
       totalUsers,
       totalOrders,
@@ -445,4 +508,16 @@ router.get('/stats', authorizeAdmin, async (req, res) => {
   }
 });
 
+// Get client requirements (admin only)
+router.get('/client-requirements', authorizeAdmin, async (req, res) => {
+  try {
+    const requirements = await ClientRequirement.find().sort({ createdAt: -1 });
+    res.json(requirements);
+  } catch (error) {
+    console.error('Get client requirements error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
 module.exports = router;
+
