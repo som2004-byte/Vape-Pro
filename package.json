@@ -1,0 +1,10 @@
+{
+    "name": "vape-pro-root",
+    "version": "1.0.0",
+    "private": true,
+    "scripts": {
+        "start": "cd Backend && node index.js",
+        "build": "cd Backend && npm install",
+        "install-all": "npm install && cd Backend && npm install && cd ../Frontend && npm install"
+    }
+}
