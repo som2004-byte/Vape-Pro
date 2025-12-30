@@ -77,16 +77,35 @@ if (typeof MONGODB_URI === 'string' && MONGODB_URI.trim()) {
 
 // Mail transporter (configured via env)
 let mailTransporter = null;
-if (SMTP_HOST && SMTP_USER && SMTP_PASS && SMTP_FROM) {
+if (SMTP_HOST && SMTP_USER && SMTP_PASS) {
+  const fromEmail = SMTP_FROM || SMTP_USER; // Fallback to user email if FROM is not set
+
   mailTransporter = nodemailer.createTransport({
     host: SMTP_HOST,
     port: SMTP_PORT || (SMTP_SECURE ? 465 : 587),
-    secure: SMTP_SECURE || false,
+    secure: SMTP_SECURE, // true for 465, false for other ports
     auth: {
       user: SMTP_USER,
       pass: SMTP_PASS
     }
   });
+
+  // Verify connection configuration
+  mailTransporter.verify((error, success) => {
+    if (error) {
+      console.error('❌ SMTP Connection Error:', error);
+    } else {
+      console.log('✅ SMTP Server is ready to take our messages');
+    }
+  });
+} else {
+  const missing = [];
+  if (!SMTP_HOST) missing.push('SMTP_HOST');
+  if (!SMTP_USER) missing.push('SMTP_USER');
+  if (!SMTP_PASS) missing.push('SMTP_PASS');
+  if (missing.length > 0) {
+    console.warn(`⚠️ SMTP is not fully configured. Missing: ${missing.join(', ')}. Email features will be disabled.`);
+  }
 }
 
 const sendOtpEmail = async (toEmail, code) => {
@@ -100,12 +119,19 @@ const sendOtpEmail = async (toEmail, code) => {
       <p>If you did not request this, you can ignore this email.</p>
     </div>
   `;
-  await mailTransporter.sendMail({
-    from: SMTP_FROM,
-    to: toEmail,
-    subject: 'Your verification code',
-    html
-  });
+  const fromEmail = SMTP_FROM || SMTP_USER;
+  try {
+    await mailTransporter.sendMail({
+      from: fromEmail,
+      to: toEmail,
+      subject: 'Your verification code',
+      html
+    });
+    console.log(`✅ OTP email sent to ${toEmail}`);
+  } catch (error) {
+    console.error('❌ Failed to send OTP email:', error);
+    throw error;
+  }
 };
 
 const isValidEmail = (email) => {
@@ -483,8 +509,15 @@ app.post('/api/request-email-otp', async (req, res) => {
     await EmailOtp.findOneAndUpdate(
       { email },
       { codeHash, expiresAt, attempts: 0, requestedAt: new Date(), purpose },
-      { upsert: true, new: true, setDefaultsOnInsert: true }
+      { upsert: true, new: true, setDefaultsOnInsert: true, runValidators: true }
     );
+
+    // DEBUG: Log OTP to console so developer can see it if email fails
+    console.log('-----------------------------------------');
+    console.log(`NEW OTP REQUESTED FOR: ${email}`);
+    console.log(`CODE: ${code}`);
+    console.log(`PURPOSE: ${purpose}`);
+    console.log('-----------------------------------------');
 
     // Send email
     await sendOtpEmail(email, code);

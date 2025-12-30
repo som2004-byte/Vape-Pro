@@ -32,6 +32,8 @@ export default function AccountSection({
     setEmail(profile.email || '');
     setPhoneNumber(profile.phoneNumber || '');
     setAddress(profile.address || '');
+    setIsEmailVerified(!!profile.emailVerified);
+    setIsAddressVerified(!!profile.address); // If address exists, consider it verified
   }, [profile]);
 
   // Keep internal tab in sync with parent (e.g. when navigating to My Account / Orders)
@@ -486,16 +488,28 @@ export default function AccountSection({
                     required
                     disabled={isEmailVerified}
                   />
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-col gap-2">
                     {!isEmailVerified ? (
-                      <button
-                        type="button"
-                        onClick={handleRequestOtp}
-                        disabled={verifying || otpSent}
-                        className="px-4 py-2 rounded-lg bg-yellow-500 text-black font-semibold text-sm hover:bg-yellow-400 transition-colors focus:outline-none focus:ring-2 focus:ring-yellow-400/70 whitespace-nowrap disabled:opacity-50"
-                      >
-                        {otpSent ? 'OTP Sent' : 'Get OTP'}
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={handleRequestOtp}
+                          disabled={verifying || otpSent}
+                          className="px-4 py-2 rounded-lg bg-yellow-500 text-black font-semibold text-sm hover:bg-yellow-400 transition-colors focus:outline-none focus:ring-2 focus:ring-yellow-400/70 whitespace-nowrap disabled:opacity-50"
+                        >
+                          {otpSent ? 'OTP Sent' : 'Get OTP'}
+                        </button>
+                        {/* Dev fallback: Allow generating local OTP if on localhost or if explicitly needed */}
+                        {(window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && (
+                          <button
+                            type="button"
+                            onClick={generateEmailOtp}
+                            className="text-[10px] text-darkPurple-400 hover:text-yellow-400 underline uppercase tracking-tighter"
+                          >
+                            Dev: Demo OTP
+                          </button>
+                        )}
+                      </div>
                     ) : (
                       <span className="text-green-400 text-sm font-medium">Verified!</span>
                     )}

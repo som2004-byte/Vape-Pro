@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { API_ENDPOINTS, apiCall, getAuthHeaders } from './utils/apiConfig';
 import Navbar from './components/Navbar';
 import VapeSmokeEffect from './components/VapeSmokeEffect';
 import LandingHero from './components/LandingHero';
@@ -996,6 +997,7 @@ export default function App() {
         isLoggedIn: savedLoginState === 'true',
         isAdminLoggedIn: savedLoginState === 'true' && localStorage.getItem('vapesmart_isAdmin') === 'true',
         adminUser: savedLoginState === 'true' && localStorage.getItem('vapesmart_adminUser') ? JSON.parse(localStorage.getItem('vapesmart_adminUser')) : null,
+        adminToken: localStorage.getItem('vapesmart_adminToken'),
         cartItems: savedCart ? JSON.parse(savedCart) : [],
         orders: savedOrders ? JSON.parse(savedOrders) : [],
         profile: savedProfile ? JSON.parse(savedProfile) : null,
@@ -1021,6 +1023,7 @@ export default function App() {
   const [user, setUser] = useState(persistedState.user)
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(persistedState.isAdminLoggedIn)
   const [adminUser, setAdminUser] = useState(persistedState.adminUser)
+  const [adminToken, setAdminToken] = useState(persistedState.adminToken)
   const [currentCategory, setCurrentCategory] = useState('all')
   const [activeFilters, setActiveFilters] = useState({})
   const [searchQuery, setSearchQuery] = useState('') // Search query state
@@ -1032,6 +1035,50 @@ export default function App() {
   const [orders, setOrders] = useState(persistedState.orders) // Simple in-memory order history
   const [pendingOrder, setPendingOrder] = useState(null) // Order pending payment
   const [tempAdminBypass, setTempAdminBypass] = useState(false) // TEMPORARY: Admin bypass
+
+  // --- API Sync Functions ---
+
+  const fetchUserData = async (token) => {
+    if (!token) return;
+    try {
+      // Fetch Cart
+      const cartData = await apiCall(API_ENDPOINTS.CART.GET, {
+        headers: getAuthHeaders(token)
+      });
+      if (cartData && cartData.items) {
+        setCartItems(cartData.items.map(item => ({
+          ...item,
+          id: item.productId // map backend productId to frontend id for consistency
+        })));
+      }
+
+      // Fetch Orders
+      const ordersData = await apiCall(API_ENDPOINTS.ORDERS.GET_ALL, {
+        headers: getAuthHeaders(token)
+      });
+      if (ordersData && ordersData.orders) {
+        setOrders(ordersData.orders);
+      }
+
+      // Fetch Profile
+      const profileData = await apiCall(API_ENDPOINTS.USER.PROFILE, {
+        headers: getAuthHeaders(token)
+      });
+      if (profileData) {
+        setCustomerProfile(profileData);
+        localStorage.setItem('vapesmart_profile', JSON.stringify(profileData));
+      }
+    } catch (err) {
+      console.error('Error fetching user data:', err);
+    }
+  };
+
+  // Sync on mount if logged in
+  useEffect(() => {
+    if (isLoggedIn && user?.token) {
+      fetchUserData(user.token);
+    }
+  }, []);
 
   const handleNavigate = (page, subPage = 'profile') => {
     setCurrentPage(page)
@@ -1071,11 +1118,15 @@ export default function App() {
     // Persist login state to localStorage
     localStorage.setItem('vapesmart_user', JSON.stringify(userData))
     localStorage.setItem('vapesmart_isLoggedIn', 'true')
+
+    // Fetch user's actual data from backend
+    fetchUserData(userData.token);
   }
 
   const handleAdminLogin = (token, adminData) => {
     setIsAdminLoggedIn(true);
     setAdminUser(adminData);
+    setAdminToken(token);
     setCurrentPage('adminDashboard');
 
     // Persist admin login state
@@ -1089,6 +1140,7 @@ export default function App() {
   const handleAdminLogout = () => {
     setIsAdminLoggedIn(false)
     setAdminUser(null)
+    setAdminToken(null)
     localStorage.removeItem('vapesmart_adminUser')
     localStorage.removeItem('vapesmart_isAdmin')
     localStorage.removeItem('vapesmart_adminToken')
@@ -1140,60 +1192,111 @@ export default function App() {
     }
   }
 
-  const handleAddToCart = (product, quantity = 1, { redirectToCart = false } = {}) => {
-    let previousCart = []
-    setCartItems(prevItems => {
-      previousCart = prevItems
-      const existingItem = prevItems.find(item => item.id === product.id)
-      const newCart = existingItem
-        ? prevItems.map(item =>
-          item.id === product.id ? { ...item, quantity: (item.quantity || 0) + quantity } : item
-        )
-        : [...prevItems, { ...product, quantity }]
-      // Persist cart to localStorage
-      localStorage.setItem('vapesmart_cart', JSON.stringify(newCart))
-      return newCart
-    })
+  const handleAddToCart = async (product, quantity = 1, { redirectToCart = false } = {}) => {
+    let previousCart = [...cartItems]
+    const existingItem = cartItems.find(item => item.id === product.id)
+    const newCart = existingItem
+      ? cartItems.map(item =>
+        item.id === product.id ? { ...item, quantity: (item.quantity || 0) + quantity } : item
+      )
+      : [...cartItems, { ...product, quantity }]
+
+    setCartItems(newCart)
+    localStorage.setItem('vapesmart_cart', JSON.stringify(newCart))
 
     setToast({
       type: 'success',
-      message: `${product.series || product.name || 'Item'} added to cart`,
-      actionLabel: 'Undo',
-      onAction: () => {
-        setCartItems(previousCart)
-        localStorage.setItem('vapesmart_cart', JSON.stringify(previousCart))
-      }
+      message: 'Item added to cart!',
+      subTitle: `${product.name} ${existingItem ? '(quantity updated)' : ''}`,
+      actionLabel: 'View Cart',
+      onAction: () => setCurrentPage('cart')
     })
 
     if (redirectToCart) {
       setCurrentPage('cart')
     }
+
+    // Sync with backend if logged in
+    if (isLoggedIn && user?.token) {
+      try {
+        await apiCall(API_ENDPOINTS.CART.ADD, {
+          method: 'POST',
+          headers: getAuthHeaders(user.token),
+          body: JSON.stringify({
+            productId: product.id,
+            name: product.name,
+            price: product.price,
+            image: product.image,
+            flavor: product.flavor || '',
+            series: product.series || '',
+            quantity
+          })
+        });
+      } catch (err) {
+        console.error('Failed to sync cart with backend:', err);
+      }
+    }
   }
 
-  const handleUpdateCartQuantity = (productId, quantity) => {
-    setCartItems(prevItems => {
-      const newCart = quantity <= 0
-        ? prevItems.filter(item => item.id !== productId)
-        : prevItems.map(item =>
-          item.id === productId ? { ...item, quantity } : item
-        )
-      // Persist cart to localStorage
-      localStorage.setItem('vapesmart_cart', JSON.stringify(newCart))
-      return newCart
-    })
+  const handleUpdateCartQuantity = async (productId, delta, options = {}) => {
+    const item = cartItems.find(i => i.id === productId);
+    if (!item) return;
+
+    const newQuantity = options.isAbsolute ? delta : (item.quantity || 1) + delta
+    if (newQuantity < 1) return
+
+    const newCart = cartItems.map(item =>
+      item.id === productId ? { ...item, quantity: newQuantity } : item
+    )
+    setCartItems(newCart)
+    localStorage.setItem('vapesmart_cart', JSON.stringify(newCart))
+
+    // Sync with backend if logged in
+    if (isLoggedIn && user?.token) {
+      try {
+        await apiCall(API_ENDPOINTS.CART.UPDATE, {
+          method: 'PUT',
+          headers: getAuthHeaders(user.token),
+          body: JSON.stringify({
+            productId,
+            flavor: item.flavor || '',
+            series: item.series || '',
+            quantity: newQuantity
+          })
+        });
+      } catch (err) {
+        console.error('Failed to sync cart update with backend:', err);
+      }
+    }
   }
 
-  const handleRemoveFromCart = (productId) => {
-    setCartItems(prevItems => {
-      const newCart = prevItems.filter(item => item.id !== productId)
-      // Persist cart to localStorage
-      localStorage.setItem('vapesmart_cart', JSON.stringify(newCart))
-      return newCart
-    })
+  const handleRemoveFromCart = async (productId, flavor = '', series = '') => {
+    const newCart = cartItems.filter(item =>
+      !(item.id === productId && (item.flavor || '') === flavor && (item.series || '') === series)
+    )
+    setCartItems(newCart)
+    localStorage.setItem('vapesmart_cart', JSON.stringify(newCart))
     setToast({
       type: 'info',
       message: 'Item removed from cart',
     })
+
+    // Sync with backend if logged in
+    if (isLoggedIn && user?.token) {
+      try {
+        await apiCall(API_ENDPOINTS.CART.REMOVE, {
+          method: 'DELETE',
+          headers: getAuthHeaders(user.token),
+          body: JSON.stringify({
+            productId,
+            flavor,
+            series
+          })
+        });
+      } catch (err) {
+        console.error('Failed to sync cart removal with backend:', err);
+      }
+    }
   }
 
   const handleCheckout = () => {
@@ -1230,14 +1333,48 @@ export default function App() {
     setCurrentPage('payment')
   }
 
-  const handlePaymentSuccess = (paymentData) => {
+  const handlePaymentSuccess = async (paymentData) => {
     if (!pendingOrder) return
 
-    // Generate tracking number
+    // Sync with backend if logged in
+    if (isLoggedIn && user?.token) {
+      try {
+        setToast({ type: 'info', message: 'Confirming order with server...' });
+        const response = await apiCall(API_ENDPOINTS.ORDERS.CREATE, {
+          method: 'POST',
+          headers: getAuthHeaders(user.token),
+          body: JSON.stringify({
+            shippingAddress: pendingOrder.customerProfile.address || '',
+            paymentMethod: paymentData.paymentMethod || 'card',
+            // Backend handles the rest from existing cart on server
+          })
+        });
+
+        if (response && response.orderId) {
+          // Refresh orders from backend to get the real object
+          fetchUserData(user.token);
+
+          setCartItems([])
+          localStorage.setItem('vapesmart_cart', JSON.stringify([]))
+          setPendingOrder(null)
+          setToast({
+            type: 'success',
+            message: 'Order placed successfully!',
+            subTitle: `Order ID: ${response.orderId}`
+          })
+          setCurrentPage('account')
+          setAccountTab('orders')
+          return;
+        }
+      } catch (err) {
+        console.error('Failed to submit order to backend:', err);
+        setToast({ type: 'error', message: 'Order created locally, but failed to sync with server.' });
+      }
+    }
+
+    // Fallback to local storage if not logged in or API fails
     const trackingNumber = `TRK${Date.now()}${Math.floor(Math.random() * 10000)}`
     const now = new Date().toISOString()
-
-    // Create confirmed order with full details
     const newOrder = {
       id: pendingOrder.id,
       orderNumber: `ORD${pendingOrder.id}`,
@@ -1245,28 +1382,19 @@ export default function App() {
       placedAt: now,
       items: pendingOrder.items,
       total: pendingOrder.total,
-      status: 'processing', // processing -> shipped -> delivered
+      status: 'processing',
       paymentStatus: paymentData.paymentStatus || 'completed',
       paymentMethod: paymentData.paymentMethod || 'card',
       transactionId: paymentData.transactionId,
       paidAt: paymentData.paidAt,
       shippingAddress: pendingOrder.customerProfile.address || '',
-      // Tracking timeline
       timeline: [
-        { status: 'order_placed', timestamp: now, message: 'Order placed successfully' },
-        ...(paymentData.paymentMethod === 'cod'
-          ? [{ status: 'payment_pending', timestamp: now, message: 'Payment pending - Cash on Delivery' }]
-          : paymentData.paidAt
-            ? [{ status: 'payment_completed', timestamp: paymentData.paidAt, message: 'Payment completed' }]
-            : []
-        ),
-        { status: 'processing', timestamp: now, message: 'Order is being processed' },
+        { status: 'order_placed', timestamp: now, message: 'Order placed successfully (Offline Mode)' },
       ],
     }
 
     setOrders(prev => {
       const newOrders = [newOrder, ...prev]
-      // Persist orders to localStorage
       localStorage.setItem('vapesmart_orders', JSON.stringify(newOrders))
       return newOrders
     })
@@ -1280,56 +1408,6 @@ export default function App() {
     })
     setCurrentPage('account')
     setAccountTab('orders')
-
-    // Simulate order progression: Update status after delays
-    // After 5 seconds, mark as shipped
-    setTimeout(() => {
-      setOrders(prev => prev.map(order =>
-        order.id === newOrder.id
-          ? {
-            ...order,
-            status: 'shipped',
-            timeline: [
-              ...order.timeline,
-              {
-                status: 'shipped',
-                timestamp: new Date().toISOString(),
-                message: 'Order has been shipped'
-              }
-            ]
-          }
-          : order
-      ))
-      setToast({
-        type: 'info',
-        message: `Order ${newOrder.orderNumber} has been shipped!`,
-        subTitle: `Track with: ${trackingNumber}`
-      })
-    }, 5000)
-
-    // After 15 seconds, mark as delivered
-    setTimeout(() => {
-      setOrders(prev => prev.map(order =>
-        order.id === newOrder.id
-          ? {
-            ...order,
-            status: 'delivered',
-            timeline: [
-              ...order.timeline,
-              {
-                status: 'delivered',
-                timestamp: new Date().toISOString(),
-                message: 'Order has been delivered'
-              }
-            ]
-          }
-          : order
-      ))
-      setToast({
-        type: 'success',
-        message: `Order ${newOrder.orderNumber} has been delivered!`,
-      })
-    }, 15000)
   }
 
   const handlePaymentCancel = () => {
@@ -1450,7 +1528,7 @@ export default function App() {
           setTempAdminBypass={setTempAdminBypass} // Pass the setter
         />
         <main className="pt-32">
-          <AdminDashboard adminUser={adminUser} adminToken={localStorage.getItem('vapesmart_adminToken')} />
+          <AdminDashboard adminUser={adminUser} adminToken={adminToken} />
         </main>
       </div>
     )
@@ -1475,7 +1553,7 @@ export default function App() {
           onAdminLogout={handleAdminLogout}
         />
         <main className="pt-32">
-          <AdminDashboard adminUser={adminUser || { username: 'Temporary Admin' }} adminToken={localStorage.getItem('vapesmart_adminToken')} />
+          <AdminDashboard adminUser={adminUser || { username: 'Temporary Admin' }} adminToken={adminToken} />
         </main>
       </div>
     )
@@ -1496,7 +1574,7 @@ export default function App() {
           onAdminLogout={handleAdminLogout}
           setTempAdminBypass={setTempAdminBypass} // Pass the setter
         />
-        <AdminDashboard adminUser={adminUser} adminToken={localStorage.getItem('vapesmart_adminToken')} />
+        <AdminDashboard adminUser={adminUser} adminToken={adminToken} />
       </div>
     )
   }
@@ -1694,10 +1772,23 @@ export default function App() {
           <AccountSection
             activeTab={accountTab}
             profile={customerProfile}
-            onSaveProfile={(saved) => {
+            onSaveProfile={async (saved) => {
               setCustomerProfile(saved)
-              // Persist profile to localStorage
               localStorage.setItem('vapesmart_profile', JSON.stringify(saved))
+
+              // Sync with backend if logged in
+              if (isLoggedIn && user?.token) {
+                try {
+                  await apiCall(API_ENDPOINTS.USER.UPDATE_PROFILE, {
+                    method: 'PUT',
+                    headers: getAuthHeaders(user.token),
+                    body: JSON.stringify(saved)
+                  });
+                } catch (err) {
+                  console.error('Failed to sync profile with backend:', err);
+                }
+              }
+
               setToast({
                 type: 'success',
                 message: customerProfile ? 'Profile updated successfully' : 'Profile added successfully',

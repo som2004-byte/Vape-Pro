@@ -31,16 +31,16 @@ export const API_ENDPOINTS = {
     // Cart endpoints
     CART: {
         GET: `${API_BASE_URL}/api/cart`,
-        ADD: `${API_BASE_URL}/api/cart/add`,
-        UPDATE: `${API_BASE_URL}/api/cart/update`,
-        REMOVE: `${API_BASE_URL}/api/cart/remove`,
-        CLEAR: `${API_BASE_URL}/api/cart/clear`,
+        ADD: `${API_BASE_URL}/api/cart`, // POST /api/cart
+        UPDATE: `${API_BASE_URL}/api/cart`, // PUT /api/cart
+        REMOVE: `${API_BASE_URL}/api/cart/item`, // DELETE /api/cart/item
+        CLEAR: `${API_BASE_URL}/api/cart`, // DELETE /api/cart
     },
 
     // Order endpoints
     ORDERS: {
-        CREATE: `${API_BASE_URL}/api/orders`,
-        GET_ALL: `${API_BASE_URL}/api/orders`,
+        CREATE: `${API_BASE_URL}/api/orders/checkout`, // POST /api/orders/checkout
+        GET_ALL: `${API_BASE_URL}/api/orders`, // GET /api/orders
         BY_ID: (orderId) => `${API_BASE_URL}/api/orders/${orderId}`,
         UPDATE_PAYMENT: (orderId) => `${API_BASE_URL}/api/orders/${orderId}/payment`,
         CANCEL: (orderId) => `${API_BASE_URL}/api/orders/${orderId}/cancel`,
@@ -48,14 +48,15 @@ export const API_ENDPOINTS = {
 
     // User endpoints
     USER: {
-        PROFILE: `${API_BASE_URL}/api/user/profile`,
-        UPDATE_PROFILE: `${API_BASE_URL}/api/user/profile`,
-        VERIFY_EMAIL: `${API_BASE_URL}/api/user/verify-email`,
+        PROFILE: `${API_BASE_URL}/api/account`, // GET /api/account
+        UPDATE_PROFILE: `${API_BASE_URL}/api/account`, // PUT /api/account
+        VERIFY_EMAIL: `${API_BASE_URL}/api/request-email-otp`,
+        VERIFY_OTP: `${API_BASE_URL}/api/verify-email-otp`,
     },
 
     // Client requirement endpoints
     CLIENT_REQUIREMENTS: {
-        CREATE: `${API_BASE_URL}/api/client-requirements`,
+        CREATE: `${API_BASE_URL}/api/admin/client-requirements`, // Or wherever users submit it
     },
 };
 

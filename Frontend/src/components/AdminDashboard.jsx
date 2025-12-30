@@ -25,6 +25,8 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [newOrderStatus, setNewOrderStatus] = useState('');
   const [newTransitInfo, setNewTransitInfo] = useState('');
+  const [connectionStatus, setConnectionStatus] = useState('checking'); // 'checking', 'live', 'offline'
+  const [lastError, setLastError] = useState(null);
 
   const API_BASE_URL = `${API_BASE_URL_ROOT}/api/admin`;
 
@@ -58,6 +60,7 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout }) {
 
       // Try to fetch from API if token exists
       if (adminToken) {
+        setConnectionStatus('checking');
         const response = await fetch(`${API_BASE_URL}${endpoint}`, {
           headers: { Authorization: `Bearer ${adminToken}` },
         });
@@ -72,8 +75,15 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout }) {
 
           setter(finalData);
           setLoading(false);
+          setConnectionStatus('live');
           return;
+        } else {
+          const errData = await response.json().catch(() => ({}));
+          console.error(`API Error (${endpoint}):`, response.status, errData);
+          setLastError(`API Error ${response.status}: ${errData.message || response.statusText}`);
         }
+      } else {
+        setConnectionStatus('offline');
       }
 
       // Fallback to mock data
@@ -82,13 +92,16 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout }) {
       if (endpoint === '/client-requirements') setter(MOCK_DATA.requirements);
 
       setLoading(false);
+      if (adminToken) setConnectionStatus('offline');
     } catch (err) {
       console.error('Fetch error:', err);
+      setLastError(err.message);
       // Use mock data on error
       if (endpoint === '/users') setter(MOCK_DATA.users);
       if (endpoint === '/orders') setter(MOCK_DATA.orders);
       if (endpoint === '/client-requirements') setter(MOCK_DATA.requirements);
       setLoading(false);
+      setConnectionStatus('offline');
     }
   };
 
@@ -102,7 +115,8 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout }) {
 
         if (response.ok) {
           const data = await response.json();
-          setStats(data);
+          // Merge with current stats to preserve pendingOrders if missing
+          setStats(prev => ({ ...prev, ...data }));
           return;
         }
       }
@@ -111,8 +125,8 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout }) {
       setStats({
         totalUsers: MOCK_DATA.users.length,
         totalOrders: MOCK_DATA.orders.length,
-        totalRevenue: MOCK_DATA.orders.reduce((sum, order) => sum + order.totalAmount, 0),
-        pendingOrders: MOCK_DATA.orders.filter(o => o.orderStatus === 'pending').length
+        totalRevenue: MOCK_DATA.orders.reduce((sum, order) => sum + (order.totalAmount || order.total || 0), 0),
+        pendingOrders: MOCK_DATA.orders.filter(o => o.orderStatus === 'pending' || o.status === 'pending').length
       });
     } catch (err) {
       console.error('Stats fetch error:', err);
@@ -216,7 +230,19 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout }) {
                     activeTab === 'orders' ? 'Orders Management' :
                       'Requirements Management'}
             </h1>
-            <p className="text-darkPurple-400 mt-1">Real-time metrics and system controls.</p>
+            <div className="flex items-center gap-3 mt-1">
+              <div className="flex items-center gap-2">
+                <span className={`w-2 h-2 rounded-full ${connectionStatus === 'live' ? 'bg-green-500 shadow-[0_0_8px_#22c55e]' : connectionStatus === 'checking' ? 'bg-yellow-500 animate-pulse' : 'bg-red-500 shadow-[0_0_8px_#ef4444]'}`}></span>
+                <span className={`text-xs font-bold uppercase tracking-wider ${connectionStatus === 'live' ? 'text-green-400' : connectionStatus === 'checking' ? 'text-yellow-400' : 'text-red-400'}`}>
+                  {connectionStatus === 'live' ? 'Database Live' : connectionStatus === 'checking' ? 'Connecting...' : 'Offline (Mock Mode)'}
+                </span>
+              </div>
+              <span className="text-darkPurple-600">|</span>
+              <p className="text-darkPurple-400 text-xs uppercase tracking-widest font-medium">Real-time metrics and system controls</p>
+            </div>
+            {lastError && connectionStatus === 'offline' && (
+              <p className="text-red-400 text-[10px] mt-1 font-mono">{lastError}</p>
+            )}
           </div>
           <div className="flex gap-3">
             {(selectedUser || selectedOrder || selectedRequirement) && (
@@ -254,8 +280,8 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout }) {
                 key={tab}
                 onClick={() => setActiveTab(tab)}
                 className={`px-6 py-3 rounded-t-xl font-bold text-sm transition-all ${activeTab === tab
-                    ? 'bg-darkPurple-800 text-white'
-                    : 'text-darkPurple-400 hover:text-white hover:bg-darkPurple-900/50'
+                  ? 'bg-darkPurple-800 text-white'
+                  : 'text-darkPurple-400 hover:text-white hover:bg-darkPurple-900/50'
                   }`}
               >
                 {tab.charAt(0).toUpperCase() + tab.slice(1)}
@@ -588,8 +614,8 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout }) {
                       key={status}
                       onClick={() => setNewOrderStatus(status)}
                       className={`px-4 py-3 rounded-xl text-xs font-bold border-2 transition-all uppercase tracking-wide ${newOrderStatus === status
-                          ? 'bg-cyan-500 text-darkPurple-950 border-cyan-400 shadow-lg shadow-cyan-500/50'
-                          : 'bg-darkPurple-800/50 border-darkPurple-700 text-darkPurple-300 hover:border-darkPurple-500 hover:bg-darkPurple-800'
+                        ? 'bg-cyan-500 text-darkPurple-950 border-cyan-400 shadow-lg shadow-cyan-500/50'
+                        : 'bg-darkPurple-800/50 border-darkPurple-700 text-darkPurple-300 hover:border-darkPurple-500 hover:bg-darkPurple-800'
                         }`}
                     >
                       {status}
