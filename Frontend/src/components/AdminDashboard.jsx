@@ -5,164 +5,67 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout }) {
   // Navigation and view states
   const [activeTab, setActiveTab] = useState('overview');
   const [selectedUser, setSelectedUser] = useState(null);
-  const [selectedOrder, setSelectedOrder] = useState(null);
   const [selectedRequirement, setSelectedRequirement] = useState(null);
 
   // Data states
   const [users, setUsers] = useState([]);
-  const [orders, setOrders] = useState([]);
   const [clientRequirements, setClientRequirements] = useState([]);
   const [stats, setStats] = useState({
     totalUsers: 0,
-    totalOrders: 0,
-    totalRevenue: 0,
-    pendingOrders: 0
+    totalRequirements: 0,
+    pendingRequirements: 0
   });
 
   // UI states
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [newOrderStatus, setNewOrderStatus] = useState('');
-  const [newTransitInfo, setNewTransitInfo] = useState('');
 
   const API_BASE_URL = `${API_BASE_URL_ROOT}/api/admin`;
 
-  // Enhanced mock data
-  const MOCK_DATA = {
-    users: [
-      { _id: 'u1', name: 'Somya Verma', email: 'somya@example.com', phoneNumber: '+91 98765 43210', address: 'B-42, South City, New Delhi', createdAt: '2023-11-20' },
-      { _id: 'u2', name: 'James Wilson', email: 'james@vapefans.com', phoneNumber: '+44 7700 900123', address: '12 Baker Street, London', createdAt: '2023-12-05' },
-      { _id: 'u3', name: 'Elena Rodriguez', email: 'elena.r@gmail.com', phoneNumber: '+34 612 345 678', address: 'Calle Mayor 15, Madrid', createdAt: '2024-01-12' },
-      { _id: 'u4', name: 'Kenji Sato', email: 'kenji.s@it-tokyo.jp', phoneNumber: '+81 90-1234-5678', address: 'Shibuya-ku, Tokyo', createdAt: '2024-02-28' },
-    ],
-    orders: [
-      { _id: 'ORD-7721', userId: { email: 'somya@example.com', name: 'Somya Verma' }, totalAmount: 1599.00, orderStatus: 'shipped', transitInfo: 'Arrived at local facility', createdAt: '2025-12-23T10:00:00Z' },
-      { _id: 'ORD-7722', userId: { email: 'james@vapefans.com', name: 'James Wilson' }, totalAmount: 2450.00, orderStatus: 'processing', transitInfo: 'Quality check passed', createdAt: '2025-12-24T08:30:00Z' },
-      { _id: 'ORD-7723', userId: { email: 'elena.r@gmail.com', name: 'Elena Rodriguez' }, totalAmount: 899.00, orderStatus: 'delivered', transitInfo: 'Delivered to porch', createdAt: '2025-12-22T15:45:00Z' },
-      { _id: 'ORD-7724', userId: { email: 'kenji.s@it-tokyo.jp', name: 'Kenji Sato' }, totalAmount: 4200.00, orderStatus: 'pending', transitInfo: 'Awaiting payment confirmation', createdAt: '2025-12-24T14:20:00Z' },
-      { _id: 'ORD-7725', userId: { email: 'somya@example.com', name: 'Somya Verma' }, totalAmount: 310.00, orderStatus: 'cancelled', transitInfo: 'Cancelled by customer', createdAt: '2025-12-21T09:12:00Z' },
-    ],
-    requirements: [
-      { _id: 'req1', title: 'Bulk Wholesale Inquiry', description: 'Looking for 500 units of Elfbar BC20000 for a new retail chain opening in Dubai. Need best price quotation.', status: 'Urgent', contactName: 'Unknown Contact', contactEmail: 'No Email', date: '2025-12-23' },
-      { _id: 'req2', title: 'Store Partnership', description: 'Small boutique in Paris interested in stocking premium nic-salts. Seeking distribution details.', status: 'New', contactName: 'Unknown Contact', contactEmail: 'No Email', date: '2025-12-24' },
-      { _id: 'req3', title: 'Custom Flavor Request', description: 'Customer inquiry about potential for customized branding on disposable units for corporate events.', status: 'In Review', contactName: 'Unknown Contact', contactEmail: 'No Email', date: '2025-12-22' },
-    ]
-  };
-
-  // Fetch data from API with fallback to mock
+  // Fetch data from API
   const fetchData = async (endpoint, setter) => {
     try {
+      if (!adminToken) return;
       setLoading(true);
       setError('');
 
-      // Try to fetch from API if token exists
-      if (adminToken) {
-        const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-          headers: { Authorization: `Bearer ${adminToken}` },
-        });
+      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+        headers: { Authorization: `Bearer ${adminToken}` },
+      });
 
-        if (response.ok) {
-          const data = await response.json();
-          let finalData = data;
-
-          // Handle paginated responses
-          if (data.orders && Array.isArray(data.orders)) finalData = data.orders;
-          else if (data.users && Array.isArray(data.users)) finalData = data.users;
-
-          setter(finalData);
-          setLoading(false);
-          return;
-        }
+      if (response.ok) {
+        const data = await response.json();
+        setter(data);
       }
-
-      // Fallback to mock data
-      if (endpoint === '/users') setter(MOCK_DATA.users);
-      if (endpoint === '/orders') setter(MOCK_DATA.orders);
-      if (endpoint === '/client-requirements') setter(MOCK_DATA.requirements);
-
-      setLoading(false);
     } catch (err) {
       console.error('Fetch error:', err);
-      // Use mock data on error
-      if (endpoint === '/users') setter(MOCK_DATA.users);
-      if (endpoint === '/orders') setter(MOCK_DATA.orders);
-      if (endpoint === '/client-requirements') setter(MOCK_DATA.requirements);
+      setError('Failed to fetch data');
+    } finally {
       setLoading(false);
     }
   };
 
-  // Fetch stats
+  // Fetch stats from API
   const fetchStats = async () => {
     try {
-      if (adminToken) {
-        const response = await fetch(`${API_BASE_URL}/stats`, {
-          headers: { Authorization: `Bearer ${adminToken}` },
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          setStats(data);
-          return;
-        }
-      }
-
-      // Calculate from mock data
-      setStats({
-        totalUsers: MOCK_DATA.users.length,
-        totalOrders: MOCK_DATA.orders.length,
-        totalRevenue: MOCK_DATA.orders.reduce((sum, order) => sum + order.totalAmount, 0),
-        pendingOrders: MOCK_DATA.orders.filter(o => o.orderStatus === 'pending').length
+      if (!adminToken) return;
+      const response = await fetch(`${API_BASE_URL}/stats`, {
+        headers: { Authorization: `Bearer ${adminToken}` },
       });
+
+      if (response.ok) {
+        const data = await response.json();
+        setStats(data);
+      }
     } catch (err) {
       console.error('Stats fetch error:', err);
-    }
-  };
-
-  // Update order status
-  const handleUpdateOrderStatus = async () => {
-    try {
-      if (adminToken && selectedOrder) {
-        const response = await fetch(`${API_BASE_URL}/orders/${selectedOrder._id}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${adminToken}`,
-          },
-          body: JSON.stringify({
-            orderStatus: newOrderStatus,
-            transitInfo: newTransitInfo,
-          }),
-        });
-
-        if (response.ok) {
-          // Update local state
-          setOrders(orders.map(order =>
-            order._id === selectedOrder._id
-              ? { ...order, orderStatus: newOrderStatus, transitInfo: newTransitInfo }
-              : order
-          ));
-          setSelectedOrder(null);
-          return;
-        }
-      }
-
-      // Mock update
-      setOrders(orders.map(order =>
-        order._id === selectedOrder._id
-          ? { ...order, orderStatus: newOrderStatus, transitInfo: newTransitInfo }
-          : order
-      ));
-      setSelectedOrder(null);
-    } catch (err) {
-      console.error('Update error:', err);
     }
   };
 
   // Refresh data
   const handleRefresh = () => {
     fetchData('/users', setUsers);
-    fetchData('/orders', setOrders);
     fetchData('/client-requirements', setClientRequirements);
     fetchStats();
   };
@@ -173,92 +76,88 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout }) {
   }, [adminToken]);
 
   // Filter functions
-  const filteredUsers = users.filter(user =>
+  const filteredUsers = Array.isArray(users) ? users.filter(user =>
     user.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     user.email?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  ) : [];
 
-  const filteredOrders = orders.filter(order =>
-    order._id?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    order.userId?.email?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const filteredRequirements = clientRequirements.filter(req =>
+  const filteredRequirements = Array.isArray(clientRequirements) ? clientRequirements.filter(req =>
     req.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     req.description?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  // Status colors
-  const statusColors = {
-    pending: 'bg-yellow-500/20 border-yellow-500 text-yellow-400',
-    processing: 'bg-blue-500/20 border-blue-500 text-blue-400',
-    shipped: 'bg-cyan-500/20 border-cyan-500 text-cyan-400',
-    delivered: 'bg-green-500/20 border-green-500 text-green-400',
-    cancelled: 'bg-red-500/20 border-red-500 text-red-400',
-  };
+  ) : [];
 
   const requirementStatusColors = {
     'Urgent': 'bg-red-500/20 border-red-500 text-red-400',
     'New': 'bg-cyan-500/20 border-cyan-500 text-cyan-400',
     'In Review': 'bg-yellow-500/20 border-yellow-500 text-yellow-400',
+    'Processed': 'bg-green-500/20 border-green-500 text-green-400',
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-darkPurple-950 via-black to-darkPurple-950 text-white p-6">
+    <div className="min-h-screen bg-black text-white p-4 md:p-8">
       {/* Header */}
-      <div className="max-w-7xl mx-auto mb-8">
-        <div className="flex justify-between items-center mb-4">
+      <div className="max-w-7xl mx-auto mb-10">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-8">
           <div>
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-400 to-pink-600 bg-clip-text text-transparent">
-              {selectedUser ? 'User Details' : selectedOrder ? 'Order Details' : selectedRequirement ? 'Requirement Details' :
-                activeTab === 'overview' ? 'Network Overview' :
-                  activeTab === 'users' ? 'Users Management' :
-                    activeTab === 'orders' ? 'Orders Management' :
-                      'Requirements Management'}
-            </h1>
-            <p className="text-darkPurple-400 mt-1">Real-time metrics and system controls.</p>
-          </div>
-          <div className="flex gap-3">
-            {(selectedUser || selectedOrder || selectedRequirement) && (
-              <button
-                onClick={() => {
-                  setSelectedUser(null);
-                  setSelectedOrder(null);
-                  setSelectedRequirement(null);
-                }}
-                className="px-4 py-2 rounded-xl bg-darkPurple-800 hover:bg-darkPurple-700 text-sm font-bold transition-all flex items-center gap-2"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-10 h-10 bg-gradient-to-tr from-purple-600 to-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-purple-500/20">
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                 </svg>
-                Back
+              </div>
+              <h1 className="text-3xl font-black tracking-tighter uppercase italic">
+                Portal<span className="text-purple-500">Master</span> <span className="text-sm font-medium text-gray-500 not-italic tracking-normal lowercase ml-2">v2.4.0</span>
+              </h1>
+            </div>
+            <p className="text-darkPurple-400 font-medium">Welcome back, <span className="text-white">{adminUser?.name || 'Administrator'}</span>. System status is nominal.</p>
+          </div>
+
+          <div className="flex items-center gap-4">
+            {(selectedUser || selectedRequirement) && (
+              <button
+                onClick={() => { setSelectedUser(null); setSelectedRequirement(null); }}
+                className="px-5 py-2.5 rounded-xl bg-gray-900 border border-gray-800 text-sm font-bold hover:bg-gray-800 transition-all flex items-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+                Return
               </button>
             )}
             <button
               onClick={handleRefresh}
-              className="px-4 py-2 rounded-xl bg-darkPurple-800 hover:bg-darkPurple-700 text-sm font-bold transition-all flex items-center gap-2"
+              className="p-2.5 rounded-xl bg-gray-900 border border-gray-800 hover:border-purple-500/50 transition-all"
+              title="Refresh Data"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-              Refresh Data
+              <svg className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+            </button>
+            <button
+              onClick={onLogout}
+              className="px-6 py-2.5 rounded-xl bg-red-600 text-white text-sm font-black uppercase tracking-widest hover:bg-red-700 transition-all shadow-lg shadow-red-600/20"
+            >
+              Logout
             </button>
           </div>
         </div>
 
-        {/* Tabs - Only show when not viewing details */}
-        {!selectedUser && !selectedOrder && !selectedRequirement && (
-          <div className="flex gap-2 border-b border-darkPurple-800 pb-2">
-            {['overview', 'users', 'orders', 'requirements'].map(tab => (
+        {/* Global Tabs */}
+        {!selectedUser && !selectedRequirement && (
+          <div className="flex flex-wrap gap-3">
+            {[
+              { id: 'overview', label: 'Command Center', icon: 'M13 10V3L4 14h7v7l9-11h-7z' },
+              { id: 'users', label: 'User Fleet', icon: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z' },
+              { id: 'requirements', label: 'Requirement Log', icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' }
+            ].map(tab => (
               <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`px-6 py-3 rounded-t-xl font-bold text-sm transition-all ${activeTab === tab
-                    ? 'bg-darkPurple-800 text-white'
-                    : 'text-darkPurple-400 hover:text-white hover:bg-darkPurple-900/50'
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center gap-3 px-6 py-3 rounded-2xl font-bold text-sm transition-all border-2 ${activeTab === tab.id
+                    ? 'bg-purple-600 border-purple-500 text-white shadow-lg shadow-purple-600/30'
+                    : 'bg-gray-900 border-gray-800 text-gray-400 hover:border-gray-700'
                   }`}
               >
-                {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={tab.icon} />
+                </svg>
+                {tab.label}
               </button>
             ))}
           </div>
@@ -266,117 +165,117 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout }) {
       </div>
 
       <div className="max-w-7xl mx-auto">
-        {/* Overview Tab */}
-        {activeTab === 'overview' && !selectedUser && !selectedOrder && !selectedRequirement && (
-          <div className="space-y-6">
-            {/* Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <div className="bg-darkPurple-900/30 border border-darkPurple-800 rounded-2xl p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="p-3 bg-blue-500/20 rounded-xl">
-                    <svg className="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                    </svg>
+        {activeTab === 'overview' && !selectedUser && !selectedRequirement && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* Stats Col */}
+            <div className="lg:col-span-2 space-y-8">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="bg-gray-900/50 border border-gray-800 rounded-3xl p-6 backdrop-blur-xl">
+                  <p className="text-xs font-black text-blue-400 uppercase tracking-[0.2em] mb-4">Total Registry</p>
+                  <div className="flex items-end justify-between">
+                    <span className="text-5xl font-black">{stats.totalUsers}</span>
+                    <span className="text-xs text-green-400 flex items-center gap-1 font-bold">
+                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M12 7a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0V8.414l-4.293 4.293a1 1 0 01-1.414 0L8 11.414l-4.293 4.293a1 1 0 01-1.414-1.414l5-5a1 1 0 011.414 0L10 10.586 13.586 7H12z" clipRule="evenodd" /></svg>
+                      Nominal
+                    </span>
                   </div>
-                  <span className="text-xs text-green-400 font-bold">+12%</span>
                 </div>
-                <p className="text-sm text-darkPurple-400 mb-1">Platform Users</p>
-                <p className="text-3xl font-bold">{stats.totalUsers}</p>
+                <div className="bg-gray-900/50 border border-gray-800 rounded-3xl p-6 backdrop-blur-xl">
+                  <p className="text-xs font-black text-yellow-400 uppercase tracking-[0.2em] mb-4">Open Tickets</p>
+                  <div className="flex items-end justify-between">
+                    <span className="text-5xl font-black">{stats.pendingRequirements}</span>
+                    <span className="text-xs text-yellow-400 font-bold">Action Required</span>
+                  </div>
+                </div>
+                <div className="bg-gray-900/50 border border-gray-800 rounded-3xl p-6 backdrop-blur-xl">
+                  <p className="text-xs font-black text-purple-400 uppercase tracking-[0.2em] mb-4">System Health</p>
+                  <div className="flex items-end justify-between">
+                    <span className="text-5xl font-black">98%</span>
+                    <span className="text-xs text-purple-400 font-bold">Stable</span>
+                  </div>
+                </div>
               </div>
 
-              <div className="bg-darkPurple-900/30 border border-darkPurple-800 rounded-2xl p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="p-3 bg-purple-500/20 rounded-xl">
-                    <svg className="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-                    </svg>
+              <div className="bg-gray-900/50 border border-gray-800 rounded-3xl p-8">
+                <div className="flex items-center justify-between mb-8">
+                  <div>
+                    <h3 className="text-2xl font-black italic tracking-tighter uppercase">Recent Activity</h3>
+                    <p className="text-sm text-gray-500 font-medium">Monitoring incoming platform requirements</p>
                   </div>
-                  <span className="text-xs text-green-400 font-bold">+12%</span>
+                  <button onClick={() => setActiveTab('requirements')} className="text-xs font-bold text-gray-400 hover:text-white transition-colors">View All</button>
                 </div>
-                <p className="text-sm text-darkPurple-400 mb-1">Total Volume</p>
-                <p className="text-3xl font-bold">{stats.totalOrders}</p>
-              </div>
 
-              <div className="bg-darkPurple-900/30 border border-darkPurple-800 rounded-2xl p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="p-3 bg-green-500/20 rounded-xl">
-                    <svg className="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                  <span className="text-xs text-green-400 font-bold">+12%</span>
+                <div className="space-y-4">
+                  {filteredRequirements.length === 0 ? (
+                    <div className="text-center py-12 border-2 border-dashed border-gray-800 rounded-2xl">
+                      <p className="text-gray-600 font-bold italic">No active priority tickets available.</p>
+                    </div>
+                  ) : (
+                    filteredRequirements.slice(0, 5).map((req) => (
+                      <div key={req._id} onClick={() => setSelectedRequirement(req)} className="group flex items-center justify-between p-4 bg-black/40 border border-gray-800 rounded-2xl hover:border-purple-500/50 transition-all cursor-pointer">
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 bg-gray-800 rounded-xl flex items-center justify-center group-hover:bg-purple-600/20 transition-colors">
+                            <span className="text-sm font-black text-gray-400 group-hover:text-purple-400 uppercase">{req.contactName?.charAt(0) || 'R'}</span>
+                          </div>
+                          <div>
+                            <h4 className="font-bold text-gray-200 group-hover:text-white">{req.title}</h4>
+                            <p className="text-xs text-gray-500">{req.contactEmail}</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest border ${requirementStatusColors[req.status] || 'border-gray-700 text-gray-500'}`}>
+                            {req.status}
+                          </span>
+                          <p className="text-[10px] text-gray-600 mt-2 font-bold">{req.date}</p>
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
-                <p className="text-sm text-darkPurple-400 mb-1">Total Revenue</p>
-                <p className="text-3xl font-bold">₹{stats.totalRevenue?.toLocaleString('en-IN') || '0'}</p>
-              </div>
-
-              <div className="bg-darkPurple-900/30 border border-darkPurple-800 rounded-2xl p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="p-3 bg-yellow-500/20 rounded-xl">
-                    <svg className="w-6 h-6 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                    </svg>
-                  </div>
-                  <span className="text-xs text-green-400 font-bold">+12%</span>
-                </div>
-                <p className="text-sm text-darkPurple-400 mb-1">Active Pipeline</p>
-                <p className="text-3xl font-bold">{stats.pendingOrders}</p>
               </div>
             </div>
 
-            {/* Recent Activity & System Health */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Recent Activity */}
-              <div className="bg-darkPurple-900/30 border border-darkPurple-800 rounded-2xl p-6">
-                <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
-                  <span className="w-2 h-2 bg-cyan-400 rounded-full"></span>
-                  Recent Activity
-                </h3>
-                <div className="space-y-3">
-                  {orders.slice(0, 4).map((order, idx) => (
-                    <div key={idx} className="flex items-center justify-between p-3 bg-darkPurple-800/30 rounded-xl hover:bg-darkPurple-800/50 transition-all cursor-pointer"
-                      onClick={() => setSelectedOrder(order)}>
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-darkPurple-700 rounded-full flex items-center justify-center">
-                          <span className="text-xs font-bold">{order.userId?.email?.charAt(0).toUpperCase()}</span>
-                        </div>
-                        <div>
-                          <p className="text-sm font-bold">Order {order.orderStatus}</p>
-                          <p className="text-xs text-purple-400">{order._id} • {order.userId?.email}</p>
-                        </div>
-                      </div>
-                      <p className="text-sm font-mono">#{order._id.substring(0, 8)}</p>
+            {/* System Info Col */}
+            <div className="space-y-8">
+              <div className="bg-gradient-to-br from-purple-900/20 to-blue-900/20 border border-purple-500/20 rounded-3xl p-8">
+                <h3 className="text-xl font-black uppercase italic mb-6">Security Node</h3>
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-gray-500 uppercase">Uptime</span>
+                    <span className="text-xs font-mono text-green-400">99.9%</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-gray-500 uppercase">Latency</span>
+                    <span className="text-xs font-mono text-yellow-400">42ms</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-gray-500 uppercase">Encryption</span>
+                    <span className="text-xs font-mono text-blue-400">AES-256</span>
+                  </div>
+                  <div className="pt-4 border-t border-white/5">
+                    <div className="flex items-center gap-3">
+                      <div className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)] animate-pulse" />
+                      <span className="text-[10px] font-black uppercase text-green-500 tracking-widest">Live Monitor Active</span>
                     </div>
-                  ))}
+                  </div>
                 </div>
               </div>
 
-              {/* System Health */}
-              <div className="bg-darkPurple-900/30 border border-darkPurple-800 rounded-2xl p-6">
-                <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
-                  <span className="w-2 h-2 bg-green-400 rounded-full"></span>
-                  System Health
-                </h3>
+              <div className="bg-gray-900/50 border border-gray-800 rounded-3xl p-8">
+                <h3 className="text-xl font-black uppercase italic mb-6">Quick Actions</h3>
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="text-center p-4 bg-darkPurple-800/30 rounded-xl">
-                    <p className="text-[10px] text-purple-400 uppercase tracking-widest mb-2">API Server</p>
-                    <p className="text-sm font-bold text-green-400">Optimal</p>
-                  </div>
-                  <div className="text-center p-4 bg-darkPurple-800/30 rounded-xl">
-                    <p className="text-[10px] text-purple-400 uppercase tracking-widest mb-2">Database</p>
-                    <p className="text-sm font-bold text-green-400">Synchronized</p>
-                  </div>
-                  <div className="text-center p-4 bg-darkPurple-800/30 rounded-xl">
-                    <p className="text-[10px] text-purple-400 uppercase tracking-widest mb-2">Mail Engine</p>
-                    <p className="text-sm font-bold text-cyan-400">Ready</p>
-                  </div>
-                  <div className="text-center p-4 bg-darkPurple-800/30 rounded-xl">
-                    <p className="text-[10px] text-purple-400 uppercase tracking-widest mb-2">Auth Service</p>
-                    <p className="text-sm font-bold text-green-400">Stable</p>
-                  </div>
-                </div>
-                <div className="mt-4 p-4 bg-darkPurple-800/30 rounded-xl">
-                  <p className="text-xs text-darkPurple-400 text-center">System Configuration</p>
+                  <button onClick={() => setActiveTab('users')} className="p-4 rounded-2xl bg-black border border-gray-800 hover:border-blue-500/50 transition-all text-left group">
+                    <div className="w-8 h-8 bg-blue-500/20 rounded-lg flex items-center justify-center mb-3 group-hover:bg-blue-500 transition-colors">
+                      <svg className="w-4 h-4 text-blue-400 group-hover:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
+                    </div>
+                    <span className="text-xs font-black uppercase tracking-wider">Add User</span>
+                  </button>
+                  <button onClick={() => setActiveTab('requirements')} className="p-4 rounded-2xl bg-black border border-gray-800 hover:border-purple-500/50 transition-all text-left group">
+                    <div className="w-8 h-8 bg-purple-500/20 rounded-lg flex items-center justify-center mb-3 group-hover:bg-purple-500 transition-colors">
+                      <svg className="w-4 h-4 text-purple-400 group-hover:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                    </div>
+                    <span className="text-xs font-black uppercase tracking-wider">Reports</span>
+                  </button>
                 </div>
               </div>
             </div>
@@ -385,350 +284,236 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout }) {
 
         {/* Users Tab */}
         {activeTab === 'users' && !selectedUser && (
-          <div className="bg-darkPurple-900/30 border border-darkPurple-800 rounded-3xl overflow-hidden">
-            <div className="p-6 border-b border-darkPurple-800">
-              <div className="flex justify-between items-center">
-                <h3 className="text-xl font-bold">User Database</h3>
-                <div className="relative">
+          <div className="bg-gray-900/50 border border-gray-800 rounded-[32px] overflow-hidden backdrop-blur-xl">
+            <div className="p-8 border-b border-gray-800">
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                <div>
+                  <h3 className="text-3xl font-black italic tracking-tighter uppercase">Registry Management</h3>
+                  <p className="text-sm text-gray-500 font-medium">Control and monitor all verified platform operators</p>
+                </div>
+                <div className="relative w-full md:w-96">
                   <input
                     type="text"
-                    placeholder="Search by name or email..."
+                    placeholder="Search by name, email, or ID..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="px-4 py-2 pl-10 bg-darkPurple-800 border border-darkPurple-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    className="w-full pl-12 pr-6 py-4 bg-black border border-gray-800 rounded-2xl text-sm italic font-bold focus:outline-none focus:border-purple-500 transition-all"
                   />
-                  <svg className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-darkPurple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
                 </div>
               </div>
             </div>
+
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-darkPurple-800/20">
-                  <tr>
-                    <th className="px-6 py-4 text-left text-[10px] font-bold text-purple-400 uppercase tracking-widest">Profile</th>
-                    <th className="px-6 py-4 text-left text-[10px] font-bold text-purple-400 uppercase tracking-widest">Contact</th>
-                    <th className="px-6 py-4 text-left text-[10px] font-bold text-purple-400 uppercase tracking-widest">Registered</th>
-                    <th className="px-6 py-4 text-left text-[10px] font-bold text-purple-400 uppercase tracking-widest">Location</th>
-                    <th className="px-6 py-4 text-right text-[10px] font-bold text-purple-400 uppercase tracking-widest">Actions</th>
+                <thead>
+                  <tr className="bg-black/40">
+                    <th className="px-8 py-5 text-left text-[10px] font-black text-gray-500 uppercase tracking-[0.3em]">Identity</th>
+                    <th className="px-8 py-5 text-left text-[10px] font-black text-gray-500 uppercase tracking-[0.3em]">Contact Vector</th>
+                    <th className="px-8 py-5 text-left text-[10px] font-black text-gray-500 uppercase tracking-[0.3em]">Registry Date</th>
+                    <th className="px-8 py-5 text-left text-[10px] font-black text-gray-500 uppercase tracking-[0.3em]">Current Loc</th>
+                    <th className="px-8 py-5 text-right text-[10px] font-black text-gray-500 uppercase tracking-[0.3em]">Access</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-darkPurple-800/50">
-                  {filteredUsers.map(user => (
-                    <tr key={user._id} className="hover:bg-white/5 transition-colors cursor-pointer" onClick={() => setSelectedUser(user)}>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center text-lg font-bold">
-                            {user.name?.charAt(0) || user.email?.charAt(0).toUpperCase()}
+                <tbody className="divide-y divide-gray-800/50">
+                  {filteredUsers.length === 0 ? (
+                    <tr>
+                      <td colSpan="5" className="px-8 py-20 text-center text-gray-600 font-black italic">No records found matching criteria.</td>
+                    </tr>
+                  ) : (
+                    filteredUsers.map(user => (
+                      <tr key={user._id} className="group hover:bg-white/5 transition-all cursor-pointer" onClick={() => setSelectedUser(user)}>
+                        <td className="px-8 py-6">
+                          <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 bg-gradient-to-br from-purple-600 to-blue-600 rounded-xl flex items-center justify-center text-lg font-black italic shadow-lg shadow-purple-900/40 group-hover:scale-110 transition-transform">
+                              {user.name?.charAt(0) || user.email?.charAt(0).toUpperCase()}
+                            </div>
+                            <span className="font-bold text-gray-200 group-hover:text-white transition-colors">{user.name || 'ANONYMOUS'}</span>
                           </div>
-                          <span className="font-medium">{user.name || 'N/A'}</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div>
-                          <p className="text-sm text-white">{user.email}</p>
-                          <p className="text-xs text-purple-400">{user.phoneNumber || 'No phone'}</p>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-sm">{user.createdAt}</td>
-                      <td className="px-6 py-4 text-sm text-darkPurple-300">{user.address || 'No address'}</td>
-                      <td className="px-6 py-4 text-right">
-                        <button className="p-2 hover:bg-white/10 rounded-lg transition-all">
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h.01M12 12h.01M19 12h.01M6 12a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0z" />
-                          </svg>
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                        <td className="px-8 py-6">
+                          <div>
+                            <p className="text-sm font-bold text-gray-300">{user.email}</p>
+                            <p className="text-[10px] text-gray-500 font-black uppercase mt-1">{user.phoneNumber || 'STOCKED_NONE'}</p>
+                          </div>
+                        </td>
+                        <td className="px-8 py-6 text-sm font-bold text-gray-400">
+                          {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'LEGACY_USER'}
+                        </td>
+                        <td className="px-8 py-6 text-xs font-bold text-gray-500 uppercase truncate max-w-[200px]">
+                          {user.address || 'UNDEFINED_VECTOR'}
+                        </td>
+                        <td className="px-8 py-6 text-right">
+                          <button className="px-4 py-2 rounded-xl border border-gray-800 text-[10px] font-black uppercase hover:bg-gray-800 transition-colors">
+                            View Profile
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
-            </div>
-          </div>
-        )}
-
-        {/* User Details View */}
-        {selectedUser && (
-          <div className="bg-darkPurple-900/30 border border-darkPurple-800 rounded-3xl p-8">
-            <div className="max-w-3xl mx-auto">
-              <div className="flex items-center gap-6 mb-8">
-                <div className="w-24 h-24 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center text-4xl font-bold">
-                  {selectedUser.name?.charAt(0) || selectedUser.email?.charAt(0).toUpperCase()}
-                </div>
-                <div>
-                  <h2 className="text-3xl font-bold mb-2">{selectedUser.name || 'Unknown User'}</h2>
-                  <p className="text-darkPurple-400">{selectedUser.email}</p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-6">
-                <div className="bg-darkPurple-800/40 p-6 rounded-2xl border border-darkPurple-700/30">
-                  <p className="text-[10px] font-bold text-purple-400 uppercase tracking-widest mb-2">User ID</p>
-                  <p className="text-sm font-mono text-cyan-400">{selectedUser._id}</p>
-                </div>
-                <div className="bg-darkPurple-800/40 p-6 rounded-2xl border border-darkPurple-700/30">
-                  <p className="text-[10px] font-bold text-purple-400 uppercase tracking-widest mb-2">Phone Number</p>
-                  <p className="text-sm">{selectedUser.phoneNumber || 'Not provided'}</p>
-                </div>
-                <div className="bg-darkPurple-800/40 p-6 rounded-2xl border border-darkPurple-700/30">
-                  <p className="text-[10px] font-bold text-purple-400 uppercase tracking-widest mb-2">Registration Date</p>
-                  <p className="text-sm">{selectedUser.createdAt}</p>
-                </div>
-                <div className="bg-darkPurple-800/40 p-6 rounded-2xl border border-darkPurple-700/30">
-                  <p className="text-[10px] font-bold text-purple-400 uppercase tracking-widest mb-2">Address</p>
-                  <p className="text-sm">{selectedUser.address || 'Not provided'}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Orders Tab */}
-        {activeTab === 'orders' && !selectedOrder && (
-          <div className="bg-darkPurple-900/30 border border-darkPurple-800 rounded-3xl overflow-hidden">
-            <div className="p-6 border-b border-darkPurple-800">
-              <div className="flex justify-between items-center">
-                <h3 className="text-xl font-bold">Transaction Stream</h3>
-                <div className="relative">
-                  <input
-                    type="text"
-                    placeholder="Search orders..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="px-4 py-2 pl-10 bg-darkPurple-800 border border-darkPurple-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
-                  />
-                  <svg className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-darkPurple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                </div>
-              </div>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-darkPurple-800/20">
-                  <tr>
-                    <th className="px-6 py-4 text-left text-[10px] font-bold text-purple-400 uppercase tracking-widest">Order ID</th>
-                    <th className="px-6 py-4 text-left text-[10px] font-bold text-purple-400 uppercase tracking-widest">Customer</th>
-                    <th className="px-6 py-4 text-left text-[10px] font-bold text-purple-400 uppercase tracking-widest">Amount</th>
-                    <th className="px-6 py-4 text-left text-[10px] font-bold text-purple-400 uppercase tracking-widest">Status</th>
-                    <th className="px-6 py-4 text-left text-[10px] font-bold text-purple-400 uppercase tracking-widest">Progress</th>
-                    <th className="px-6 py-4 text-right text-[10px] font-bold text-purple-400 uppercase tracking-widest">Command</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-darkPurple-800/50">
-                  {filteredOrders.map(order => (
-                    <tr key={order._id} className="hover:bg-white/5 transition-colors">
-                      <td className="px-6 py-4 font-mono text-xs text-sky-400">{order._id.substring(0, 10)}</td>
-                      <td className="px-6 py-4 text-sm font-medium text-white">{order.userId?.email || 'Guest Account'}</td>
-                      <td className="px-6 py-4 text-sm font-bold text-white">₹{order.totalAmount?.toLocaleString('en-IN') || '0.00'}</td>
-                      <td className="px-6 py-4">
-                        <span className={`px-3 py-1 text-[10px] font-bold rounded-full border uppercase tracking-wider ${statusColors[order.orderStatus]}`}>
-                          {order.orderStatus}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <p className="text-xs text-darkPurple-300 italic truncate max-w-[150px]">{order.transitInfo || 'Status Update Log Empty'}</p>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <button
-                          onClick={() => {
-                            setSelectedOrder(order);
-                            setNewOrderStatus(order.orderStatus);
-                            setNewTransitInfo(order.transitInfo || '');
-                          }}
-                          className="px-4 py-2 rounded-xl bg-darkPurple-800 hover:bg-darkPurple-700 text-xs font-bold text-white transition-all shadow-md active:scale-95"
-                        >Manage</button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {/* Order Details Modal */}
-        {selectedOrder && (
-          <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-[5000] p-4">
-            <div className="bg-gradient-to-br from-darkPurple-900 via-darkPurple-900 to-darkPurple-950 border-2 border-darkPurple-700/50 p-8 rounded-3xl shadow-2xl w-full max-w-2xl">
-              <div className="flex justify-between items-center mb-6 pb-4 border-b border-darkPurple-700/50">
-                <div>
-                  <h3 className="text-2xl font-bold bg-gradient-to-r from-yellowGradient-start to-yellowGradient-end bg-clip-text text-transparent mb-1">
-                    Orders Management
-                  </h3>
-                  <p className="text-sm text-darkPurple-400">Real-time metrics and system controls.</p>
-                </div>
-                <button
-                  onClick={() => setSelectedOrder(null)}
-                  className="p-2 hover:bg-white/10 rounded-full text-darkPurple-400 hover:text-white transition-all"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4 mb-6">
-                <div className="bg-darkPurple-800/40 p-5 rounded-2xl border border-darkPurple-700/30">
-                  <p className="text-[10px] font-bold text-purple-400 uppercase tracking-widest mb-2">Target ID</p>
-                  <p className="text-sm font-mono text-cyan-400 break-all">{selectedOrder._id}</p>
-                </div>
-                <div className="bg-darkPurple-800/40 p-5 rounded-2xl border border-darkPurple-700/30">
-                  <p className="text-[10px] font-bold text-purple-400 uppercase tracking-widest mb-2">Customer</p>
-                  <p className="text-sm font-semibold text-white truncate">{selectedOrder.userId?.email || 'N/A'}</p>
-                </div>
-              </div>
-
-              <div className="mb-6">
-                <label className="block text-xs font-bold text-purple-400 uppercase tracking-widest mb-3">Stage Progression</label>
-                <div className="grid grid-cols-2 gap-3">
-                  {['pending', 'processing', 'shipped', 'delivered', 'cancelled'].map(status => (
-                    <button
-                      key={status}
-                      onClick={() => setNewOrderStatus(status)}
-                      className={`px-4 py-3 rounded-xl text-xs font-bold border-2 transition-all uppercase tracking-wide ${newOrderStatus === status
-                          ? 'bg-cyan-500 text-darkPurple-950 border-cyan-400 shadow-lg shadow-cyan-500/50'
-                          : 'bg-darkPurple-800/50 border-darkPurple-700 text-darkPurple-300 hover:border-darkPurple-500 hover:bg-darkPurple-800'
-                        }`}
-                    >
-                      {status}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="mb-6">
-                <label className="block text-xs font-bold text-purple-400 uppercase tracking-widest mb-3">Logistics Log</label>
-                <div className="bg-darkPurple-800/40 p-4 rounded-2xl border border-darkPurple-700/30">
-                  <textarea
-                    placeholder="Arrived at local facility"
-                    value={newTransitInfo}
-                    onChange={(e) => setNewTransitInfo(e.target.value)}
-                    className="w-full bg-transparent text-white placeholder-darkPurple-500 text-sm resize-none focus:outline-none min-h-[80px]"
-                  />
-                </div>
-              </div>
-
-              <div className="flex gap-3 pt-4 border-t border-darkPurple-700/50">
-                <button
-                  onClick={() => setSelectedOrder(null)}
-                  className="flex-1 px-6 py-3 rounded-xl bg-darkPurple-800/50 border-2 border-darkPurple-700 text-sm font-bold text-darkPurple-300 hover:bg-darkPurple-800 hover:border-darkPurple-600 transition-all"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleUpdateOrderStatus}
-                  className="flex-1 px-6 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-cyan-600 text-sm font-bold text-darkPurple-950 hover:from-cyan-400 hover:to-cyan-500 transition-all shadow-lg shadow-cyan-500/30 active:scale-95"
-                >
-                  Update Order
-                </button>
-              </div>
             </div>
           </div>
         )}
 
         {/* Requirements Tab */}
         {activeTab === 'requirements' && !selectedRequirement && (
-          <div>
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-bold">Priority Requirements</h3>
-              <span className="text-sm text-cyan-400 font-bold">{clientRequirements.length} Pending</span>
+          <div className="space-y-8">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+              <div>
+                <h3 className="text-3xl font-black italic tracking-tighter uppercase">Requirement Ledger</h3>
+                <p className="text-sm text-gray-500 font-medium">Processing high-priority client infrastructure tickets</p>
+              </div>
+              <div className="bg-gray-900 border border-gray-800 px-6 py-3 rounded-2xl flex items-center gap-4">
+                <span className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-cyan-400" />
+                  <span className="text-xs font-black uppercase text-gray-400">{filteredRequirements.length} Active</span>
+                </span>
+              </div>
             </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredRequirements.map(req => (
-                <div
-                  key={req._id}
-                  className="bg-darkPurple-900/30 border-2 border-darkPurple-800 rounded-2xl p-6 hover:border-purple-500/50 transition-all cursor-pointer"
-                  onClick={() => setSelectedRequirement(req)}
-                >
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="p-3 bg-purple-500/20 rounded-xl">
-                      <svg className="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                      </svg>
-                    </div>
-                    <span className={`px-3 py-1 text-[10px] font-bold rounded-full border ${requirementStatusColors[req.status]}`}>
-                      {req.status}
-                    </span>
-                  </div>
-                  <h4 className="text-lg font-bold mb-2">{req.title}</h4>
-                  <p className="text-sm text-darkPurple-300 mb-4 line-clamp-2">{req.description}</p>
-                  <div className="flex items-center gap-2 text-xs text-purple-400 mb-2">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                    </svg>
-                    <span>{req.contactName || 'Unknown Contact'}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-xs text-purple-400 mb-4">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                    </svg>
-                    <span>{req.contactEmail || 'No Email'}</span>
-                  </div>
-                  <div className="flex justify-between items-center pt-4 border-t border-darkPurple-700">
-                    <span className="text-xs text-darkPurple-400">{req.date}</span>
-                    <button className="px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-xs font-bold text-darkPurple-950 transition-all">
-                      Process Ticket
-                    </button>
-                  </div>
+              {filteredRequirements.length === 0 ? (
+                <div className="col-span-full py-20 text-center border-2 border-dashed border-gray-800 rounded-[32px]">
+                  <p className="text-gray-600 font-black italic text-xl">LEADGER_EMPTY: NO TICKETS FOUND</p>
                 </div>
-              ))}
+              ) : (
+                filteredRequirements.map(req => (
+                  <div
+                    key={req._id}
+                    className="group bg-gray-900/50 border-2 border-gray-800 rounded-[32px] p-8 hover:border-purple-500/50 transition-all cursor-pointer relative overflow-hidden"
+                    onClick={() => setSelectedRequirement(req)}
+                  >
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-purple-600/5 blur-[60px] group-hover:bg-purple-600/10 transition-all" />
+
+                    <div className="flex items-start justify-between mb-8 relative z-10">
+                      <div className="w-14 h-14 bg-black border border-gray-800 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                        <svg className="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                      </div>
+                      <span className={`px-4 py-1.5 text-[10px] font-black rounded-full uppercase tracking-widest border ${requirementStatusColors[req.status] || 'border-gray-800 text-gray-500'}`}>
+                        {req.status}
+                      </span>
+                    </div>
+
+                    <h4 className="text-xl font-black italic uppercase mb-3 relative z-10 group-hover:text-purple-400 transition-colors">{req.title}</h4>
+                    <p className="text-sm text-gray-500 font-medium mb-8 line-clamp-3 leading-relaxed">{req.description}</p>
+
+                    <div className="space-y-3 mb-8 relative z-10">
+                      <div className="flex items-center gap-3 text-xs font-bold text-gray-400">
+                        <svg className="w-4 h-4 text-purple-500 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                        {req.contactName}
+                      </div>
+                      <div className="flex items-center gap-3 text-xs font-bold text-gray-500 truncate lowercase italic">
+                        <svg className="w-4 h-4 text-purple-500 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+                        {req.contactEmail}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-6 border-t border-gray-800 relative z-10">
+                      <span className="text-[10px] font-black uppercase text-gray-600 tracking-widest">{req.date}</span>
+                      <button className="px-5 py-2.5 rounded-xl bg-white text-black text-xs font-black uppercase tracking-widest group-hover:bg-purple-600 group-hover:text-white transition-all shadow-xl shadow-white/5 group-hover:shadow-purple-600/30">
+                        Process
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* User Details View */}
+        {selectedUser && (
+          <div className="bg-gray-900/50 border border-gray-800 rounded-[40px] p-10 backdrop-blur-3xl animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
+              <div className="lg:col-span-4 flex flex-col items-center text-center">
+                <div className="w-48 h-48 bg-gradient-to-tr from-purple-600 to-blue-600 rounded-[48px] flex items-center justify-center text-6xl font-black italic shadow-2xl shadow-purple-500/40 mb-8 border-4 border-white/10">
+                  {selectedUser.name?.charAt(0) || selectedUser.email?.charAt(0).toUpperCase()}
+                </div>
+                <h2 className="text-4xl font-black uppercase italic tracking-tighter mb-2">{selectedUser.name || 'ANONYMOUS'}</h2>
+                <p className="text-xl text-purple-400 font-bold mb-8">{selectedUser.email}</p>
+                <div className="w-full flex gap-4">
+                  <button className="flex-1 py-4 rounded-2xl bg-white text-black font-black uppercase tracking-widest text-xs hover:bg-purple-600 hover:text-white transition-all">Verify Node</button>
+                  <button className="p-4 rounded-2xl bg-red-600/20 text-red-500 hover:bg-red-600 hover:text-white transition-all">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                  </button>
+                </div>
+              </div>
+
+              <div className="lg:col-span-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 h-full content-center">
+                  {[
+                    { label: 'Platform ID', value: selectedUser._id, mono: true, color: 'text-blue-400' },
+                    { label: 'Register Date', value: new Date(selectedUser.createdAt).toLocaleString(), color: 'text-gray-300' },
+                    { label: 'Mobile Vector', value: selectedUser.phoneNumber || 'NOT_LINKED', color: 'text-gray-300' },
+                    { label: 'Verification Status', value: selectedUser.isVerified ? 'ENCRYPTED_SECURE' : 'UNVERIFIED_PENDING', color: selectedUser.isVerified ? 'text-green-400' : 'text-yellow-400' },
+                    { label: 'Mailing Vector', value: selectedUser.address || 'VECTOR_UNDEFINED', full: true, color: 'text-gray-300' }
+                  ].map((item, i) => (
+                    <div key={i} className={`bg-black/40 border border-gray-800 p-8 rounded-[32px] ${item.full ? 'md:col-span-2' : ''}`}>
+                      <p className="text-[10px] font-black uppercase text-gray-500 tracking-[0.3em] mb-4">{item.label}</p>
+                      <p className={`text-lg font-bold ${item.mono ? 'font-mono tracking-tighter' : ''} ${item.color}`}>{item.value}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
         )}
 
         {/* Requirement Details View */}
         {selectedRequirement && (
-          <div className="bg-darkPurple-900/30 border border-darkPurple-800 rounded-3xl p-8">
-            <div className="max-w-3xl mx-auto">
-              <div className="flex items-start justify-between mb-6">
-                <div className="flex items-start gap-4">
-                  <div className="p-4 bg-purple-500/20 rounded-xl">
-                    <svg className="w-8 h-8 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
+          <div className="bg-gray-900/50 border border-gray-800 rounded-[40px] p-12 backdrop-blur-3xl animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="max-w-4xl mx-auto">
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8 mb-12">
+                <div className="flex items-center gap-8">
+                  <div className="w-24 h-24 bg-purple-600/10 border border-purple-500/30 rounded-[32px] flex items-center justify-center">
+                    <svg className="w-10 h-10 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                   </div>
                   <div>
-                    <h2 className="text-3xl font-bold mb-2">{selectedRequirement.title}</h2>
-                    <span className={`px-3 py-1 text-xs font-bold rounded-full border ${requirementStatusColors[selectedRequirement.status]}`}>
+                    <span className={`px-4 py-1.5 text-xs font-black rounded-full uppercase tracking-widest border mb-4 inline-block ${requirementStatusColors[selectedRequirement.status] || 'border-gray-800 text-gray-500'}`}>
                       {selectedRequirement.status}
                     </span>
+                    <h2 className="text-5xl font-black italic tracking-tighter uppercase leading-none">{selectedRequirement.title}</h2>
                   </div>
                 </div>
               </div>
 
-              <div className="bg-darkPurple-800/40 p-6 rounded-2xl border border-darkPurple-700/30 mb-6">
-                <p className="text-[10px] font-bold text-purple-400 uppercase tracking-widest mb-3">Description</p>
-                <p className="text-sm leading-relaxed">{selectedRequirement.description}</p>
-              </div>
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div className="lg:col-span-2 space-y-8">
+                  <div className="bg-black/40 border border-gray-800 p-10 rounded-[40px]">
+                    <p className="text-[10px] font-black uppercase text-gray-500 tracking-[0.4em] mb-6">Subject Brief</p>
+                    <p className="text-xl font-medium leading-relaxed text-gray-200 italic">"{selectedRequirement.description}"</p>
+                  </div>
 
-              <div className="grid grid-cols-2 gap-6 mb-6">
-                <div className="bg-darkPurple-800/40 p-6 rounded-2xl border border-darkPurple-700/30">
-                  <p className="text-[10px] font-bold text-purple-400 uppercase tracking-widest mb-2">Contact Name</p>
-                  <p className="text-sm">{selectedRequirement.contactName || 'Not provided'}</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="bg-gray-800/20 border border-gray-800 p-8 rounded-[32px]">
+                      <p className="text-[10px] font-black uppercase text-gray-500 mb-2">Registry Name</p>
+                      <p className="text-xl font-black text-white">{selectedRequirement.contactName}</p>
+                    </div>
+                    <div className="bg-gray-800/20 border border-gray-800 p-8 rounded-[32px]">
+                      <p className="text-[10px] font-black uppercase text-gray-500 mb-2">Network Email</p>
+                      <p className="text-xl font-bold text-purple-400 lowercase">{selectedRequirement.contactEmail}</p>
+                    </div>
+                  </div>
                 </div>
-                <div className="bg-darkPurple-800/40 p-6 rounded-2xl border border-darkPurple-700/30">
-                  <p className="text-[10px] font-bold text-purple-400 uppercase tracking-widest mb-2">Contact Email</p>
-                  <p className="text-sm">{selectedRequirement.contactEmail || 'Not provided'}</p>
-                </div>
-                <div className="bg-darkPurple-800/40 p-6 rounded-2xl border border-darkPurple-700/30">
-                  <p className="text-[10px] font-bold text-purple-400 uppercase tracking-widest mb-2">Submission Date</p>
-                  <p className="text-sm">{selectedRequirement.date}</p>
-                </div>
-                <div className="bg-darkPurple-800/40 p-6 rounded-2xl border border-darkPurple-700/30">
-                  <p className="text-[10px] font-bold text-purple-400 uppercase tracking-widest mb-2">Requirement ID</p>
-                  <p className="text-sm font-mono text-cyan-400">{selectedRequirement._id}</p>
-                </div>
-              </div>
 
-              <div className="flex gap-3">
-                <button className="flex-1 px-6 py-3 rounded-xl bg-darkPurple-800 hover:bg-darkPurple-700 text-sm font-bold transition-all">
-                  Mark as Processed
-                </button>
-                <button className="flex-1 px-6 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-cyan-600 text-sm font-bold text-darkPurple-950 hover:from-cyan-400 hover:to-cyan-500 transition-all shadow-lg shadow-cyan-500/30">
-                  Contact Client
-                </button>
+                <div className="space-y-8">
+                  <div className="bg-purple-600/10 border border-purple-500/20 p-8 rounded-[40px]">
+                    <p className="text-[10px] font-black uppercase text-gray-500 mb-4">Priority Node</p>
+                    <div className="flex items-center gap-4 mb-8">
+                      <div className="w-3 h-3 rounded-full bg-purple-500 animate-pulse shadow-[0_0_15px_rgba(168,85,247,0.5)]" />
+                      <span className="text-xl font-black uppercase italic">High Level</span>
+                    </div>
+                    <p className="text-xs font-bold text-gray-400 mb-8 leading-relaxed">This ticket requires immediate platform intervention or client contact across the network protocols.</p>
+                    <button className="w-full py-4 rounded-2xl bg-purple-600 text-white font-black uppercase tracking-widest text-xs hover:bg-purple-500 transition-all shadow-xl shadow-purple-900/40 mb-3">Initiate Contact</button>
+                    <button className="w-full py-4 rounded-2xl bg-white/5 border border-white/10 text-white font-black uppercase tracking-widest text-xs hover:bg-white/10 transition-all">Close Ticket</button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

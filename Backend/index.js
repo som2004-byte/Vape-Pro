@@ -8,8 +8,6 @@ require('dotenv').config();
 
 const User = require('./models/User');
 const EmailOtp = require('./models/EmailOtp');
-const Cart = require('./models/Cart');
-const Order = require('./models/Order');
 const Admin = require('./models/Admin');
 const adminRoutes = require('./routes/admin');
 
@@ -29,8 +27,12 @@ const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
 
 // Middleware
 app.use(express.json());
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+  next();
+});
 
-// Configure CORS to allow requests from the frontend
+// Configure CORS
 const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:5174',
@@ -42,40 +44,53 @@ const allowedOrigins = [
 
 const corsOptions = {
   origin: (origin, callback) => {
-    // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
-
     const isWhiteListed = allowedOrigins.includes(origin) || origin.endsWith('.vercel.app');
-
     if (isWhiteListed) {
       callback(null, true);
     } else {
-      console.warn(`CORS blocked for origin: ${origin}`);
       callback(new Error('Not allowed by CORS'));
     }
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true,
-  optionsSuccessStatus: 200 // some legacy browsers (IE11, various SmartTVs) choke on 204
+  optionsSuccessStatus: 200
 };
 app.use(cors(corsOptions));
 
 // Use Admin Routes
+console.log('📡 Registering admin routes...');
 app.use('/api/admin', adminRoutes);
+console.log('✅ Admin routes registered');
+
+// Route inspection helper
+app.get('/api/debug-routes', (req, res) => {
+  const routes = [];
+  app._router.stack.forEach((middleware) => {
+    if (middleware.route) {
+      routes.push(`${Object.keys(middleware.route.methods).join(',').toUpperCase()} ${middleware.route.path}`);
+    } else if (middleware.name === 'router') {
+      middleware.handle.stack.forEach((handler) => {
+        if (handler.route) {
+          const path = middleware.regexp.source.replace('\\/?(?=\\/|$)', '').replace('^\\/', '/') + handler.route.path;
+          routes.push(`${Object.keys(handler.route.methods).join(',').toUpperCase()} ${path}`);
+        }
+      });
+    }
+  });
+  res.json(routes);
+});
 
 // MongoDB Connection
-
 if (typeof MONGODB_URI === 'string' && MONGODB_URI.trim()) {
   mongoose
     .connect(MONGODB_URI.trim())
     .then(() => console.log('✅ Connected to MongoDB'))
     .catch((err) => console.error('❌ MongoDB connection error:', err));
-} else {
-  console.warn('⚠️ MONGODB_URI is not set. Skipping MongoDB connection.');
 }
 
-// Mail transporter (configured via env)
+// Mail transporter
 let mailTransporter = null;
 if (SMTP_HOST && SMTP_USER && SMTP_PASS && SMTP_FROM) {
   mailTransporter = nodemailer.createTransport({
@@ -97,13 +112,12 @@ const sendOtpEmail = async (toEmail, code) => {
       <p>Use the following code to verify your email:</p>
       <div style="font-size: 24px; font-weight: bold; letter-spacing: 4px;">${code}</div>
       <p>This code expires in 10 minutes.</p>
-      <p>If you did not request this, you can ignore this email.</p>
     </div>
   `;
-  await mailTransporter.sendMail({
+  return mailTransporter.sendMail({
     from: SMTP_FROM,
     to: toEmail,
-    subject: 'Your verification code',
+    subject: `Your Verification Code: ${code}`,
     html
   });
 };
@@ -112,246 +126,82 @@ const isValidEmail = (email) => {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 };
 
-// Signup endpoint
+// User Signup
 app.post('/api/signup', async (req, res) => {
   try {
-    const { email, password, name } = req.body;
-
-    // Validation
-    if (!email || !password || !name) {
+    const { name, email, password } = req.body;
+    if (!name || !email || !password) {
       return res.status(400).json({ message: 'All fields are required' });
     }
 
-    // Check if user already exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.status(400).json({ message: 'User already exists' });
     }
 
-    // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
-
-    // Create user
-    const user = new User({
-      email,
-      name,
-      password: hashedPassword
-    });
-
+    const user = new User({ name, email, password: hashedPassword });
     await user.save();
 
-    // Generate token
-    const token = jwt.sign({ id: user._id, email: user.email }, JWT_SECRET, {
-      expiresIn: '24h'
-    });
-
-    res.status(201).json({
-      message: 'User created successfully',
-      token,
-      user: { id: user._id, email: user.email, name: user.name }
-    });
+    const token = jwt.sign({ id: user._id, email: user.email }, JWT_SECRET, { expiresIn: '24h' });
+    res.status(201).json({ message: 'User created', token, user: { id: user._id, name: user.name, email: user.email } });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
 
-// Login endpoint
+// User Login
 app.post('/api/login', async (req, res) => {
   try {
     const { email, password } = req.body;
-
-    // Validation
     if (!email || !password) {
       return res.status(400).json({ message: 'Email and password are required' });
     }
 
-    // Find user
     const user = await User.findOne({ email });
     if (!user) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
-    // Check password
-    const isValidPassword = await bcrypt.compare(password, user.password);
-    if (!isValidPassword) {
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
-    // Generate token
-    const token = jwt.sign({ id: user._id, email: user.email }, JWT_SECRET, {
-      expiresIn: '24h'
-    });
-
-    res.json({
-      message: 'Login successful',
-      token,
-      user: { id: user._id, email: user.email, name: user.name }
-    });
+    const token = jwt.sign({ id: user._id, email: user.email }, JWT_SECRET, { expiresIn: '24h' });
+    res.json({ message: 'Login successful', token, user: { id: user._id, name: user.name, email: user.email } });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
 
-// Middleware to verify token
+// Authentication Middleware
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
 
-  if (!token) {
-    return res.status(401).json({ message: 'Access token required' });
-  }
+  if (!token) return res.status(401).json({ message: 'Access token required' });
 
   jwt.verify(token, JWT_SECRET, (err, user) => {
-    if (err) {
-      return res.status(403).json({ message: 'Invalid or expired token' });
-    }
+    if (err) return res.status(403).json({ message: 'Invalid or expired token' });
     req.user = user;
     next();
   });
 };
 
-
-
-// Protected route example
-app.get('/api/profile', authenticateToken, async (req, res) => {
-  try {
-    const user = await User.findById(req.user.id).select('-password');
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-    res.json({ id: user._id, email: user.email, name: user.name });
-  } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
-  }
-});
-
+// Routes
 app.get('/', (req, res) => {
   res.send('Backend is running!');
 });
 
-// -----------------------------
-// Admin auth
-// -----------------------------
-
-// Optional seed admin on startup
-const seedAdminIfNeeded = async () => {
-  if (!ADMIN_EMAIL || !ADMIN_PASSWORD) return; // skip when not configured
-  const existing = await Admin.findOne({ email: ADMIN_EMAIL });
-  if (existing) return;
-  const hashed = await bcrypt.hash(ADMIN_PASSWORD, 10);
-  await new Admin({ email: ADMIN_EMAIL, name: 'Administrator', password: hashed }).save();
-  console.log('✅ Seeded default admin from env');
-};
-seedAdminIfNeeded().catch((e) => console.warn('Admin seed skipped:', e.message));
-
-
-
-// -----------------------------
-// Cart endpoints (JWT required)
-// -----------------------------
-
-// Helper to find or create a cart
-const getOrCreateCart = async (userId) => {
-  let cart = await Cart.findOne({ userId });
-  if (!cart) {
-    cart = new Cart({ userId, items: [] });
-    await cart.save();
-  }
-  return cart;
-};
-
-// Get current user's cart
-app.get('/api/cart', authenticateToken, async (req, res) => {
+app.get('/api/profile', authenticateToken, async (req, res) => {
   try {
-    const cart = await getOrCreateCart(req.user.id);
-    res.json({ items: cart.items, count: cart.items.reduce((s, i) => s + i.quantity, 0) });
+    const user = await User.findById(req.user.id).select('-password');
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    res.json({ id: user._id, email: user.email, name: user.name });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
-});
-
-// Add item to cart (or increase quantity if same product/variant exists)
-app.post('/api/cart', authenticateToken, async (req, res) => {
-  try {
-    const { productId, name, price, image, flavor = '', series = '', quantity = 1 } = req.body || {};
-    if (!productId || typeof price !== 'number') {
-      return res.status(400).json({ message: 'productId and numeric price are required' });
-    }
-    const qty = Math.max(1, parseInt(quantity, 10) || 1);
-    const cart = await getOrCreateCart(req.user.id);
-
-    const idx = cart.items.findIndex(
-      (it) => it.productId === productId && it.flavor === flavor && it.series === series
-    );
-    if (idx >= 0) {
-      cart.items[idx].quantity += qty;
-    } else {
-      cart.items.push({ productId, name, price, image, flavor, series, quantity: qty });
-    }
-    cart.updatedAt = new Date();
-    await cart.save();
-    res.json({ message: 'Added to cart', items: cart.items });
-  } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
-  }
-});
-
-// Update quantity of an item
-app.put('/api/cart', authenticateToken, async (req, res) => {
-  try {
-    const { productId, flavor = '', series = '', quantity } = req.body || {};
-    const qty = parseInt(quantity, 10);
-    if (!productId || !Number.isInteger(qty) || qty < 1) {
-      return res.status(400).json({ message: 'productId and quantity >= 1 are required' });
-    }
-    const cart = await getOrCreateCart(req.user.id);
-    const idx = cart.items.findIndex(
-      (it) => it.productId === productId && it.flavor === flavor && it.series === series
-    );
-    if (idx === -1) return res.status(404).json({ message: 'Item not found' });
-    cart.items[idx].quantity = qty;
-    cart.updatedAt = new Date();
-    await cart.save();
-    res.json({ message: 'Quantity updated', items: cart.items });
-  } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
-  }
-});
-
-// Remove an item from cart
-app.delete('/api/cart/item', authenticateToken, async (req, res) => {
-  try {
-    const { productId, flavor = '', series = '' } = req.body || {};
-    if (!productId) return res.status(400).json({ message: 'productId required' });
-    const cart = await getOrCreateCart(req.user.id);
-    const before = cart.items.length;
-    cart.items = cart.items.filter(
-      (it) => !(it.productId === productId && it.flavor === flavor && it.series === series)
-    );
-    if (cart.items.length === before) return res.status(404).json({ message: 'Item not found' });
-    cart.updatedAt = new Date();
-    await cart.save();
-    res.json({ message: 'Item removed', items: cart.items });
-  } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
-  }
-});
-
-// Clear the cart
-app.delete('/api/cart', authenticateToken, async (req, res) => {
-  try {
-    const cart = await getOrCreateCart(req.user.id);
-    cart.items = [];
-    cart.updatedAt = new Date();
-    await cart.save();
-    res.json({ message: 'Cart cleared', items: cart.items });
-  } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
-  }
-});
-
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
 });
 
 // Account details
@@ -373,65 +223,15 @@ app.get('/api/account', authenticateToken, async (req, res) => {
   }
 });
 
-// -----------------------------
-// Orders (user)
-// -----------------------------
-
-// Create order from cart and clear cart
-app.post('/api/orders/checkout', authenticateToken, async (req, res) => {
-  try {
-    const { shippingAddress } = req.body || {};
-    const cart = await getOrCreateCart(req.user.id);
-    if (!cart.items.length) return res.status(400).json({ message: 'Cart is empty' });
-
-    const total = cart.items.reduce((s, it) => s + (it.price || 0) * (it.quantity || 1), 0);
-
-    let addressToUse = shippingAddress;
-    if (!addressToUse) {
-      const u = await User.findById(req.user.id);
-      addressToUse = u?.address || '';
-    }
-
-    const order = await new Order({
-      userId: req.user.id,
-      items: cart.items.map(i => ({ ...i.toObject?.() || i })),
-      total,
-      status: 'processing',
-      paymentStatus: 'cod',
-      paymentMethod: 'cod',
-      shippingAddress: addressToUse,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    }).save();
-
-    // Clear cart after order
-    cart.items = [];
-    cart.updatedAt = new Date();
-    await cart.save();
-
-    res.status(201).json({ message: 'Order placed', orderId: order._id, total, status: order.status, payment: { method: 'cod', status: 'cod' } });
-  } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
-  }
-});
-
-// List current user's orders
-app.get('/api/orders', authenticateToken, async (req, res) => {
-  try {
-    const orders = await Order.find({ userId: req.user.id }).sort({ createdAt: -1 });
-    res.json({ orders });
-  } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
-  }
-});
-
 app.put('/api/account', authenticateToken, async (req, res) => {
   try {
-    const { name, phoneNumber, address } = req.body || {};
+    const { name, phoneNumber, address, emailVerified, phoneVerified } = req.body || {};
     const updates = {};
     if (typeof name === 'string' && name.trim()) updates.name = name.trim();
     if (typeof phoneNumber === 'string') updates.phoneNumber = phoneNumber.trim();
     if (typeof address === 'string') updates.address = address.trim();
+    if (typeof emailVerified === 'boolean') updates.emailVerified = emailVerified;
+    if (typeof phoneVerified === 'boolean') updates.phoneVerified = phoneVerified;
 
     const user = await User.findByIdAndUpdate(
       req.user.id,
@@ -462,36 +262,21 @@ app.post('/api/request-email-otp', async (req, res) => {
     if (!email || !isValidEmail(email)) {
       return res.status(400).json({ message: 'Valid email is required' });
     }
+    if (!mailTransporter) return res.status(500).json({ message: 'Email service not configured' });
 
-    if (!mailTransporter) {
-      return res.status(500).json({ message: 'Email service not configured' });
-    }
-
-    // Basic rate limit: allow new OTP every 60s
-    const existing = await EmailOtp.findOne({ email }).sort({ requestedAt: -1 });
-    const now = Date.now();
-    if (existing && existing.requestedAt && now - existing.requestedAt.getTime() < 60 * 1000) {
-      return res.status(429).json({ message: 'Please wait before requesting another code' });
-    }
-
-    // Create 6-digit code
     const code = Math.floor(100000 + Math.random() * 900000).toString();
     const codeHash = await bcrypt.hash(code, 10);
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
-    // Upsert OTP doc
     await EmailOtp.findOneAndUpdate(
       { email },
       { codeHash, expiresAt, attempts: 0, requestedAt: new Date(), purpose },
       { upsert: true, new: true, setDefaultsOnInsert: true }
     );
 
-    // Send email
     await sendOtpEmail(email, code);
-
     res.json({ message: 'OTP sent to email' });
   } catch (error) {
-    console.error('OTP request error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
@@ -505,17 +290,8 @@ app.post('/api/verify-email-otp', async (req, res) => {
     }
 
     const record = await EmailOtp.findOne({ email });
-    if (!record) {
-      return res.status(400).json({ message: 'No OTP found for this email' });
-    }
-
-    if (record.expiresAt.getTime() < Date.now()) {
-      return res.status(400).json({ message: 'OTP expired' });
-    }
-
-    if (record.attempts >= 5) {
-      return res.status(429).json({ message: 'Too many attempts' });
-    }
+    if (!record) return res.status(400).json({ message: 'No OTP found for this email' });
+    if (record.expiresAt.getTime() < Date.now()) return res.status(400).json({ message: 'OTP expired' });
 
     const ok = await bcrypt.compare(otp, record.codeHash);
     if (!ok) {
@@ -524,10 +300,8 @@ app.post('/api/verify-email-otp', async (req, res) => {
       return res.status(401).json({ message: 'Invalid OTP' });
     }
 
-    // Successful verification: cleanup OTP
     await EmailOtp.deleteOne({ _id: record._id });
 
-    // If user exists, issue JWT (useful for login by OTP)
     const user = await User.findOne({ email });
     if (user) {
       if (!user.emailVerified) {
@@ -538,11 +312,23 @@ app.post('/api/verify-email-otp', async (req, res) => {
       return res.json({ message: 'OTP verified', verified: true, token, user: { id: user._id, email: user.email, name: user.name } });
     }
 
-    // Otherwise just confirm verification (useful for signup verification)
     res.json({ message: 'OTP verified', verified: true });
   } catch (error) {
-    console.error('OTP verify error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
 
+const seedAdminIfNeeded = async () => {
+  if (!ADMIN_EMAIL || !ADMIN_PASSWORD) return;
+  const existing = await Admin.findOne({ email: ADMIN_EMAIL });
+  if (existing) return;
+  const hashed = await bcrypt.hash(ADMIN_PASSWORD, 10);
+  await new Admin({ email: ADMIN_EMAIL, name: 'Administrator', password: hashed }).save();
+  console.log('✅ Seeded default admin from env');
+};
+
+seedAdminIfNeeded().catch((e) => console.warn('Admin seed skipped:', e.message));
+
+app.listen(PORT, () => {
+  console.log(`Server running on http://localhost:${PORT}`);
+});
