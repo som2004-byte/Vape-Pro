@@ -6,10 +6,15 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout }) {
   const [activeTab, setActiveTab] = useState('overview');
   const [selectedUser, setSelectedUser] = useState(null);
   const [selectedRequirement, setSelectedRequirement] = useState(null);
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [stockUpdateValue, setStockUpdateValue] = useState('');
 
   // Data states
   const [users, setUsers] = useState([]);
   const [clientRequirements, setClientRequirements] = useState([]);
+  const [orders, setOrders] = useState([]);
+  const [products, setProducts] = useState([]);
   const [stats, setStats] = useState({
     totalUsers: 0,
     totalRequirements: 0,
@@ -67,7 +72,39 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout }) {
   const handleRefresh = () => {
     fetchData('/users', setUsers);
     fetchData('/client-requirements', setClientRequirements);
+    fetchData('/orders', setOrders);
+    fetchData('/products', setProducts);
     fetchStats();
+  };
+
+  const handleStockUpdate = async (productId, newStock) => {
+    try {
+      setLoading(true);
+      const response = await fetch(`${API_BASE_URL}/products/${productId}/stock`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${adminToken}`
+        },
+        body: JSON.stringify({ stock: Number(newStock) })
+      });
+
+      if (response.ok) {
+        const updatedProduct = await response.json();
+        // Update local state
+        setProducts(products.map(p => p._id === productId ? updatedProduct : p));
+        if (selectedProduct && selectedProduct._id === productId) {
+          setSelectedProduct(updatedProduct);
+        }
+        setStockUpdateValue('');
+      } else {
+        console.error('Failed to update stock');
+      }
+    } catch (error) {
+      console.error('Error updating stock', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Initial data load
@@ -86,11 +123,26 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout }) {
     req.description?.toLowerCase().includes(searchQuery.toLowerCase())
   ) : [];
 
-  const requirementStatusColors = {
+  const filteredOrders = Array.isArray(orders) ? orders.filter(order =>
+    order._id?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    order.userId?.email?.toLowerCase().includes(searchQuery.toLowerCase())
+  ) : [];
+
+  const filteredProducts = Array.isArray(products) ? products.filter(prod =>
+    prod.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    prod.category?.toLowerCase().includes(searchQuery.toLowerCase())
+  ) : [];
+
+  const statusColors = {
     'Urgent': 'bg-red-500/20 border-red-500 text-red-400',
     'New': 'bg-cyan-500/20 border-cyan-500 text-cyan-400',
     'In Review': 'bg-yellow-500/20 border-yellow-500 text-yellow-400',
     'Processed': 'bg-green-500/20 border-green-500 text-green-400',
+    'pending': 'bg-yellow-500/20 border-yellow-500 text-yellow-400',
+    'processing': 'bg-blue-500/20 border-blue-500 text-blue-400',
+    'shipped': 'bg-purple-500/20 border-purple-500 text-purple-400',
+    'delivered': 'bg-green-500/20 border-green-500 text-green-400',
+    'cancelled': 'bg-red-500/20 border-red-500 text-red-400',
   };
 
   return (
@@ -106,16 +158,16 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout }) {
                 </svg>
               </div>
               <h1 className="text-3xl font-black tracking-tighter uppercase italic">
-                Portal<span className="text-purple-500">Master</span> <span className="text-sm font-medium text-gray-500 not-italic tracking-normal lowercase ml-2">v2.4.0</span>
+                Portal<span className="text-purple-500">Master</span> <span className="text-sm font-medium text-gray-500 not-italic tracking-normal lowercase ml-2">v2.5.0</span>
               </h1>
             </div>
             <p className="text-darkPurple-400 font-medium">Welcome back, <span className="text-white">{adminUser?.name || 'Administrator'}</span>. System status is nominal.</p>
           </div>
 
           <div className="flex items-center gap-4">
-            {(selectedUser || selectedRequirement) && (
+            {(selectedUser || selectedRequirement || selectedOrder || selectedProduct) && (
               <button
-                onClick={() => { setSelectedUser(null); setSelectedRequirement(null); }}
+                onClick={() => { setSelectedUser(null); setSelectedRequirement(null); setSelectedOrder(null); setSelectedProduct(null); }}
                 className="px-5 py-2.5 rounded-xl bg-gray-900 border border-gray-800 text-sm font-bold hover:bg-gray-800 transition-all flex items-center gap-2"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
@@ -139,10 +191,12 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout }) {
         </div>
 
         {/* Global Tabs */}
-        {!selectedUser && !selectedRequirement && (
+        {!selectedUser && !selectedRequirement && !selectedOrder && !selectedProduct && (
           <div className="flex flex-wrap gap-3">
             {[
               { id: 'overview', label: 'Command Center', icon: 'M13 10V3L4 14h7v7l9-11h-7z' },
+              { id: 'logistics', label: 'Logistics Log', icon: 'M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z' },
+              { id: 'inventory', label: 'Supply Depot', icon: 'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4' },
               { id: 'users', label: 'User Fleet', icon: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z' },
               { id: 'requirements', label: 'Requirement Log', icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' }
             ].map(tab => (
@@ -150,8 +204,8 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout }) {
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={`flex items-center gap-3 px-6 py-3 rounded-2xl font-bold text-sm transition-all border-2 ${activeTab === tab.id
-                    ? 'bg-purple-600 border-purple-500 text-white shadow-lg shadow-purple-600/30'
-                    : 'bg-gray-900 border-gray-800 text-gray-400 hover:border-gray-700'
+                  ? 'bg-purple-600 border-purple-500 text-white shadow-lg shadow-purple-600/30'
+                  : 'bg-gray-900 border-gray-800 text-gray-400 hover:border-gray-700'
                   }`}
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -165,7 +219,7 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout }) {
       </div>
 
       <div className="max-w-7xl mx-auto">
-        {activeTab === 'overview' && !selectedUser && !selectedRequirement && (
+        {activeTab === 'overview' && !selectedUser && !selectedRequirement && !selectedOrder && !selectedProduct && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Stats Col */}
             <div className="lg:col-span-2 space-y-8">
@@ -176,116 +230,301 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout }) {
                     <span className="text-5xl font-black">{stats.totalUsers}</span>
                     <span className="text-xs text-green-400 flex items-center gap-1 font-bold">
                       <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M12 7a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0V8.414l-4.293 4.293a1 1 0 01-1.414 0L8 11.414l-4.293 4.293a1 1 0 01-1.414-1.414l5-5a1 1 0 011.414 0L10 10.586 13.586 7H12z" clipRule="evenodd" /></svg>
-                      Nominal
+                      Active
                     </span>
                   </div>
                 </div>
                 <div className="bg-gray-900/50 border border-gray-800 rounded-3xl p-6 backdrop-blur-xl">
-                  <p className="text-xs font-black text-yellow-400 uppercase tracking-[0.2em] mb-4">Open Tickets</p>
+                  <p className="text-xs font-black text-yellow-400 uppercase tracking-[0.2em] mb-4">Pending Ops</p>
                   <div className="flex items-end justify-between">
                     <span className="text-5xl font-black">{stats.pendingRequirements}</span>
-                    <span className="text-xs text-yellow-400 font-bold">Action Required</span>
+                    <span className="text-xs text-yellow-400 font-bold">Tasks</span>
                   </div>
                 </div>
                 <div className="bg-gray-900/50 border border-gray-800 rounded-3xl p-6 backdrop-blur-xl">
-                  <p className="text-xs font-black text-purple-400 uppercase tracking-[0.2em] mb-4">System Health</p>
+                  <p className="text-xs font-black text-purple-400 uppercase tracking-[0.2em] mb-4">Orders</p>
                   <div className="flex items-end justify-between">
-                    <span className="text-5xl font-black">98%</span>
-                    <span className="text-xs text-purple-400 font-bold">Stable</span>
+                    <span className="text-5xl font-black">{orders.length}</span>
+                    <span className="text-xs text-purple-400 font-bold">Total</span>
                   </div>
                 </div>
               </div>
 
               <div className="bg-gray-900/50 border border-gray-800 rounded-3xl p-8">
-                <div className="flex items-center justify-between mb-8">
-                  <div>
-                    <h3 className="text-2xl font-black italic tracking-tighter uppercase">Recent Activity</h3>
-                    <p className="text-sm text-gray-500 font-medium">Monitoring incoming platform requirements</p>
-                  </div>
-                  <button onClick={() => setActiveTab('requirements')} className="text-xs font-bold text-gray-400 hover:text-white transition-colors">View All</button>
-                </div>
-
+                <h3 className="text-2xl font-black italic tracking-tighter uppercase mb-6">Recent Logistics</h3>
                 <div className="space-y-4">
-                  {filteredRequirements.length === 0 ? (
-                    <div className="text-center py-12 border-2 border-dashed border-gray-800 rounded-2xl">
-                      <p className="text-gray-600 font-bold italic">No active priority tickets available.</p>
-                    </div>
+                  {orders.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500 font-bold">No recent logistic activity.</div>
                   ) : (
-                    filteredRequirements.slice(0, 5).map((req) => (
-                      <div key={req._id} onClick={() => setSelectedRequirement(req)} className="group flex items-center justify-between p-4 bg-black/40 border border-gray-800 rounded-2xl hover:border-purple-500/50 transition-all cursor-pointer">
-                        <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 bg-gray-800 rounded-xl flex items-center justify-center group-hover:bg-purple-600/20 transition-colors">
-                            <span className="text-sm font-black text-gray-400 group-hover:text-purple-400 uppercase">{req.contactName?.charAt(0) || 'R'}</span>
-                          </div>
-                          <div>
-                            <h4 className="font-bold text-gray-200 group-hover:text-white">{req.title}</h4>
-                            <p className="text-xs text-gray-500">{req.contactEmail}</p>
-                          </div>
+                    orders.slice(0, 5).map(order => (
+                      <div key={order._id} onClick={() => setSelectedOrder(order)} className="flex items-center justify-between p-4 bg-black/40 border border-gray-800 rounded-2xl hover:border-purple-500/50 cursor-pointer">
+                        <div>
+                          <p className="font-bold text-white">ORD-{order._id.slice(-6).toUpperCase()}</p>
+                          <p className="text-xs text-gray-500">{new Date(order.createdAt).toLocaleDateString()}</p>
                         </div>
-                        <div className="text-right">
-                          <span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest border ${requirementStatusColors[req.status] || 'border-gray-700 text-gray-500'}`}>
-                            {req.status}
-                          </span>
-                          <p className="text-[10px] text-gray-600 mt-2 font-bold">{req.date}</p>
-                        </div>
+                        <span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest border ${statusColors[order.status] || 'border-gray-700'}`}>
+                          {order.status}
+                        </span>
                       </div>
                     ))
                   )}
                 </div>
               </div>
             </div>
+          </div>
+        )}
 
-            {/* System Info Col */}
-            <div className="space-y-8">
-              <div className="bg-gradient-to-br from-purple-900/20 to-blue-900/20 border border-purple-500/20 rounded-3xl p-8">
-                <h3 className="text-xl font-black uppercase italic mb-6">Security Node</h3>
-                <div className="space-y-6">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-gray-500 uppercase">Uptime</span>
-                    <span className="text-xs font-mono text-green-400">99.9%</span>
+        {/* Logistics (Orders) Tab */}
+        {activeTab === 'logistics' && !selectedOrder && (
+          <div className="bg-gray-900/50 border border-gray-800 rounded-[32px] overflow-hidden backdrop-blur-xl">
+            <div className="p-6 md:p-8 border-b border-gray-800 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+              <h3 className="text-3xl font-black italic tracking-tighter uppercase">Logistics Log</h3>
+              <input
+                type="text"
+                placeholder="Search Order ID or Email..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full md:w-72 pl-4 pr-4 py-3 bg-black border border-gray-800 rounded-xl text-sm font-bold focus:outline-none focus:border-purple-500 transition-all"
+              />
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="bg-black/40">
+                    <th className="px-8 py-5 text-left text-[10px] font-black text-gray-500 uppercase tracking-[0.3em]">Order ID</th>
+                    <th className="px-8 py-5 text-left text-[10px] font-black text-gray-500 uppercase tracking-[0.3em]">Date</th>
+                    <th className="px-8 py-5 text-left text-[10px] font-black text-gray-500 uppercase tracking-[0.3em]">Customer</th>
+                    <th className="px-8 py-5 text-left text-[10px] font-black text-gray-500 uppercase tracking-[0.3em]">Total</th>
+                    <th className="px-8 py-5 text-right text-[10px] font-black text-gray-500 uppercase tracking-[0.3em]">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-800/50">
+                  {filteredOrders.map(order => (
+                    <tr key={order._id} className="group hover:bg-white/5 transition-all cursor-pointer" onClick={() => setSelectedOrder(order)}>
+                      <td className="px-8 py-6 font-mono text-sm text-purple-400">#{order._id.slice(-6).toUpperCase()}</td>
+                      <td className="px-8 py-6 text-sm text-gray-400">{new Date(order.createdAt).toLocaleDateString()}</td>
+                      <td className="px-8 py-6 text-sm font-bold text-white">{order.userId?.email || 'Guest'}</td>
+                      <td className="px-8 py-6 text-sm font-mono text-green-400">${order.total.toFixed(2)}</td>
+                      <td className="px-8 py-6 text-right">
+                        <span className={`inline-block px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${statusColors[order.status]}`}>
+                          {order.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Order Details View */}
+        {selectedOrder && (
+          <div className="bg-gray-900/50 border border-gray-800 rounded-[40px] p-6 md:p-10 backdrop-blur-3xl animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              <div className="lg:col-span-2 space-y-8">
+                {/* Items */}
+                <div className="bg-black/40 border border-gray-800 p-8 rounded-[32px]">
+                  <h4 className="text-xl font-black italic uppercase mb-6">Cargo Manifest</h4>
+                  <div className="space-y-4">
+                    {selectedOrder.items.map((item, idx) => (
+                      <div key={idx} className="flex items-center justify-between p-4 bg-gray-900/50 rounded-2xl border border-gray-800">
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 bg-gray-800 rounded-lg flex items-center justify-center">
+                            <span className="font-bold text-gray-500">x{item.quantity}</span>
+                          </div>
+                          <div>
+                            <p className="font-bold text-white">{item.name}</p>
+                            <p className="text-xs text-gray-400">Unit Cost: ${item.price}</p>
+                          </div>
+                        </div>
+                        <p className="font-mono text-green-400 font-bold">${(item.price * item.quantity).toFixed(2)}</p>
+                      </div>
+                    ))}
                   </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-gray-500 uppercase">Latency</span>
-                    <span className="text-xs font-mono text-yellow-400">42ms</span>
+                  <div className="mt-6 pt-6 border-t border-gray-800 flex justify-between items-center">
+                    <span className="text-sm font-black uppercase text-gray-500 tracking-widest">Total Value</span>
+                    <span className="text-3xl font-black text-green-400">${selectedOrder.total.toFixed(2)}</span>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-gray-500 uppercase">Encryption</span>
-                    <span className="text-xs font-mono text-blue-400">AES-256</span>
-                  </div>
-                  <div className="pt-4 border-t border-white/5">
-                    <div className="flex items-center gap-3">
-                      <div className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)] animate-pulse" />
-                      <span className="text-[10px] font-black uppercase text-green-500 tracking-widest">Live Monitor Active</span>
+                </div>
+
+                {/* Delivery Info */}
+                <div className="bg-black/40 border border-gray-800 p-8 rounded-[32px]">
+                  <h4 className="text-xl font-black italic uppercase mb-6">Delivery Vector</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <p className="text-[10px] font-black uppercase text-gray-500 tracking-widest mb-2">Recipient</p>
+                      <p className="text-lg font-bold text-white">{selectedOrder.userId?.name || 'Unknown'}</p>
+                      <p className="text-sm text-gray-400">{selectedOrder.userId?.email}</p>
+                      <p className="text-sm text-gray-400">{selectedOrder.userId?.phoneNumber || 'No Contact'}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-black uppercase text-gray-500 tracking-widest mb-2">Destination</p>
+                      <p className="text-lg font-bold text-white leading-relaxed">{selectedOrder.shippingAddress || selectedOrder.userId?.address || 'No Address Provided'}</p>
                     </div>
                   </div>
                 </div>
               </div>
 
-              <div className="bg-gray-900/50 border border-gray-800 rounded-3xl p-8">
-                <h3 className="text-xl font-black uppercase italic mb-6">Quick Actions</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <button onClick={() => setActiveTab('users')} className="p-4 rounded-2xl bg-black border border-gray-800 hover:border-blue-500/50 transition-all text-left group">
-                    <div className="w-8 h-8 bg-blue-500/20 rounded-lg flex items-center justify-center mb-3 group-hover:bg-blue-500 transition-colors">
-                      <svg className="w-4 h-4 text-blue-400 group-hover:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
-                    </div>
-                    <span className="text-xs font-black uppercase tracking-wider">Add User</span>
-                  </button>
-                  <button onClick={() => setActiveTab('requirements')} className="p-4 rounded-2xl bg-black border border-gray-800 hover:border-purple-500/50 transition-all text-left group">
-                    <div className="w-8 h-8 bg-purple-500/20 rounded-lg flex items-center justify-center mb-3 group-hover:bg-purple-500 transition-colors">
-                      <svg className="w-4 h-4 text-purple-400 group-hover:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                    </div>
-                    <span className="text-xs font-black uppercase tracking-wider">Reports</span>
-                  </button>
+              <div className="space-y-8">
+                <div className="bg-purple-900/10 border border-purple-500/20 p-8 rounded-[32px]">
+                  <p className="text-[10px] font-black uppercase text-purple-400 tracking-widest mb-4">Command Actions</p>
+                  <div className="space-y-3">
+                    <button className="w-full py-4 rounded-xl bg-purple-600 text-white font-black uppercase text-[10px] tracking-widest hover:bg-purple-500 transition-all">Mark Processed</button>
+                    <button className="w-full py-4 rounded-xl bg-blue-600 text-white font-black uppercase text-[10px] tracking-widest hover:bg-blue-500 transition-all">Mark Shipped</button>
+                    <button className="w-full py-4 rounded-xl bg-green-600 text-white font-black uppercase text-[10px] tracking-widest hover:bg-green-500 transition-all">Mark Delivered</button>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         )}
 
-        {/* Users Tab */}
+        {/* Inventory/Supply Depot Tab */}
+        {activeTab === 'inventory' && !selectedProduct && (
+          <div className="bg-gray-900/50 border border-gray-800 rounded-[32px] overflow-hidden backdrop-blur-xl">
+            <div className="p-6 md:p-8 border-b border-gray-800 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+              <h3 className="text-3xl font-black italic tracking-tighter uppercase">Supply Depot</h3>
+              <input
+                type="text"
+                placeholder="Search Supplies..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full md:w-72 pl-4 pr-4 py-3 bg-black border border-gray-800 rounded-xl text-sm font-bold focus:outline-none focus:border-purple-500 transition-all"
+              />
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="bg-black/40">
+                    <th className="px-8 py-5 text-left text-[10px] font-black text-gray-500 uppercase tracking-[0.3em]">Item Name</th>
+                    <th className="px-8 py-5 text-left text-[10px] font-black text-gray-500 uppercase tracking-[0.3em]">Category</th>
+                    <th className="px-8 py-5 text-left text-[10px] font-black text-gray-500 uppercase tracking-[0.3em]">Stock Level</th>
+                    <th className="px-8 py-5 text-left text-[10px] font-black text-gray-500 uppercase tracking-[0.3em]">Price</th>
+                    <th className="px-8 py-5 text-right text-[10px] font-black text-gray-500 uppercase tracking-[0.3em]">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-800/50">
+                  {filteredProducts.map(prod => (
+                    <tr key={prod._id} onClick={() => setSelectedProduct(prod)} className="group hover:bg-white/5 transition-all cursor-pointer">
+                      <td className="px-8 py-6 font-bold text-white group-hover:text-purple-400 transition-colors">{prod.name}</td>
+                      <td className="px-8 py-6 text-sm text-gray-400 capitalize">{prod.category}</td>
+                      <td className="px-8 py-6">
+                        <span className={`font-mono font-bold ${prod.stock < 10 ? 'text-red-500' : 'text-green-400'}`}>
+                          {prod.stock} Units
+                        </span>
+                      </td>
+                      <td className="px-8 py-6 font-mono text-gray-300">${prod.price}</td>
+                      <td className="px-8 py-6 text-right">
+                        {prod.stock > 0 ? (
+                          <span className="text-xs font-black text-green-500 uppercase tracking-widest bg-green-500/10 px-3 py-1 rounded-full border border-green-500/50">In Supply</span>
+                        ) : (
+                          <span className="text-xs font-black text-red-500 uppercase tracking-widest bg-red-500/10 px-3 py-1 rounded-full border border-red-500/50 animate-pulse">Depleted</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Selected Product (Stock Management) View */}
+        {selectedProduct && (
+          <div className="bg-gray-900/50 border border-gray-800 rounded-[40px] p-6 md:p-12 backdrop-blur-3xl animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="flex flex-col lg:flex-row gap-12">
+              {/* Product Info */}
+              <div className="lg:w-1/3">
+                <div className="w-full aspect-square bg-black border border-gray-800 rounded-[32px] flex items-center justify-center mb-8 relative overflow-hidden group">
+                  {selectedProduct.image ? (
+                    <img src={selectedProduct.image} alt={selectedProduct.name} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
+                  ) : (
+                    <div className="text-center">
+                      <svg className="w-20 h-20 text-gray-800 mb-4 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
+                      <p className="text-xs font-black uppercase text-gray-700 tracking-widest">No Visual Data</p>
+                    </div>
+                  )}
+                </div>
+                <h2 className="text-3xl font-black italic uppercase leading-none mb-2">{selectedProduct.name}</h2>
+                <p className="text-sm font-bold text-gray-500 uppercase tracking-widest mb-6">{selectedProduct.category} // {selectedProduct.sku || 'NO_SKU'}</p>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-gray-800/30 p-4 rounded-2xl border border-gray-700/30">
+                    <p className="text-[10px] uppercase text-gray-500 font-black mb-1">Unit Value</p>
+                    <p className="text-xl font-mono text-green-400 font-bold">${selectedProduct.price}</p>
+                  </div>
+                  <div className="bg-gray-800/30 p-4 rounded-2xl border border-gray-700/30">
+                    <p className="text-[10px] uppercase text-gray-500 font-black mb-1">Total Sold</p>
+                    <p className="text-xl font-mono text-blue-400 font-bold">--</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Inventory Control */}
+              <div className="lg:w-2/3 space-y-8">
+                <div className="bg-black/40 border border-gray-800 p-10 rounded-[40px]">
+                  <div className="flex justify-between items-start mb-10">
+                    <div>
+                      <p className="text-[10px] font-black uppercase text-purple-400 tracking-[0.4em] mb-2">Inventory Control</p>
+                      <h3 className="text-xl font-bold text-white">Manage Stock Levels</h3>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[10px] font-bold uppercase text-gray-500 mb-1">Current Availability</p>
+                      <p className={`text-6xl font-black ${selectedProduct.stock < 10 ? 'text-red-500' : 'text-white'}`}>{selectedProduct.stock}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-4 mb-8">
+                    <input
+                      type="number"
+                      placeholder="Enter new quantity..."
+                      value={stockUpdateValue}
+                      onChange={(e) => setStockUpdateValue(e.target.value)}
+                      className="flex-1 bg-gray-900 border border-gray-800 rounded-2xl px-6 py-4 text-xl font-bold focus:border-purple-500 focus:outline-none transition-colors"
+                    />
+                    <button
+                      onClick={() => handleStockUpdate(selectedProduct._id, stockUpdateValue)}
+                      disabled={!stockUpdateValue}
+                      className="bg-purple-600 hover:bg-purple-500 text-white px-8 py-4 rounded-2xl font-black uppercase tracking-widest disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-purple-600/20"
+                    >
+                      Update Stock
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <button onClick={() => handleStockUpdate(selectedProduct._id, selectedProduct.stock + 10)} className="p-4 rounded-2xl bg-gray-900 border border-gray-800 hover:border-green-500/50 hover:bg-green-500/10 transition-all group">
+                      <p className="text-green-500 font-black text-lg group-hover:scale-110 transition-transform">+10</p>
+                      <p className="text-[10px] font-bold uppercase text-gray-500">Quick Add</p>
+                    </button>
+                    <button onClick={() => handleStockUpdate(selectedProduct._id, selectedProduct.stock + 50)} className="p-4 rounded-2xl bg-gray-900 border border-gray-800 hover:border-green-500/50 hover:bg-green-500/10 transition-all group">
+                      <p className="text-green-500 font-black text-lg group-hover:scale-110 transition-transform">+50</p>
+                      <p className="text-[10px] font-bold uppercase text-gray-500">Bulk Add</p>
+                    </button>
+                    <button onClick={() => handleStockUpdate(selectedProduct._id, selectedProduct.stock - 10)} className="p-4 rounded-2xl bg-gray-900 border border-gray-800 hover:border-yellow-500/50 hover:bg-yellow-500/10 transition-all group">
+                      <p className="text-yellow-500 font-black text-lg group-hover:scale-110 transition-transform">-10</p>
+                      <p className="text-[10px] font-bold uppercase text-gray-500">Reduce</p>
+                    </button>
+                    <button onClick={() => handleStockUpdate(selectedProduct._id, 0)} className="p-4 rounded-2xl bg-gray-900 border border-gray-800 hover:border-red-500/50 hover:bg-red-500/10 transition-all group">
+                      <p className="text-red-500 font-black text-lg group-hover:scale-110 transition-transform">ZERO</p>
+                      <p className="text-[10px] font-bold uppercase text-gray-500">Deplete</p>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="bg-red-900/10 border border-red-500/20 p-8 rounded-[32px]">
+                  <h4 className="text-lg font-black uppercase text-red-400 italic mb-4">Emergency Protocol</h4>
+                  <p className="text-sm text-gray-400 mb-6">If product line is discontinued or recalled, initiate immediate takedown from the verified registry.</p>
+                  <button className="w-full py-4 rounded-xl border border-red-500/30 text-red-400 font-black uppercase tracking-widest text-xs hover:bg-red-500 hover:text-white transition-all">Deactivate Product Node</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {activeTab === 'users' && !selectedUser && (
           <div className="bg-gray-900/50 border border-gray-800 rounded-[32px] overflow-hidden backdrop-blur-xl">
-            <div className="p-8 border-b border-gray-800">
+            <div className="p-6 md:p-8 border-b border-gray-800">
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                 <div>
                   <h3 className="text-3xl font-black italic tracking-tighter uppercase">Registry Management</h3>
@@ -359,7 +598,7 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout }) {
           </div>
         )}
 
-        {/* Requirements Tab */}
+        {/* Requirements Tab - (Existing) */}
         {activeTab === 'requirements' && !selectedRequirement && (
           <div className="space-y-8">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
@@ -395,7 +634,7 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout }) {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                         </svg>
                       </div>
-                      <span className={`px-4 py-1.5 text-[10px] font-black rounded-full uppercase tracking-widest border ${requirementStatusColors[req.status] || 'border-gray-800 text-gray-500'}`}>
+                      <span className={`px-4 py-1.5 text-[10px] font-black rounded-full uppercase tracking-widest border ${statusColors[req.status] || 'border-gray-800 text-gray-500'}`}>
                         {req.status}
                       </span>
                     </div>
@@ -427,9 +666,9 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout }) {
           </div>
         )}
 
-        {/* User Details View */}
+        {/* Selected User - (Existing) */}
         {selectedUser && (
-          <div className="bg-gray-900/50 border border-gray-800 rounded-[40px] p-10 backdrop-blur-3xl animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div className="bg-gray-900/50 border border-gray-800 rounded-[40px] p-6 md:p-10 backdrop-blur-3xl animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
               <div className="lg:col-span-4 flex flex-col items-center text-center">
                 <div className="w-48 h-48 bg-gradient-to-tr from-purple-600 to-blue-600 rounded-[48px] flex items-center justify-center text-6xl font-black italic shadow-2xl shadow-purple-500/40 mb-8 border-4 border-white/10">
@@ -465,9 +704,9 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout }) {
           </div>
         )}
 
-        {/* Requirement Details View */}
+        {/* Selected Requirement - (Existing) */}
         {selectedRequirement && (
-          <div className="bg-gray-900/50 border border-gray-800 rounded-[40px] p-12 backdrop-blur-3xl animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div className="bg-gray-900/50 border border-gray-800 rounded-[40px] p-6 md:p-12 backdrop-blur-3xl animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="max-w-4xl mx-auto">
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8 mb-12">
                 <div className="flex items-center gap-8">
@@ -475,7 +714,7 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout }) {
                     <svg className="w-10 h-10 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                   </div>
                   <div>
-                    <span className={`px-4 py-1.5 text-xs font-black rounded-full uppercase tracking-widest border mb-4 inline-block ${requirementStatusColors[selectedRequirement.status] || 'border-gray-800 text-gray-500'}`}>
+                    <span className={`px-4 py-1.5 text-xs font-black rounded-full uppercase tracking-widest border mb-4 inline-block ${statusColors[selectedRequirement.status] || 'border-gray-800 text-gray-500'}`}>
                       {selectedRequirement.status}
                     </span>
                     <h2 className="text-5xl font-black italic tracking-tighter uppercase leading-none">{selectedRequirement.title}</h2>

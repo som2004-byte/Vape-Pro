@@ -7,6 +7,8 @@ const { authorizeAdmin } = require('../middleware/auth');
 const User = require('../models/User');
 const Admin = require('../models/Admin');
 const ClientRequirement = require('../models/ClientRequirement');
+const Order = require('../models/Order');
+const Product = require('../models/Product');
 
 const router = express.Router();
 console.log('🛡️ Admin router initialized');
@@ -139,6 +141,84 @@ router.get('/client-requirements', authorizeAdmin, async (req, res) => {
     res.json(requirements);
   } catch (error) {
     console.error('Get client requirements error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Get all orders (admin only)
+router.get('/orders', authorizeAdmin, async (req, res) => {
+  try {
+    const orders = await Order.find()
+      .populate('userId', 'name email phoneNumber address')
+      .sort({ createdAt: -1 });
+    res.json(orders);
+  } catch (error) {
+    console.error('Get orders error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Get order by ID (admin only)
+router.get('/orders/:id', authorizeAdmin, async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id)
+      .populate('userId', 'name email phoneNumber address');
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+    res.json(order);
+  } catch (error) {
+    console.error('Get order by ID error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Update order status (admin only)
+router.patch('/orders/:id/status', authorizeAdmin, async (req, res) => {
+  try {
+    const { status } = req.body;
+    const order = await Order.findByIdAndUpdate(
+      req.params.id,
+      { status },
+      { new: true }
+    ).populate('userId', 'name email phoneNumber address');
+
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+    res.json(order);
+  } catch (error) {
+    console.error('Update order status error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Get all products (admin only) for stock management
+router.get('/products', authorizeAdmin, async (req, res) => {
+  try {
+    const products = await Product.find().sort({ createdAt: -1 });
+    res.json(products);
+  } catch (error) {
+    console.error('Get products error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Update product stock (admin only)
+router.patch('/products/:id/stock', authorizeAdmin, async (req, res) => {
+  try {
+    const { stock } = req.body;
+    const product = await Product.findByIdAndUpdate(
+      req.params.id,
+      { stock },
+      { new: true }
+    );
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+    res.json(product);
+  } catch (error) {
+    console.error('Update product stock error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
