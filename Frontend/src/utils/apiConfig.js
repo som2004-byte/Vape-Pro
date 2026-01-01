@@ -1,5 +1,5 @@
 // API Configuration
-const API_BASE_URL = 'http://localhost:3000';
+const API_BASE_URL = 'https://vape-pro-2.onrender.com';
 
 // API Endpoints
 export const API_ENDPOINTS = {
