@@ -453,11 +453,13 @@ app.get('/api/orders', authenticateToken, async (req, res) => {
 
 app.put('/api/account', authenticateToken, async (req, res) => {
   try {
-    const { name, phoneNumber, address } = req.body || {};
+    const { name, phoneNumber, address, emailVerified, phoneVerified } = req.body || {};
     const updates = {};
     if (typeof name === 'string' && name.trim()) updates.name = name.trim();
     if (typeof phoneNumber === 'string') updates.phoneNumber = phoneNumber.trim();
     if (typeof address === 'string') updates.address = address.trim();
+    if (typeof emailVerified === 'boolean') updates.emailVerified = emailVerified;
+    if (typeof phoneVerified === 'boolean') updates.phoneVerified = phoneVerified;
 
     const user = await User.findByIdAndUpdate(
       req.user.id,

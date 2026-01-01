@@ -33,7 +33,7 @@ export default function AccountSection({
     setPhoneNumber(profile.phoneNumber || '');
     setAddress(profile.address || '');
     setIsEmailVerified(!!profile.emailVerified);
-    setIsAddressVerified(!!profile.address); // If address exists, consider it verified
+    setIsAddressVerified(!!profile.phoneVerified); // Use the phoneVerified flag from backend
   }, [profile]);
 
   // Keep internal tab in sync with parent (e.g. when navigating to My Account / Orders)
@@ -212,12 +212,15 @@ export default function AccountSection({
       });
       return;
     }
-    const saved = { name, email, phoneNumber, address };
-    console.log('Account Details:', {
-      ...saved,
-      isAddressVerified,
-      isEmailVerified,
-    });
+    const saved = {
+      name,
+      email,
+      phoneNumber,
+      address,
+      emailVerified: isEmailVerified,
+      phoneVerified: isAddressVerified // Backend uses phoneVerified field for generic verification state
+    };
+    console.log('Account Details Saved:', saved);
     onSaveProfile?.(saved);
     setEditMode(false);
   };
@@ -306,14 +309,14 @@ export default function AccountSection({
 
                     return (
                       <div
-                        key={order.id}
+                        key={order.id || order._id}
                         className="border border-darkPurple-700/70 rounded-lg p-4 bg-black/40"
                       >
                         {/* Order Header */}
                         <div className="flex items-center justify-between mb-3">
                           <div>
                             <div className="text-sm font-semibold text-gray-100">
-                              {order.orderNumber || `Order #${order.id.toString().slice(-6)}`}
+                              {order.orderNumber || (order.id || order._id ? `Order #${(order.id || order._id).toString().slice(-6)}` : 'Order #------')}
                             </div>
                             {order.trackingNumber && (
                               <div className="text-xs text-darkPurple-400 mt-1">
@@ -349,11 +352,11 @@ export default function AccountSection({
 
                         {/* Order Items */}
                         <div className="text-xs text-darkPurple-300 mb-2">
-                          {order.items.length} item{order.items.length > 1 ? 's' : ''}
+                          {(order.items || []).length} item{(order.items || []).length !== 1 ? 's' : ''}
                         </div>
                         <ul className="text-xs text-gray-200 space-y-1 mb-3">
-                          {order.items.map(item => (
-                            <li key={item.id} className="flex justify-between">
+                          {(order.items || []).map((item, idx) => (
+                            <li key={item.id || item._id || item.productId || idx} className="flex justify-between">
                               <span>
                                 {item.series || item.name}{' '}
                                 {item.flavor && `- ${item.flavor}`}

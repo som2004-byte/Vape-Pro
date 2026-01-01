@@ -1036,7 +1036,12 @@ export default function App() {
   const [pendingOrder, setPendingOrder] = useState(null) // Order pending payment
   const [tempAdminBypass, setTempAdminBypass] = useState(false) // TEMPORARY: Admin bypass
 
-  // --- API Sync Functions ---
+  // --- Derived State & API Sync Functions ---
+
+  // Get featured products for landing page (limit to 3 best selling items for hero)
+  const featuredProducts = useMemo(() => {
+    return PRODUCTS.filter(p => p.isBestSelling).slice(0, 3)
+  }, [])
 
   const fetchUserData = async (token) => {
     if (!token) return;
@@ -1046,10 +1051,19 @@ export default function App() {
         headers: getAuthHeaders(token)
       });
       if (cartData && cartData.items) {
-        setCartItems(cartData.items.map(item => ({
-          ...item,
-          id: item.productId // map backend productId to frontend id for consistency
-        })));
+        setCartItems(cartData.items.map(item => {
+          // Find the product in our local data to fill in missing fields (like image)
+          const localProduct = PRODUCTS.find(p => p.id === item.productId);
+          return {
+            ...item,
+            id: item.productId, // map backend productId to frontend id for consistency
+            // Fallback for image if backend image is missing/broken
+            image: item.image || localProduct?.cardImage || localProduct?.poster || '',
+            // Also ensure we have the series/name for the title
+            series: item.series || localProduct?.series || '',
+            name: item.name || localProduct?.name || ''
+          };
+        }));
       }
 
       // Fetch Orders
@@ -1057,7 +1071,16 @@ export default function App() {
         headers: getAuthHeaders(token)
       });
       if (ordersData && ordersData.orders) {
-        setOrders(ordersData.orders);
+        const mappedOrders = ordersData.orders.map(order => ({
+          ...order,
+          id: order._id, // Map MongoDB _id to frontend id
+          items: (order.items || []).map(item => ({
+            ...item,
+            id: item._id || item.productId // Ensure items also have an id
+          }))
+        }));
+        setOrders(mappedOrders);
+        localStorage.setItem('vapesmart_orders', JSON.stringify(mappedOrders));
       }
 
       // Fetch Profile
@@ -1100,18 +1123,7 @@ export default function App() {
     }
   }, [currentPage]);
 
-  // Get featured products for landing page (limit to 12 best selling items)
-  const featuredProducts = useMemo(() => {
-    return PRODUCTS.filter(p => p.isBestSelling).slice(0, 3)
-  }, [])
-
-  const floatingItems = [
-    { src: '/images/elfbar-pineapple.png', title: 'Elfbar BC20000', flavor: 'Pineapple Ice' },
-    { src: '/images/elfbar-pineapple-clear.png', title: 'Elfbar BC20000', flavor: 'Pineapple Ice (Clear)' },
-    { src: '/images/Screenshot_20250127_143406_Chrome-300x300-removebg-preview.png', title: 'Star Bar', flavor: 'Cosmic Mix' },
-    { src: '/images/elfbar-watermelon.png', title: 'Elfbar BC20000', flavor: 'Watermelon Ice' }
-  ]
-
+  // handleLogin and other handlers follow...
   const handleLogin = (userData) => {
     setUser(userData)
     setIsLoggedIn(true)
@@ -1194,10 +1206,16 @@ export default function App() {
 
   const handleAddToCart = async (product, quantity = 1, { redirectToCart = false } = {}) => {
     let previousCart = [...cartItems]
-    const existingItem = cartItems.find(item => item.id === product.id)
+    const existingItem = cartItems.find(item =>
+      item.id === product.id &&
+      (item.flavor || '') === (product.flavor || '') &&
+      (item.series || '') === (product.series || '')
+    )
     const newCart = existingItem
       ? cartItems.map(item =>
-        item.id === product.id ? { ...item, quantity: (item.quantity || 0) + quantity } : item
+        (item.id === product.id && (item.flavor || '') === (product.flavor || '') && (item.series || '') === (product.series || ''))
+          ? { ...item, quantity: (item.quantity || 0) + quantity }
+          : item
       )
       : [...cartItems, { ...product, quantity }]
 
@@ -1226,7 +1244,7 @@ export default function App() {
             productId: product.id,
             name: product.name,
             price: product.price,
-            image: product.image,
+            image: product.image || product.cardImage || product.poster,
             flavor: product.flavor || '',
             series: product.series || '',
             quantity
@@ -1239,14 +1257,19 @@ export default function App() {
   }
 
   const handleUpdateCartQuantity = async (productId, delta, options = {}) => {
-    const item = cartItems.find(i => i.id === productId);
+    const { flavor = '', series = '' } = options;
+    const item = cartItems.find(i =>
+      i.id === productId && (i.flavor || '') === flavor && (i.series || '') === series
+    );
     if (!item) return;
 
     const newQuantity = options.isAbsolute ? delta : (item.quantity || 1) + delta
     if (newQuantity < 1) return
 
     const newCart = cartItems.map(item =>
-      item.id === productId ? { ...item, quantity: newQuantity } : item
+      (item.id === productId && (item.flavor || '') === flavor && (item.series || '') === series)
+        ? { ...item, quantity: newQuantity }
+        : item
     )
     setCartItems(newCart)
     localStorage.setItem('vapesmart_cart', JSON.stringify(newCart))
@@ -1352,7 +1375,7 @@ export default function App() {
 
         if (response && response.orderId) {
           // Refresh orders from backend to get the real object
-          fetchUserData(user.token);
+          await fetchUserData(user.token);
 
           setCartItems([])
           localStorage.setItem('vapesmart_cart', JSON.stringify([]))
