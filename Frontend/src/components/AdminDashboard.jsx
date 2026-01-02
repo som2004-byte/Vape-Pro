@@ -107,6 +107,37 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout }) {
     }
   };
 
+  const handleOrderStatusUpdate = async (orderId, newStatus) => {
+    try {
+      setLoading(true);
+      const response = await fetch(`${API_BASE_URL}/orders/${orderId}/status`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${adminToken}`
+        },
+        body: JSON.stringify({ status: newStatus })
+      });
+
+      if (response.ok) {
+        const updatedOrder = await response.json();
+        const updatedOrderWithDetails = { ...selectedOrder, ...updatedOrder, userId: selectedOrder.userId }; // Preserve populated user details if backend doesn't return them fully
+
+        // Update local state
+        setOrders(orders.map(o => o._id === orderId ? { ...o, status: newStatus } : o));
+        if (selectedOrder && selectedOrder._id === orderId) {
+          setSelectedOrder({ ...selectedOrder, status: newStatus });
+        }
+      } else {
+        console.error('Failed to update order status');
+      }
+    } catch (error) {
+      console.error('Error updating order status', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Initial data load
   useEffect(() => {
     handleRefresh();
@@ -158,7 +189,7 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout }) {
                 </svg>
               </div>
               <h1 className="text-3xl font-black tracking-tighter uppercase italic">
-                Portal<span className="text-purple-500">Master</span> <span className="text-sm font-medium text-gray-500 not-italic tracking-normal lowercase ml-2">v2.5.0</span>
+                Vape<span className="text-purple-500">Smart</span> <span className="text-sm font-medium text-gray-500 not-italic tracking-normal lowercase ml-2">v2.5.0</span>
               </h1>
             </div>
             <p className="text-darkPurple-400 font-medium">Welcome back, <span className="text-white">{adminUser?.name || 'Administrator'}</span>. System status is nominal.</p>
@@ -370,9 +401,9 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout }) {
                 <div className="bg-purple-900/10 border border-purple-500/20 p-8 rounded-[32px]">
                   <p className="text-[10px] font-black uppercase text-purple-400 tracking-widest mb-4">Command Actions</p>
                   <div className="space-y-3">
-                    <button className="w-full py-4 rounded-xl bg-purple-600 text-white font-black uppercase text-[10px] tracking-widest hover:bg-purple-500 transition-all">Mark Processed</button>
-                    <button className="w-full py-4 rounded-xl bg-blue-600 text-white font-black uppercase text-[10px] tracking-widest hover:bg-blue-500 transition-all">Mark Shipped</button>
-                    <button className="w-full py-4 rounded-xl bg-green-600 text-white font-black uppercase text-[10px] tracking-widest hover:bg-green-500 transition-all">Mark Delivered</button>
+                    <button onClick={() => handleOrderStatusUpdate(selectedOrder._id, 'processing')} className="w-full py-4 rounded-xl bg-purple-600 text-white font-black uppercase text-[10px] tracking-widest hover:bg-purple-500 transition-all">Mark Processed</button>
+                    <button onClick={() => handleOrderStatusUpdate(selectedOrder._id, 'shipped')} className="w-full py-4 rounded-xl bg-blue-600 text-white font-black uppercase text-[10px] tracking-widest hover:bg-blue-500 transition-all">Mark Shipped</button>
+                    <button onClick={() => handleOrderStatusUpdate(selectedOrder._id, 'delivered')} className="w-full py-4 rounded-xl bg-green-600 text-white font-black uppercase text-[10px] tracking-widest hover:bg-green-500 transition-all">Mark Delivered</button>
                   </div>
                 </div>
               </div>
