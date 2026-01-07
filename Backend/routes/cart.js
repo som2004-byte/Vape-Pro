@@ -1,5 +1,5 @@
 const express = require('express');
-const { body, param } = require('express-validator');
+const { body, param, validationResult } = require('express-validator');
 const { authenticateToken, getOrCreateCart } = require('../middleware/auth');
 const Cart = require('../models/Cart');
 const Product = require('../models/Product');
@@ -13,6 +13,108 @@ router.get('/', authenticateToken, getOrCreateCart, async (req, res) => {
     res.json(req.cart);
   } catch (error) {
     console.error('Get cart error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// POST /api/cart - Add item to cart (for frontend compatibility)
+router.post('/', authenticateToken, getOrCreateCart, [
+  body('productId').notEmpty().withMessage('Product ID is required'),
+  body('quantity').isInt({ min: 1 }).withMessage('Quantity must be at least 1'),
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { productId, quantity } = req.body;
+    const cart = req.cart;
+    
+    // Check if product exists
+    const product = await Product.findOne({ productId: productId });
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+    
+    if (product.stock < quantity) {
+      return res.status(400).json({ 
+        message: `Only ${product.stock} items available in stock` 
+      });
+    }
+
+    // Check if item already exists in cart
+    const existingItem = cart.items.find(
+      item => item.productId === productId
+    );
+
+    if (existingItem) {
+      if (product.stock < existingItem.quantity + quantity) {
+        return res.status(400).json({ 
+          message: `Cannot add ${quantity} more items. Only ${product.stock - existingItem.quantity} available.`
+        });
+      }
+      existingItem.quantity += quantity;
+    } else {
+      cart.items.push({ 
+        productId: productId, 
+        quantity,
+        price: product.price,
+        name: product.name,
+        image: product.images?.[0] || ''
+      });
+    }
+
+    await cart.save();
+    
+    res.status(201).json({
+      message: 'Item added to cart',
+      cart,
+    });
+  } catch (error) {
+    console.error('Add to cart error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// PUT /api/cart - Update cart (for frontend compatibility)
+router.put('/', authenticateToken, getOrCreateCart, async (req, res) => {
+  try {
+    const { items } = req.body;
+    const cart = req.cart;
+    
+    if (items && Array.isArray(items)) {
+      cart.items = items;
+    }
+    
+    await cart.save();
+    
+    res.json({
+      message: 'Cart updated',
+      cart,
+    });
+  } catch (error) {
+    console.error('Update cart error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// DELETE /api/cart - Clear cart (for frontend compatibility)
+router.delete('/', authenticateToken, getOrCreateCart, async (req, res) => {
+  try {
+    const cart = req.cart;
+    
+    cart.items = [];
+    cart.total = 0;
+    
+    await cart.save();
+    
+    res.json({
+      message: 'Cart cleared',
+      cart,
+    });
+  } catch (error) {
+    console.error('Clear cart error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });

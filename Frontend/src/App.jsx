@@ -397,15 +397,16 @@ export default function App() {
           body: JSON.stringify({
             shippingAddress: pendingOrder.customerProfile.address || '',
             paymentMethod: paymentData.paymentMethod || 'card',
+            items: pendingOrder.items,
           })
         });
 
-        if (response && response.orderId) {
+        if (response && response.order) {
           await fetchUserData(user.token);
           setCartItems([])
           localStorage.setItem('vapesmart_cart', JSON.stringify([]))
           setPendingOrder(null)
-          setToast({ type: 'success', message: 'Order placed successfully!', subTitle: `Order ID: ${response.orderId}` })
+          setToast({ type: 'success', message: 'Order placed successfully!', subTitle: `Order ID: ${response.order._id || response.order.id}` })
           setCurrentPage('account')
           setAccountTab('orders')
           return;

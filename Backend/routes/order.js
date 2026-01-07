@@ -9,7 +9,129 @@ const { sendOrderConfirmationEmail, sendOrderDeliveredEmail, sendOrderCancellati
 
 const router = express.Router();
 
-// Create a new order
+// Create a new order - checkout endpoint
+router.post(
+  '/checkout',
+  authenticateToken,
+  getOrCreateCart,
+  [
+    body('shippingAddress').optional().trim(),
+    body('paymentMethod').isIn(['cod', 'card']).withMessage('Invalid payment method'),
+    body('paymentResult').optional().isObject(),
+  ],
+  async (req, res) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+      }
+
+      const { shippingAddress, paymentMethod, paymentResult, items: bodyItems } = req.body;
+      const cart = req.cart;
+      const user = req.user;
+
+      // Use items from body if provided (for local cart frontend), otherwise use backend cart
+      const itemsToProcess = bodyItems || cart.items;
+
+      // Check if items list is empty
+      if (!itemsToProcess || itemsToProcess.length === 0) {
+        return res.status(400).json({ message: 'Order must contain items' });
+      }
+
+      // Verify product availability and calculate total
+      let total = 0;
+      const orderItems = [];
+
+      for (const item of itemsToProcess) {
+        const productId = item.product || item.id || item._id || item.productId;
+        
+        // Try to find product in database, but don't fail if not found
+        let product = null;
+        try {
+          product = await Product.findOne({ productId: productId });
+        } catch (err) {
+          console.log('Product lookup failed, using item data:', productId);
+        }
+
+        // Use item data if product not found in database
+        const itemName = product?.name || item.name || 'Product';
+        const itemPrice = product?.price || item.price || 0;
+        const itemImage = product?.images?.[0] || item.image || '';
+
+        orderItems.push({
+          productId: productId,
+          name: itemName,
+          image: itemImage,
+          price: itemPrice,
+          quantity: item.quantity,
+        });
+
+        total += itemPrice * item.quantity;
+
+        // Reduce product stock only if product exists in database
+        if (product && product.stock >= item.quantity) {
+          product.stock -= item.quantity;
+          await product.save();
+        } else if (product) {
+          console.warn(`Not enough stock for ${itemName}. Available: ${product?.stock || 0}, Requested: ${item.quantity}`);
+        }
+      }
+
+      // Apply discount if any
+      let finalTotal = total;
+      let discountAmount = 0;
+
+      if (cart.discount) {
+        if (cart.discount.type === 'percentage') {
+          discountAmount = (total * cart.discount.value) / 100;
+        } else if (cart.discount.type === 'fixed') {
+          discountAmount = cart.discount.value;
+        }
+
+        finalTotal = Math.max(0, total - discountAmount);
+      }
+
+      // Create order
+      const order = new Order({
+        userId: user._id,
+        items: orderItems,
+        shippingAddress: shippingAddress || user.address,
+        paymentMethod,
+        paymentResult,
+        total: finalTotal,
+        status: 'processing',
+        paymentStatus: paymentMethod === 'card' && paymentResult?.status === 'succeeded' ? 'completed' : 'cod',
+      });
+
+      const createdOrder = await order.save();
+
+      // Clear the cart
+      cart.items = [];
+      cart.total = 0;
+      cart.discount = undefined;
+      cart.totalAfterDiscount = undefined;
+      await cart.save();
+
+      // Send order confirmation email
+      try {
+        await sendOrderConfirmationEmail(user.email, createdOrder);
+      } catch (emailError) {
+        console.error('Error sending order confirmation email:', emailError);
+        // Don't fail the request if email fails
+      }
+
+      res.status(201).json({
+        message: 'Order created successfully',
+        order: createdOrder,
+      });
+    } catch (error) {
+      console.error('Create order error:', error);
+      res.status(500).json({ message: 'Server error', error: error.message });
+    }
+  }
+);
+
+// Create a new order (legacy endpoint)
 router.post(
   '/',
   authenticateToken,
@@ -43,8 +165,8 @@ router.post(
       const orderItems = [];
 
       for (const item of itemsToProcess) {
-        const productId = item.product || item.id || item._id;
-        const product = await Product.findById(productId);
+        const productId = item.product || item.id || item._id || item.productId;
+        const product = await Product.findOne({ productId: productId });
 
         if (!product) {
           return res.status(400).json({
@@ -59,7 +181,7 @@ router.post(
         }
 
         orderItems.push({
-          product: product._id,
+          productId: productId,
           name: product.name,
           image: product.images?.[0] || null,
           price: product.price,
@@ -94,20 +216,9 @@ router.post(
         shippingAddress: shippingAddress || user.address,
         paymentMethod,
         paymentResult,
-        itemsPrice: total,
-        taxPrice: 0, // You can calculate tax if needed
-        shippingPrice: 0, // You can calculate shipping if needed
-        discount: cart.discount ? {
-          code: cart.discount.code,
-          amount: discountAmount,
-          type: cart.discount.type,
-          value: cart.discount.value,
-        } : null,
-        totalPrice: finalTotal,
-        isPaid: paymentMethod === 'card' && paymentResult?.status === 'succeeded',
-        paidAt: paymentMethod === 'card' && paymentResult?.status === 'succeeded'
-          ? new Date()
-          : null,
+        total: finalTotal,
+        status: 'processing',
+        paymentStatus: paymentMethod === 'card' && paymentResult?.status === 'succeeded' ? 'completed' : 'cod',
       });
 
       const createdOrder = await order.save();
@@ -146,8 +257,7 @@ router.get('/', authenticateToken, async (req, res) => {
     const orders = await Order.find({ userId: req.user._id })
       .sort({ createdAt: -1 })
       .limit(limit * 1)
-      .skip((page - 1) * limit)
-      .populate('items.product', 'name price image');
+      .skip((page - 1) * limit);
 
     const count = await Order.countDocuments({ userId: req.user._id });
 
@@ -180,7 +290,7 @@ router.get(
       const order = await Order.findOne({
         _id: req.params.orderId,
         userId: req.user._id,
-      }).populate('items.product', 'name price image');
+      });
 
       if (!order) {
         return res.status(404).json({ message: 'Order not found' });
