@@ -16,7 +16,7 @@ const adminRoutes = require('./routes/admin');
 const app = express();
 
 const PORT = process.env.PORT || 3000;
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 const MONGODB_URI = process.env.MONGODB_URI;
 const SMTP_HOST = process.env.SMTP_HOST;
 const SMTP_PORT = parseInt(process.env.SMTP_PORT || '0', 10) || undefined;
@@ -211,11 +211,16 @@ const authenticateToken = (req, res, next) => {
     return res.status(401).json({ message: 'Access token required' });
   }
 
-  jwt.verify(token, JWT_SECRET, (err, user) => {
+  jwt.verify(token, JWT_SECRET, (err, decoded) => {
     if (err) {
+      console.error('[Auth] Token verification failed:', err.message);
       return res.status(403).json({ message: 'Invalid or expired token' });
     }
-    req.user = user;
+    // Ensure we have an ID for database queries
+    req.user = {
+      ...decoded,
+      id: decoded.id || decoded._id // handle both formats
+    };
     next();
   });
 };
@@ -254,20 +259,37 @@ app.get('/', (req, res) => {
 
 // Helper to find or create a cart
 const getOrCreateCart = async (userId) => {
-  let cart = await Cart.findOne({ userId });
-  if (!cart) {
-    cart = new Cart({ userId, items: [] });
-    await cart.save();
+  if (!userId) {
+    console.error('[Cart] getOrCreateCart called without userId');
+    throw new Error('User authentication error - please logout and login again');
   }
-  return cart;
+
+  try {
+    // Explicitly cast to ObjectId if possible, or use string
+    const query = { userId: mongoose.Types.ObjectId.isValid(userId) ? new mongoose.Types.ObjectId(userId) : userId };
+
+    let cart = await Cart.findOne(query);
+    if (!cart) {
+      console.log(`[Cart] Creating new cart for user: ${userId}`);
+      cart = new Cart({ userId: query.userId, items: [] });
+      await cart.save();
+    }
+    return cart;
+  } catch (err) {
+    console.error('[Cart] Database error in getOrCreateCart:', err);
+    throw err;
+  }
 };
 
 // Get current user's cart
 app.get('/api/cart', authenticateToken, async (req, res) => {
   try {
     const cart = await getOrCreateCart(req.user.id);
-    res.json({ items: cart.items, count: cart.items.reduce((s, i) => s + i.quantity, 0) });
+    const items = cart.items || [];
+    const count = items.reduce((s, i) => s + (i.quantity || 0), 0);
+    res.json({ items, count });
   } catch (error) {
+    console.error(`[GET /api/cart] Error:`, error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
@@ -558,6 +580,17 @@ const seedAdminIfNeeded = async () => {
   await new Admin({ email: ADMIN_EMAIL, name: 'Administrator', password: hashed }).save();
   console.log('✅ Seeded default admin from env');
 };
+
+// Global Error Handler
+app.use((err, req, res, next) => {
+  console.error('[Global Error Handler]:', err);
+  res.status(500).json({
+    message: 'Server internal error',
+    error: err.message,
+    stack: err.stack,
+    path: req.path
+  });
+});
 
 // 404 Handler
 app.use((req, res) => {

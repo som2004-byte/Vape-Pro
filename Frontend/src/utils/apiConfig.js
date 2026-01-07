@@ -1,7 +1,7 @@
 // API Configuration
 // Use local backend if running on localhost, otherwise use the deployed Render URL
-const IS_LOCAL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-const API_BASE_URL = IS_LOCAL ? 'http://localhost:3000' : 'https://vape-pro-2.onrender.com';
+// Forced to use Render backend only as requested
+const API_BASE_URL = 'https://vape-pro-2.onrender.com';
 
 console.log(`[API] Using base URL: ${API_BASE_URL}`);
 

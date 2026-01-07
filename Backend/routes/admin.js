@@ -1,13 +1,14 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { body, validationResult } = require('express-validator');
+const { body, param, validationResult } = require('express-validator');
 
 const { authorizeAdmin } = require('../middleware/auth');
 const User = require('../models/User');
 const Admin = require('../models/Admin');
 const Order = require('../models/Order');
 const Product = require('../models/Product');
+const Cart = require('../models/Cart');
 const ClientRequirement = require('../models/ClientRequirement');
 
 const router = express.Router();
@@ -186,7 +187,7 @@ router.delete('/users/:userId', authorizeAdmin, async (req, res) => {
     }
 
     // Optionally, you might want to delete associated data like cart, orders, etc.
-    await Cart.deleteMany({ user: user._id });
+    await Cart.deleteMany({ userId: user._id });
     await Order.updateMany(
       { user: user._id },
       { $set: { user: null } } // Or delete orders: await Order.deleteMany({ user: user._id });
@@ -210,7 +211,7 @@ router.get('/orders', authorizeAdmin, async (req, res) => {
     }
 
     const orders = await Order.find(query)
-      .populate('user', 'name email')
+      .populate('userId', 'name email')
       .populate('items.product')
       .sort({ createdAt: -1 })
       .limit(limit * 1)

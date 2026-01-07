@@ -1,5 +1,5 @@
 const express = require('express');
-const { body, param } = require('express-validator');
+const { body, param, validationResult } = require('express-validator');
 const { authenticateToken, getOrCreateCart } = require('../middleware/auth');
 const Order = require('../models/Order');
 const Cart = require('../models/Cart');
@@ -88,7 +88,7 @@ router.post(
 
       // Create order
       const order = new Order({
-        user: user._id,
+        userId: user._id,
         items: orderItems,
         shippingAddress: shippingAddress || user.address,
         paymentMethod,
@@ -142,13 +142,13 @@ router.get('/', authenticateToken, async (req, res) => {
   try {
     const { page = 1, limit = 10 } = req.query;
 
-    const orders = await Order.find({ user: req.user._id })
+    const orders = await Order.find({ userId: req.user._id })
       .sort({ createdAt: -1 })
       .limit(limit * 1)
       .skip((page - 1) * limit)
       .populate('items.product', 'name price image');
 
-    const count = await Order.countDocuments({ user: req.user._id });
+    const count = await Order.countDocuments({ userId: req.user._id });
 
     res.json({
       totalPages: Math.ceil(count / limit),
@@ -178,7 +178,7 @@ router.get(
 
       const order = await Order.findOne({
         _id: req.params.orderId,
-        user: req.user._id,
+        userId: req.user._id,
       }).populate('items.product', 'name price image');
 
       if (!order) {
@@ -212,7 +212,7 @@ router.put(
 
       const order = await Order.findOne({
         _id: req.params.orderId,
-        user: req.user._id,
+        userId: req.user._id,
       });
 
       if (!order) {
@@ -281,7 +281,7 @@ router.put(
 
       // Send delivery confirmation email
       try {
-        const user = await User.findById(order.user);
+        const user = await User.findById(order.userId);
         if (user) {
           await sendOrderDeliveredEmail(user.email, updatedOrder);
         }
@@ -320,7 +320,7 @@ router.post(
 
       const order = await Order.findOne({
         _id: req.params.orderId,
-        user: req.user._id,
+        userId: req.user._id,
       });
 
       if (!order) {
@@ -365,7 +365,7 @@ router.post(
 
       // Send cancellation confirmation email
       try {
-        const user = await User.findById(order.user);
+        const user = await User.findById(order.userId);
         if (user) {
           await sendOrderCancellationEmail(user.email, updatedOrder, reason);
         }
