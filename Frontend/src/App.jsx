@@ -61,8 +61,63 @@ import AdminPortal from './components/AdminPortal';
 //   const [toast, setToast] = useState(null);
 //   const [customerProfile, setCustomerProfile] = useState(null);
 //   const [orders, setOrders] = useState([]);
-//   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
-//   const [adminUser, setAdminUser] = useState(null);
+// const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
+// const [adminUser, setAdminUser] = useState(null);
+
+// // Ref to track previous orders for status change notifications
+// const prevOrdersRef = React.useRef([]);
+
+// // Fetch orders from backend and check for status updates
+// const fetchUserOrders = async () => {
+//   if (!isLoggedIn) return;
+
+//   try {
+//     const token = localStorage.getItem('token') || (user && user.token);
+//     if (!token) return;
+
+//     const data = await apiCall(API_ENDPOINTS.ORDERS.GET_ALL, {
+//       headers: getAuthHeaders(token)
+//     });
+
+//     if (data && data.orders) {
+//       checkForStatusUpdates(prevOrdersRef.current, data.orders);
+//       setOrders(data.orders);
+//       prevOrdersRef.current = data.orders;
+
+//       // Also update localStorage for persistence
+//       localStorage.setItem('vapesmart_orders', JSON.stringify(data.orders));
+//     }
+//   } catch (error) {
+//     console.error('Failed to fetch orders:', error);
+//   }
+// };
+
+// // Check for status changes and trigger notifications
+// const checkForStatusUpdates = (prev, current) => {
+//   if (!prev || prev.length === 0) return;
+
+//   current.forEach(currOrder => {
+//     const prevOrder = prev.find(p => p._id === currOrder._id);
+//     if (prevOrder && prevOrder.status !== currOrder.status) {
+//       // Status has changed!
+//       setToast({
+//         type: 'info',
+//         message: `Update on Order #${currOrder._id.slice(-6).toUpperCase()}`,
+//         subTitle: `Status updated to: ${currOrder.status.toUpperCase()}`
+//       });
+//     }
+//   });
+// };
+
+// // Poll for order updates
+// useEffect(() => {
+//   let interval;
+//   if (isLoggedIn) {
+//     fetchUserOrders(); // Initial fetch
+//     interval = setInterval(fetchUserOrders, 10000); // Poll every 10s
+//   }
+//   return () => clearInterval(interval);
+// }, [isLoggedIn]);
 
 //   // Load persisted state on component mount
 //   useEffect(() => {
@@ -82,6 +137,9 @@ import AdminPortal from './components/AdminPortal';
 //     setIsLoggedIn(true);
 //     localStorage.setItem('vapesmart_user', JSON.stringify(userData));
 //     localStorage.setItem('vapesmart_isLoggedIn', 'true');
+//     if (userData.token) {
+//       localStorage.setItem('token', userData.token);
+//     }
 //     setCurrentPage('home');
 //   };
 
@@ -101,6 +159,7 @@ import AdminPortal from './components/AdminPortal';
 //     setUser(null);
 //     localStorage.removeItem('vapesmart_user');
 //     localStorage.removeItem('vapesmart_isLoggedIn');
+//     localStorage.removeItem('token');
 //     setCurrentPage('home');
 //     setToast({ type: 'info', message: 'You have been logged out' });
 //   };
@@ -487,107 +546,58 @@ import AdminPortal from './components/AdminPortal';
 //     setCurrentPage('payment')
 //   }
 
-//   const handlePaymentSuccess = (paymentData) => {
-//     if (!pendingOrder) return
+const handlePaymentSuccess = (paymentData) => {
+  if (!pendingOrder) return;
 
-//     // Generate tracking number
-//     const trackingNumber = `TRK${Date.now()}${Math.floor(Math.random() * 10000)}`
-//     const now = new Date().toISOString()
+  // Submit order to backend
+  const submitOrder = async () => {
+    try {
+      const token = localStorage.getItem('token') || (user && user.token);
+      const orderData = {
+        items: pendingOrder.items.map(i => ({
+          product: i.id || i._id, // Ensure we send the ID as 'product'
+          quantity: i.quantity
+        })),
+        shippingAddress: pendingOrder.customerProfile.address,
+        paymentMethod: paymentData.paymentMethod || 'card',
+        paymentResult: paymentData,
+      };
 
-//     // Create confirmed order with full details
-//     const newOrder = {
-//       id: pendingOrder.id,
-//       orderNumber: `ORD${pendingOrder.id}`,
-//       trackingNumber,
-//       placedAt: now,
-//       items: pendingOrder.items,
-//       total: pendingOrder.total,
-//       status: 'processing', // processing -> shipped -> delivered
-//       paymentStatus: paymentData.paymentStatus || 'completed',
-//       paymentMethod: paymentData.paymentMethod || 'card',
-//       transactionId: paymentData.transactionId,
-//       paidAt: paymentData.paidAt,
-//       shippingAddress: pendingOrder.customerProfile.address || '',
-//       // Tracking timeline
-//       timeline: [
-//         { status: 'order_placed', timestamp: now, message: 'Order placed successfully' },
-//         ...(paymentData.paymentMethod === 'cod' 
-//           ? [{ status: 'payment_pending', timestamp: now, message: 'Payment pending - Cash on Delivery' }]
-//           : paymentData.paidAt 
-//             ? [{ status: 'payment_completed', timestamp: paymentData.paidAt, message: 'Payment completed' }]
-//             : []
-//         ),
-//         { status: 'processing', timestamp: now, message: 'Order is being processed' },
-//       ],
-//     }
+      const response = await apiCall(API_ENDPOINTS.ORDERS.CREATE, {
+        method: 'POST',
+        headers: getAuthHeaders(token),
+        body: JSON.stringify(orderData)
+      });
 
-//     setOrders(prev => {
-//       const newOrders = [newOrder, ...prev]
-//       // Persist orders to localStorage
-//       localStorage.setItem('vapesmart_orders', JSON.stringify(newOrders))
-//       return newOrders
-//     })
-//     setCartItems([])
-//     localStorage.setItem('vapesmart_cart', JSON.stringify([]))
-//     setPendingOrder(null)
-//     setToast({ 
-//       type: 'success', 
-//       message: 'Order placed successfully!',
-//       subTitle: `Tracking: ${trackingNumber}`
-//     })
-//     setCurrentPage('account')
-//     setAccountTab('orders')
+      // Update local state with the confirmed order from backend
+      // fetchUserOrders will pick it up on next poll, but we can set immediately
+      setToast({
+        type: 'success',
+        message: 'Order placed successfully!',
+        subTitle: `Tracking ID: ${response.order._id}`
+      });
 
-//     // Simulate order progression: Update status after delays
-//     // After 5 seconds, mark as shipped
-//     setTimeout(() => {
-//       setOrders(prev => prev.map(order => 
-//         order.id === newOrder.id 
-//           ? {
-//               ...order,
-//               status: 'shipped',
-//               timeline: [
-//                 ...order.timeline,
-//                 { 
-//                   status: 'shipped', 
-//                   timestamp: new Date().toISOString(), 
-//                   message: 'Order has been shipped' 
-//                 }
-//               ]
-//             }
-//           : order
-//       ))
-//       setToast({
-//         type: 'info',
-//         message: `Order ${newOrder.orderNumber} has been shipped!`,
-//         subTitle: `Track with: ${trackingNumber}`
-//       })
-//     }, 5000)
+      // Refresh orders immediately
+      fetchUserOrders();
 
-//     // After 15 seconds, mark as delivered
-//     setTimeout(() => {
-//       setOrders(prev => prev.map(order => 
-//         order.id === newOrder.id 
-//           ? {
-//               ...order,
-//               status: 'delivered',
-//               timeline: [
-//                 ...order.timeline,
-//                 { 
-//                   status: 'delivered', 
-//                   timestamp: new Date().toISOString(), 
-//                   message: 'Order has been delivered' 
-//                 }
-//               ]
-//             }
-//           : order
-//       ))
-//       setToast({
-//         type: 'success',
-//         message: `Order ${newOrder.orderNumber} has been delivered!`,
-//       })
-//     }, 15000)
-//   }
+      setCartItems([]);
+      localStorage.setItem('vapesmart_cart', JSON.stringify([]));
+      setPendingOrder(null);
+      setCurrentPage('account');
+      setAccountTab('orders');
+
+    } catch (error) {
+      console.error('Order submission failed:', error);
+      setToast({
+        type: 'error',
+        message: 'Failed to submit order. Please contact support.',
+        subTitle: error.message
+      });
+    }
+  };
+
+  submitOrder();
+}//   }
 
 //   const handlePaymentCancel = () => {
 //     setPendingOrder(null)
@@ -1096,6 +1106,69 @@ export default function App() {
     }
   };
 
+  // --- POLLING & NOTIFICATIONS ---
+  const prevOrdersRef = React.useRef(orders); // Initialize with current orders state
+
+  const checkForStatusUpdates = (prev, current) => {
+    if (!prev || prev.length === 0) return;
+
+    current.forEach(currOrder => {
+      // Find matching order in previous state (using _id or id)
+      const prevOrder = prev.find(p => (p._id || p.id) === (currOrder._id || currOrder.id));
+
+      if (prevOrder && prevOrder.status !== currOrder.status) {
+        setToast({
+          type: 'info',
+          message: `Update on Order #${(currOrder.orderNumber || currOrder._id || '').slice(-6).toUpperCase()}`,
+          subTitle: `Status updated to: ${currOrder.status.toUpperCase()}`
+        });
+      }
+    });
+  };
+
+  useEffect(() => {
+    let interval;
+    if (isLoggedIn && user?.token) {
+      // Wrapper to call fetchUserData and handle diffing
+      const pollOrders = async () => {
+        try {
+          const token = user.token;
+          const ordersData = await apiCall(API_ENDPOINTS.ORDERS.GET_ALL, {
+            headers: getAuthHeaders(token)
+          });
+
+          if (ordersData && ordersData.orders) {
+            const mappedOrders = ordersData.orders.map(order => ({
+              ...order,
+              id: order._id,
+              items: (order.items || []).map(item => ({
+                ...item,
+                id: item._id || item.productId
+              }))
+            }));
+
+            // Check for diffs using ref
+            checkForStatusUpdates(prevOrdersRef.current, mappedOrders);
+
+            // Update state and ref
+            setOrders(mappedOrders);
+            prevOrdersRef.current = mappedOrders;
+            localStorage.setItem('vapesmart_orders', JSON.stringify(mappedOrders));
+          }
+        } catch (err) {
+          // Silently handle polling errors to avoid console spam
+          // but log if it's something other than a 404/Network error
+          if (err.status !== 404) {
+            // console.error('Polling error:', err.message);
+          }
+        }
+      };
+
+      interval = setInterval(pollOrders, 10000); // 10s poll
+    }
+    return () => clearInterval(interval);
+  }, [isLoggedIn, user]);
+
   // Sync on mount if logged in
   useEffect(() => {
     if (isLoggedIn && user?.token) {
@@ -1130,6 +1203,9 @@ export default function App() {
     // Persist login state to localStorage
     localStorage.setItem('vapesmart_user', JSON.stringify(userData))
     localStorage.setItem('vapesmart_isLoggedIn', 'true')
+    if (userData.token) {
+      localStorage.setItem('token', userData.token);
+    }
 
     // Fetch user's actual data from backend
     fetchUserData(userData.token);
@@ -1172,6 +1248,7 @@ export default function App() {
     localStorage.removeItem('vapesmart_cart')
     localStorage.removeItem('vapesmart_orders')
     localStorage.removeItem('vapesmart_profile')
+    localStorage.removeItem('token')
     // Clear state
     setCartItems([])
     setOrders([])

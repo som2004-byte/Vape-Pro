@@ -127,7 +127,6 @@ const sendOtpEmail = async (toEmail, code) => {
       subject: 'Your verification code',
       html
     });
-    console.log(`✅ OTP email sent to ${toEmail}`);
   } catch (error) {
     console.error('❌ Failed to send OTP email:', error);
     throw error;
@@ -260,15 +259,7 @@ app.get('/', (req, res) => {
 // -----------------------------
 
 // Optional seed admin on startup
-const seedAdminIfNeeded = async () => {
-  if (!ADMIN_EMAIL || !ADMIN_PASSWORD) return; // skip when not configured
-  const existing = await Admin.findOne({ email: ADMIN_EMAIL });
-  if (existing) return;
-  const hashed = await bcrypt.hash(ADMIN_PASSWORD, 10);
-  await new Admin({ email: ADMIN_EMAIL, name: 'Administrator', password: hashed }).save();
-  console.log('✅ Seeded default admin from env');
-};
-seedAdminIfNeeded().catch((e) => console.warn('Admin seed skipped:', e.message));
+
 
 
 
@@ -376,9 +367,7 @@ app.delete('/api/cart', authenticateToken, async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
-});
+
 
 // Account details
 app.get('/api/account', authenticateToken, async (req, res) => {
@@ -514,13 +503,6 @@ app.post('/api/request-email-otp', async (req, res) => {
       { upsert: true, new: true, setDefaultsOnInsert: true, runValidators: true }
     );
 
-    // DEBUG: Log OTP to console so developer can see it if email fails
-    console.log('-----------------------------------------');
-    console.log(`NEW OTP REQUESTED FOR: ${email}`);
-    console.log(`CODE: ${code}`);
-    console.log(`PURPOSE: ${purpose}`);
-    console.log('-----------------------------------------');
-
     // Send email
     await sendOtpEmail(email, code);
 
@@ -581,3 +563,23 @@ app.post('/api/verify-email-otp', async (req, res) => {
   }
 });
 
+
+// Optional seed admin on startup
+const seedAdminIfNeeded = async () => {
+  if (!ADMIN_EMAIL || !ADMIN_PASSWORD) return; // skip when not configured
+  const existing = await Admin.findOne({ email: ADMIN_EMAIL });
+  if (existing) return;
+  const hashed = await bcrypt.hash(ADMIN_PASSWORD, 10);
+  await new Admin({ email: ADMIN_EMAIL, name: 'Administrator', password: hashed }).save();
+  console.log('✅ Seeded default admin from env');
+};
+
+// 404 Handler
+app.use((req, res) => {
+  res.status(404).json({ message: `Route ${req.method} ${req.url} not found` });
+});
+
+app.listen(PORT, async () => {
+  console.log(`🚀 Server running on http://localhost:${PORT}`);
+  await seedAdminIfNeeded().catch((e) => console.warn('Admin seed skipped:', e.message));
+});
