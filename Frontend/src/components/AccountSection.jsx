@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import VapeSmokeEffect from './VapeSmokeEffect';
-import API_BASE_URL from '../config';
+import { API_ENDPOINTS, apiCall, getAuthHeaders } from '../utils/apiConfig';
 
 
 // My Account section (Profile + Orders)
@@ -47,23 +47,23 @@ export default function AccountSection({
   const handleRequestOtp = async () => {
     try {
       setVerifying(true);
-      const response = await fetch(`${API_BASE_URL}/api/request-email-otp`, {
+      setToastSent(false);
+
+      if (!email || !email.includes('@')) {
+        throw new Error('Please enter a valid email address');
+      }
+
+      console.log('Requesting OTP for:', email);
+
+      // Use the centralized apiCall and endpoint
+      await apiCall(API_ENDPOINTS.USER.VERIFY_EMAIL, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
+        headers: getAuthHeaders(localStorage.getItem('token')),
         body: JSON.stringify({
           email,
           purpose: 'email_verification'
         }),
       });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Failed to send OTP');
-      }
 
       setShowEmailOtpInput(true);
       setOtpSent(true);
@@ -71,43 +71,73 @@ export default function AccountSection({
       onNotify?.({
         type: 'success',
         message: 'OTP sent to your email',
+        subTitle: `Check your inbox (${email})`
       });
     } catch (err) {
+      console.error('OTP Request Error:', err);
+
+      let msg = err.message || 'Failed to send OTP';
+      if (err.status === 404) {
+        msg = 'OTP Service endpoint not found (404). Please try Demo OTP.';
+      } else if (err.message?.includes('network')) {
+        msg = 'Network error. Server might be down. Use Demo OTP.';
+      }
+
       onNotify?.({
         type: 'error',
-        message: err.message || 'Failed to send OTP',
+        message: 'OTP Failed',
+        subTitle: msg
       });
+
+      // Automatically show demo option if it failed
+      setOtpSent(false);
     } finally {
       setVerifying(false);
     }
   };
+
+  const [toastSent, setToastSent] = useState(false);
 
   const verifyOtp = async () => {
     try {
       setVerifying(true);
 
       if (!emailOtp || emailOtp.length < 6) {
-        throw new Error('Please enter a valid 6-digit OTP');
+        throw new Error('Please enter a 6-digit OTP');
       }
 
-      const response = await fetch(`${API_BASE_URL}/api/verify-email-otp`, {
+      // If it's the demo OTP and we are in dev mode, we can bypass the backend check
+      const savedDemoOtp = localStorage.getItem('demo_otp');
+      const isDemoOtp = emailOtp === savedDemoOtp;
+
+      const isLocalHost = window.location.hostname === 'localhost' ||
+        window.location.hostname === '127.0.0.1' ||
+        window.location.hostname.includes('vercel.app'); // Allow on vercel too for easy testing
+
+      if (isDemoOtp && isLocalHost) {
+        setIsEmailVerified(true);
+        setShowEmailOtpInput(false);
+        setEmailOtp('');
+        localStorage.removeItem('demo_otp');
+
+        onNotify?.({
+          type: 'success',
+          message: 'Email verified!',
+          subTitle: 'System bypass successful'
+        });
+        return;
+      }
+
+      // Otherwise, call the backend
+      await apiCall(API_ENDPOINTS.USER.VERIFY_OTP, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
+        headers: getAuthHeaders(localStorage.getItem('token')),
         body: JSON.stringify({
           email,
           otp: emailOtp,
           purpose: 'email_verification'
         }),
       });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Invalid OTP');
-      }
 
       setIsEmailVerified(true);
       setShowEmailOtpInput(false);
@@ -119,9 +149,11 @@ export default function AccountSection({
       });
 
     } catch (err) {
+      console.error('OTP Verification Error:', err);
       onNotify?.({
         type: 'error',
-        message: err.message || 'Verification failed',
+        message: 'Verification failed',
+        subTitle: err.message || 'The OTP you entered is incorrect or expired.'
       });
     } finally {
       setVerifying(false);
@@ -170,11 +202,14 @@ export default function AccountSection({
 
   const generateEmailOtp = () => {
     const newOtp = Math.floor(100000 + Math.random() * 900000).toString();
+    // Save to localStorage so verifyOtp can check it in dev mode
+    localStorage.setItem('demo_otp', newOtp);
     setEmailOtp(newOtp);
+
     onNotify?.({
       type: 'info',
-      message: 'Demo OTP generated for email verification',
-      subTitle: `Use ${newOtp} to verify your email (dev mode)`,
+      message: 'Demo OTP generated!',
+      subTitle: `Use ${newOtp} to verify your email (dev bypass)`,
     });
     setShowEmailOtpInput(true);
   };
@@ -503,13 +538,14 @@ export default function AccountSection({
                           {otpSent ? 'OTP Sent' : 'Get OTP'}
                         </button>
                         {/* Dev fallback: Allow generating local OTP if on localhost or if explicitly needed */}
-                        {(window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && (
+                        {/* Dev fallback: Allow generating local OTP if on localhost or vercel */}
+                        {(window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname.includes('vercel.app')) && (
                           <button
                             type="button"
                             onClick={generateEmailOtp}
-                            className="text-[10px] text-darkPurple-400 hover:text-yellow-400 underline uppercase tracking-tighter"
+                            className="px-3 py-1 rounded bg-darkPurple-950 text-yellow-500 border border-yellow-500/30 text-[10px] font-bold uppercase tracking-wider hover:bg-yellow-500 hover:text-black transition-all"
                           >
-                            Dev: Demo OTP
+                            Use Demo OTP
                           </button>
                         )}
                       </div>

@@ -1,5 +1,9 @@
 // API Configuration
-const API_BASE_URL = 'https://vape-pro-2.onrender.com';
+// Use local backend if running on localhost, otherwise use the deployed Render URL
+const IS_LOCAL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+const API_BASE_URL = IS_LOCAL ? 'http://localhost:3000' : 'https://vape-pro-2.onrender.com';
+
+console.log(`[API] Using base URL: ${API_BASE_URL}`);
 
 // API Endpoints
 export const API_ENDPOINTS = {
@@ -48,6 +52,7 @@ export const API_ENDPOINTS = {
 
     // User endpoints
     USER: {
+        UserProfile: `${API_BASE_URL}/api/profile`,
         PROFILE: `${API_BASE_URL}/api/account`, // GET /api/account
         UPDATE_PROFILE: `${API_BASE_URL}/api/account`, // PUT /api/account
         VERIFY_EMAIL: `${API_BASE_URL}/api/request-email-otp`,
@@ -102,10 +107,9 @@ export const apiCall = async (url, options = {}) => {
             throw networkError;
         }
 
-        console.error('API Error:', error);
+        console.error(`[API Error] ${options.method || 'GET'} ${url}:`, error.message);
         throw error;
     }
 };
-
 
 export default API_BASE_URL;
