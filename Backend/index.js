@@ -14,6 +14,7 @@ const Order = require('./models/Order');
 const Admin = require('./models/Admin');
 const adminRoutes = require('./routes/admin');
 const orderRoutes = require('./routes/order');
+const cartRoutes = require('./routes/cart');
 
 const app = express();
 
@@ -133,6 +134,9 @@ app.get('/api/cart', authenticateToken, async (req, res) => {
 
 // Use order routes
 app.use('/api/orders', orderRoutes);
+
+// Use cart routes
+app.use('/api/cart', cartRoutes);
 
 app.get('/api/account', authenticateToken, async (req, res) => {
   try {
