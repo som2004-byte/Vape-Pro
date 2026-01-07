@@ -5,7 +5,7 @@ services:
     env: node
     repo: https://github.com/som2004-byte/Vape-Pro.git
     rootDir: Backend
-    buildCommand: "npm install"
+    buildCommand: "npm install && npm run build"
     startCommand: "npm start"
     plan: free
     envVars:
