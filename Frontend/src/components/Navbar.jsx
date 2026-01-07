@@ -1,14 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 export default function Navbar({
   user,
   onLogout,
   onNavigate,
+  onFilterChange,
+  onCategoryChange,
   isAdminLoggedIn,
   adminUser,
   onAdminLogout,
 }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [activeDropdown, setActiveDropdown] = useState(null);
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 });
+  const buttonRefs = useRef({});
 
   // Update dropdown position when it opens
   useEffect(() => {
@@ -138,10 +143,10 @@ export default function Navbar({
               </div>
               <div className="flex flex-col items-start relative z-10">
                 <span className="text-2xl font-black bg-gradient-to-r from-white via-purple-400 to-pink-500 bg-clip-text text-transparent leading-none tracking-tighter uppercase italic">
-                  VapeMaster {isAdminLoggedIn ? <span className="text-purple-500 not-italic">Pro</span> : ''}
+                  VapeMaster
                 </span>
                 <span className="text-[9px] uppercase tracking-[0.4em] font-black text-white/30 group-hover:text-purple-400/60 transition-colors">
-                  Platform Console
+                  Premium Store
                 </span>
               </div>
             </button>
@@ -153,7 +158,7 @@ export default function Navbar({
               onClick={() => onNavigate?.('home')}
               className="text-[11px] font-black text-gray-400 hover:text-white transition-all uppercase tracking-[0.2em] relative group"
             >
-              Home Console
+              Home
               <span className="absolute -bottom-1 left-0 w-0 h-[3px] bg-purple-600 transition-all group-hover:w-full" />
             </button>
 
@@ -162,11 +167,12 @@ export default function Navbar({
                 onClick={() => onNavigate?.('account')}
                 className="text-[11px] font-black text-gray-400 hover:text-white transition-all uppercase tracking-[0.2em] relative group"
               >
-                Access Profile
+                My Account
                 <span className="absolute -bottom-1 left-0 w-0 h-[3px] bg-purple-600 transition-all group-hover:w-full" />
               </button>
             )}
 
+            {/* 
             {!isAdminLoggedIn && (
               <button
                 onClick={() => onNavigate?.('adminLogin')}
@@ -175,7 +181,9 @@ export default function Navbar({
                 Admin Access
               </button>
             )}
+            */}
 
+            {/* 
             {isAdminLoggedIn && (
               <button
                 onClick={() => onNavigate?.('adminDashboard')}
@@ -184,6 +192,7 @@ export default function Navbar({
                 Command Center
               </button>
             )}
+            */}
 
             <div className="h-6 w-[1px] bg-white/10" />
 
@@ -196,15 +205,15 @@ export default function Navbar({
                   <div className="flex items-center gap-1.5">
                     <div className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]" />
                     <span className="text-[9px] text-white/40 font-black uppercase tracking-widest">
-                      {isAdminLoggedIn ? 'Superuser' : 'Operator'}
+                      Online
                     </span>
                   </div>
                 </div>
                 <button
-                  onClick={isAdminLoggedIn ? onAdminLogout : onLogout}
+                  onClick={onLogout}
                   className="px-6 py-2.5 rounded-xl bg-white text-black text-[10px] font-black shadow-xl hover:scale-105 active:scale-95 transition-all uppercase tracking-widest"
                 >
-                  Terminate
+                  Logout
                 </button>
               </div>
             ) : (
@@ -212,7 +221,7 @@ export default function Navbar({
                 onClick={() => onNavigate?.('login')}
                 className="px-8 py-3 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 text-white text-[10px] font-black shadow-2xl shadow-purple-600/30 hover:scale-105 active:scale-95 transition-all uppercase tracking-widest border border-white/10"
               >
-                Authorized Login
+                Login / Signup
               </button>
             )}
           </div>
@@ -247,6 +256,7 @@ export default function Navbar({
 
           <div className="w-12 h-1 bg-white/10 rounded-full" />
 
+          {/* 
           {!isAdminLoggedIn && (
             <button onClick={() => { onNavigate?.('adminLogin'); setMobileMenuOpen(false); }} className="text-2xl font-bold text-gray-500 uppercase tracking-widest">Admin Master</button>
           )}
@@ -254,6 +264,7 @@ export default function Navbar({
           {isAdminLoggedIn && (
             <button onClick={() => { onNavigate?.('adminDashboard'); setMobileMenuOpen(false); }} className="text-4xl font-black text-purple-500 italic uppercase tracking-tighter">Dashboard</button>
           )}
+          */}
 
           {user || isAdminLoggedIn ? (
             <button

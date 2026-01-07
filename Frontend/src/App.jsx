@@ -999,6 +999,8 @@ export default function App() {
       const savedUser = localStorage.getItem('vapesmart_user');
       const savedLoginState = localStorage.getItem('vapesmart_isLoggedIn');
       const savedProfile = localStorage.getItem('vapesmart_profile');
+      const savedCart = localStorage.getItem('vapesmart_cart');
+      const savedOrders = localStorage.getItem('vapesmart_orders');
       const savedAdminToken = localStorage.getItem('vapesmart_adminToken');
       const savedAdminUser = localStorage.getItem('vapesmart_adminUser');
       const isAdmin = localStorage.getItem('vapesmart_isAdmin') === 'true';
@@ -1046,6 +1048,13 @@ export default function App() {
   const [orders, setOrders] = useState(persistedState.orders) // Simple in-memory order history
   const [pendingOrder, setPendingOrder] = useState(null) // Order pending payment
   const [tempAdminBypass, setTempAdminBypass] = useState(false) // TEMPORARY: Admin bypass
+
+  const handleNavigate = (page, subPage = 'profile') => {
+    setCurrentPage(page);
+    if (page === 'account') {
+      setAccountTab(subPage);
+    }
+  };
 
   // --- Derived State & API Sync Functions ---
 
@@ -1594,141 +1603,96 @@ export default function App() {
     return filteredProducts;
   }, [filteredProducts]);
 
-  if (tempAdminBypass) {
-    return (
-      <div className="relative min-h-screen bg-gradient-to-b from-black via-darkPurple-950/20 to-black text-gray-100 overflow-hidden">
-        {/* Site-wide subtle vape smoke background */}
-        <div className="fixed inset-0 -z-10 pointer-events-none opacity-80">
-          <VapeSmokeEffect density={40} speed={0.4} opacity={0.35} />
+  /*
+    if (tempAdminBypass) {
+      return (
+        <div className="relative min-h-screen bg-gradient-to-b from-black via-darkPurple-950/20 to-black text-gray-100 overflow-hidden">
+          <div className="fixed inset-0 -z-10 pointer-events-none opacity-80">
+            <VapeSmokeEffect density={40} speed={0.4} opacity={0.35} />
+          </div>
+          <Navbar
+            user={adminUser} // Use adminUser for Navbar even in bypass
+            onLogout={handleAdminLogout}
+            isAdmin={true}
+            onNavigate={handleNavigate}
+            isAdminLoggedIn={isAdminLoggedIn}
+            adminUser={adminUser}
+            onAdminLogout={handleAdminLogout}
+            setTempAdminBypass={setTempAdminBypass} // Pass the setter
+          />
+          <main className="pt-32">
+            <AdminDashboard adminUser={adminUser} adminToken={adminToken} />
+          </main>
         </div>
-        <Navbar
-          user={adminUser} // Use adminUser for Navbar even in bypass
-          onLogout={handleAdminLogout}
-          isAdmin={true}
-          onNavigate={handleNavigate}
-          isAdminLoggedIn={isAdminLoggedIn}
-          adminUser={adminUser}
-          onAdminLogout={handleAdminLogout}
-          setTempAdminBypass={setTempAdminBypass} // Pass the setter
-        />
-        <main className="pt-32">
+      )
+    } else if (!isLoggedIn && (currentPage !== 'adminLogin' && currentPage !== 'adminDashboard')) {
+      return <LoginSignup onLogin={handleLogin} />
+    } else if (currentPage === 'adminLogin' && !isAdminLoggedIn) {
+      return <AdminLogin onAdminLogin={handleAdminLogin} />
+    } else if (currentPage === 'adminDashboard') {
+      return (
+        <div className="relative min-h-screen bg-gradient-to-b from-black via-darkPurple-950/20 to-black text-gray-100 overflow-hidden">
+          <div className="fixed inset-0 -z-10 pointer-events-none opacity-80">
+            <VapeSmokeEffect density={40} speed={0.4} opacity={0.35} />
+          </div>
+          <Navbar
+            user={adminUser || user}
+            onLogout={handleAdminLogout}
+            isAdmin={true}
+            onNavigate={handleNavigate}
+            isAdminLoggedIn={true}
+            adminUser={adminUser || { username: 'Temporary Admin' }}
+            onAdminLogout={handleAdminLogout}
+          />
+          <main className="pt-32">
+            <AdminDashboard adminUser={adminUser || { username: 'Temporary Admin' }} adminToken={adminToken} />
+          </main>
+        </div>
+      )
+    } else if (currentPage === 'adminLogin' && isAdminLoggedIn) {
+      return (
+        <div className="relative min-h-screen bg-gradient-to-b from-black via-darkPurple-950/20 to-black text-gray-100 overflow-hidden">
+          <div className="fixed inset-0 -z-10 pointer-events-none opacity-80">
+            <VapeSmokeEffect density={40} speed={0.4} opacity={0.35} />
+          </div>
+          <Navbar
+            user={adminUser}
+            onLogout={handleAdminLogout}
+            isAdmin={true}
+            onNavigate={handleNavigate}
+            isAdminLoggedIn={isAdminLoggedIn}
+            adminUser={adminUser}
+            onAdminLogout={handleAdminLogout}
+            setTempAdminBypass={setTempAdminBypass} // Pass the setter
+          />
           <AdminDashboard adminUser={adminUser} adminToken={adminToken} />
-        </main>
-      </div>
-    )
-  } else if (!isLoggedIn && (currentPage !== 'adminLogin' && currentPage !== 'adminDashboard')) {
+        </div>
+      )
+    }
+  */
+  if (!isLoggedIn) {
     return <LoginSignup onLogin={handleLogin} />
-  } else if (currentPage === 'adminLogin' && !isAdminLoggedIn) {
-    return <AdminLogin onAdminLogin={handleAdminLogin} />
-  } else if (currentPage === 'adminDashboard') {
-    return (
-      <div className="relative min-h-screen bg-gradient-to-b from-black via-darkPurple-950/20 to-black text-gray-100 overflow-hidden">
-        {/* Site-wide subtle vape smoke background */}
-        <div className="fixed inset-0 -z-10 pointer-events-none opacity-80">
-          <VapeSmokeEffect density={40} speed={0.4} opacity={0.35} />
-        </div>
-        <Navbar
-          user={adminUser || user}
-          onLogout={handleAdminLogout}
-          isAdmin={true}
-          onNavigate={handleNavigate}
-          isAdminLoggedIn={true}
-          adminUser={adminUser || { username: 'Temporary Admin' }}
-          onAdminLogout={handleAdminLogout}
-        />
-        <main className="pt-32">
-          <AdminDashboard adminUser={adminUser || { username: 'Temporary Admin' }} adminToken={adminToken} />
-        </main>
-      </div>
-    )
-  } else if (currentPage === 'adminLogin' && isAdminLoggedIn) {
-    return (
-      <div className="relative min-h-screen bg-gradient-to-b from-black via-darkPurple-950/20 to-black text-gray-100 overflow-hidden">
-        {/* Site-wide subtle vape smoke background */}
-        <div className="fixed inset-0 -z-10 pointer-events-none opacity-80">
-          <VapeSmokeEffect density={40} speed={0.4} opacity={0.35} />
-        </div>
-        <Navbar
-          user={adminUser}
-          onLogout={handleAdminLogout}
-          isAdmin={true}
-          onNavigate={handleNavigate}
-          isAdminLoggedIn={isAdminLoggedIn}
-          adminUser={adminUser}
-          onAdminLogout={handleAdminLogout}
-          setTempAdminBypass={setTempAdminBypass} // Pass the setter
-        />
-        <AdminDashboard adminUser={adminUser} adminToken={adminToken} />
-      </div>
-    )
   }
+
 
   // Using the handleAdminLogin and handleAdminLogout functions defined earlier
 
   // Render the appropriate interface based on login state
-
-
-  const renderContent = () => {
-    if (isAdminLoggedIn) {
-      return (
-        <AdminDashboard
-          adminUser={adminUser}
-          adminToken={adminToken}
-          onLogout={handleAdminLogout}
-        />
-      );
-    }
-
-    // Default view for public pages
-    const mainContent = (
-      <>
-        <Navbar
-          user={user}
-          onLogout={handleLogout}
-          onNavigate={handleNavigate}
-          currentPage={currentPage}
-          isAdminLoggedIn={isAdminLoggedIn}
-          adminUser={adminUser}
-          onAdminLogout={handleAdminLogout}
-        />
-
-        <main className="min-h-screen pt-20">
-          {currentPage === 'home' && <LandingHero onNavigate={handleNavigate} />}
-
-          {currentPage === 'account' && (
-            isLoggedIn ? (
-              <AccountSection
-                user={user}
-                profile={customerProfile}
-                onUpdateProfile={setCustomerProfile}
-                activeTab={accountTab}
-                onTabChange={setAccountTab}
-              />
-            ) : (
-              <LoginSignup onLogin={handleLogin} />
-            )
-          )}
-
-          {currentPage === 'login' && !isLoggedIn && (
-            <LoginSignup onLogin={handleLogin} />
-          )}
-
-          {currentPage === 'adminLogin' && !isAdminLoggedIn && (
-            <AdminLogin onAdminLogin={handleAdminLogin} />
-          )}
-        </main>
-      </>
-    );
-
-    return mainContent;
-  };
-
   return (
     <div className="relative min-h-screen bg-gradient-to-b from-black via-darkPurple-950/20 to-black text-gray-100 overflow-hidden">
       <div className="fixed inset-0 -z-10 pointer-events-none opacity-80">
         <VapeSmokeEffect density={40} speed={0.4} opacity={0.35} />
       </div>
-      {renderContent()}
+
+      <Navbar
+        user={user}
+        onLogout={handleLogout}
+        onNavigate={handleNavigate}
+        currentPage={currentPage}
+        isAdminLoggedIn={false} // Force false to hide admin UI elements
+        onFilterChange={handleFilterChange}
+        onCategoryChange={setCurrentCategory}
+      />
 
       {/* Toast Notification */}
       {toast && (
@@ -1771,6 +1735,7 @@ export default function App() {
           </div>
         </div>
       )}
+
       <main className="container mx-auto px-4 pt-32 pb-8 overflow-visible">
         {currentPage === 'home' && (
           <>

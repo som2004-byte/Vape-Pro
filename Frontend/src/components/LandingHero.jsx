@@ -42,35 +42,38 @@ export default function LandingHero({ onNavigate }) {
         <div className="max-w-5xl w-full text-center space-y-10">
           <div className="inline-flex items-center gap-3 rounded-full bg-white/5 backdrop-blur-md border border-white/10 px-8 py-3.5 text-xs uppercase tracking-[0.4em] text-purple-400 font-black animate-pulse">
             <span className="w-1.5 h-1.5 bg-purple-500 rounded-full" />
-            Vape-Pro Network
+            Premium Vape Store
           </div>
 
           <h1 className="text-7xl md:text-9xl font-black leading-[0.9] text-white tracking-tighter">
-            PRO <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-pink-500 to-yellow-500">ADMIN</span><br />
-            SOLUTIONS.
+            PREMIUM <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-pink-500 to-yellow-500">VAPE</span><br />
+            COLLECTION.
           </h1>
 
           <p className="text-darkPurple-300 max-w-2xl mx-auto text-lg md:text-xl font-medium leading-relaxed">
-            A premium command center for your vaping fleet. Monitor activity, manage users, and process bulk requirements with real-time precision.
+            Discover the finest selection of disposable vapes, pod kits, and premium e-liquids. Curated for the ultimate vaping experience.
           </p>
 
           <div className="flex flex-wrap gap-6 justify-center pt-8">
             <button
-              onClick={() => onNavigate?.('account')}
+              onClick={() => {
+                const productsSection = document.getElementById('products');
+                if (productsSection) productsSection.scrollIntoView({ behavior: 'smooth' });
+              }}
               className="group relative px-12 py-5 rounded-full bg-white text-black font-black text-sm uppercase tracking-widest overflow-hidden transition-all hover:scale-105 active:scale-95 shadow-2xl"
             >
-              <span className="relative z-10">Manage Profile</span>
+              <span className="relative z-10">Shop Now</span>
               <div className="absolute inset-0 bg-gradient-to-r from-purple-500 to-pink-500 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
             </button>
 
             <button
               onClick={() => {
-                const adminSection = document.getElementById('admin-link');
-                if (adminSection) adminSection.scrollIntoView({ behavior: 'smooth' });
+                const productsSection = document.getElementById('products');
+                if (productsSection) productsSection.scrollIntoView({ behavior: 'smooth' });
               }}
               className="px-12 py-5 rounded-full border border-gray-700 text-white font-black text-sm uppercase tracking-widest hover:bg-white hover:text-black transition-all hover:border-white"
             >
-              Network Status
+              View Collection
             </button>
           </div>
         </div>
