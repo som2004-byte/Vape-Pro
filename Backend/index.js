@@ -54,7 +54,12 @@ if (typeof MONGODB_URI === 'string' && MONGODB_URI.trim()) {
   mongoose
     .connect(MONGODB_URI.trim())
     .then(() => console.log('✅ Connected to MongoDB'))
-    .catch((err) => console.error('❌ MongoDB connection error:', err));
+    .catch((err) => {
+      console.error('❌ MongoDB connection error:', err);
+      console.log('⚠️  Continuing without MongoDB - some features may not work');
+    });
+} else {
+  console.log('⚠️  MONGODB_URI not set - some features may not work');
 }
 
 // Mail transporter
@@ -179,9 +184,19 @@ app.post('/api/verify-email-otp', async (req, res) => {
 });
 
 const seedAdminIfNeeded = async () => {
-  if (!ADMIN_EMAIL || !ADMIN_PASSWORD) return;
-  const existing = await Admin.findOne({ email: ADMIN_EMAIL });
-  if (!existing) await new Admin({ email: ADMIN_EMAIL, name: 'Admin', password: await bcrypt.hash(ADMIN_PASSWORD, 10) }).save();
+  try {
+    if (!ADMIN_EMAIL || !ADMIN_PASSWORD) {
+      console.log('⚠️  Admin credentials not set - skipping admin seeding');
+      return;
+    }
+    const existing = await Admin.findOne({ email: ADMIN_EMAIL });
+    if (!existing) {
+      await new Admin({ email: ADMIN_EMAIL, name: 'Admin', password: await bcrypt.hash(ADMIN_PASSWORD, 10) }).save();
+      console.log('✅ Admin user created');
+    }
+  } catch (error) {
+    console.error('❌ Error seeding admin:', error);
+  }
 };
 
 app.use((err, req, res, next) => {
@@ -193,5 +208,12 @@ app.use((req, res) => res.status(404).json({ message: `Route ${req.method} ${req
 
 app.listen(PORT, async () => {
   console.log(`🚀 Server running on port ${PORT}`);
-  await seedAdminIfNeeded();
+  console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+  
+  try {
+    await seedAdminIfNeeded();
+    console.log('✅ Server startup completed successfully');
+  } catch (error) {
+    console.error('❌ Server startup error:', error);
+  }
 });
