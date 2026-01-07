@@ -4,7 +4,8 @@ const { authenticateToken, getOrCreateCart } = require('../middleware/auth');
 const Order = require('../models/Order');
 const Cart = require('../models/Cart');
 const Product = require('../models/Product');
-const { sendOrderConfirmationEmail } = require('../utils/email');
+const User = require('../models/User');
+const { sendOrderConfirmationEmail, sendOrderDeliveredEmail, sendOrderCancellationEmail } = require('../utils/email');
 
 const router = express.Router();
 
