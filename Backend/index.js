@@ -32,32 +32,19 @@ app.use((req, res, next) => {
   next();
 });
 
-// Configure CORS
-const allowedOrigins = [
-  'http://localhost:5173',
-  'http://localhost:5174',
-  'http://127.0.0.1:5173',
-  'http://127.0.0.1:5174',
-  'https://vape-pro-5838.vercel.app',
-  'https://vape-pro-jvkd.vercel.app'
-];
-
-const corsOptions = {
-  origin: (origin, callback) => {
-    if (!origin) return callback(null, true);
-    const isWhiteListed = allowedOrigins.includes(origin) || origin.endsWith('.vercel.app');
-    if (isWhiteListed) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+// Configure CORS (Temporarily permissive for debugging)
+app.use(cors({
+  origin: true, // Allow all origins
   credentials: true,
-  optionsSuccessStatus: 200
-};
-app.use(cors(corsOptions));
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
+// Log requests for debugging
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url} - Origin: ${req.headers.origin}`);
+  next();
+});
 
 // Use Admin Routes
 console.log('📡 Registering admin routes...');
@@ -106,9 +93,11 @@ if (SMTP_HOST && SMTP_USER && SMTP_PASS) {
   });
 
   // Verify connection configuration
+  console.log(`[SMTP] Attempting to connect to ${SMTP_HOST}:${SMTP_PORT || (SMTP_SECURE ? 465 : 587)}...`);
   mailTransporter.verify((error, success) => {
     if (error) {
       console.error('❌ SMTP Connection Error:', error);
+      console.error('   Hint: If using Gmail, use port 465 with SMTP_SECURE=true. If using port 587, set SMTP_SECURE=false.');
     } else {
       console.log('✅ SMTP Server is ready to take our messages');
     }
