@@ -10,7 +10,6 @@ const ClientRequirement = require('../models/ClientRequirement');
 const Order = require('../models/Order');
 const Product = require('../models/Product');
 const Cart = require('../models/Cart');
-const ClientRequirement = require('../models/ClientRequirement');
 
 const router = express.Router();
 console.log('🛡️ Admin router initialized');
