@@ -1,7 +1,7 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { body, validationResult } = require('express-validator');
+const { body, param, validationResult } = require('express-validator');
 
 const { authorizeAdmin } = require('../middleware/auth');
 const User = require('../models/User');
@@ -9,6 +9,8 @@ const Admin = require('../models/Admin');
 const ClientRequirement = require('../models/ClientRequirement');
 const Order = require('../models/Order');
 const Product = require('../models/Product');
+const Cart = require('../models/Cart');
+const ClientRequirement = require('../models/ClientRequirement');
 
 const router = express.Router();
 console.log('🛡️ Admin router initialized');
@@ -137,8 +139,20 @@ router.get('/stats', authorizeAdmin, async (req, res) => {
 // Get client requirements (admin only)
 router.get('/client-requirements', authorizeAdmin, async (req, res) => {
   try {
-    const requirements = await ClientRequirement.find().sort({ createdAt: -1 });
-    res.json(requirements);
+    const user = await User.findByIdAndDelete(req.params.userId);
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Optionally, you might want to delete associated data like cart, orders, etc.
+    await Cart.deleteMany({ userId: user._id });
+    await Order.updateMany(
+      { user: user._id },
+      { $set: { user: null } } // Or delete orders: await Order.deleteMany({ user: user._id });
+    );
+
+    res.json({ message: 'User deleted successfully' });
   } catch (error) {
     console.error('Get client requirements error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
@@ -148,10 +162,28 @@ router.get('/client-requirements', authorizeAdmin, async (req, res) => {
 // Get all orders (admin only)
 router.get('/orders', authorizeAdmin, async (req, res) => {
   try {
-    const orders = await Order.find()
-      .populate('userId', 'name email phoneNumber address')
-      .sort({ createdAt: -1 });
-    res.json(orders);
+    const { status, page = 1, limit = 10 } = req.query;
+    const query = {};
+
+    if (status) {
+      query.status = status;
+    }
+
+    const orders = await Order.find(query)
+      .populate('userId', 'name email')
+      .populate('items.product')
+      .sort({ createdAt: -1 })
+      .limit(limit * 1)
+      .skip((page - 1) * limit);
+
+    const count = await Order.countDocuments(query);
+
+    res.json({
+      totalPages: Math.ceil(count / limit),
+      currentPage: page,
+      totalOrders: count,
+      orders,
+    });
   } catch (error) {
     console.error('Get orders error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
