@@ -1,6 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import API_BASE_URL_ROOT from '../config';
 
+const MOCK_DATA = {
+  users: [],
+  orders: [],
+  requirements: []
+};
+
 export default function AdminDashboard({ adminUser, adminToken, onLogout }) {
   // Navigation and view states
   const [activeTab, setActiveTab] = useState('overview');
@@ -89,10 +95,10 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout }) {
   // Fetch stats from API
   const fetchStats = async () => {
     try {
-      if (!adminToken) return;
-      const response = await fetch(`${API_BASE_URL}/stats`, {
-        headers: { Authorization: `Bearer ${adminToken}` },
-      });
+      if (adminToken) {
+        const response = await fetch(`${API_BASE_URL}/stats`, {
+          headers: { Authorization: `Bearer ${adminToken}` },
+        });
 
         if (response.ok) {
           const data = await response.json();
