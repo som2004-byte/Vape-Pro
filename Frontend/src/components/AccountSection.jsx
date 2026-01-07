@@ -32,6 +32,8 @@ export default function AccountSection({
     setEmail(profile.email || '');
     setPhoneNumber(profile.phoneNumber || '');
     setAddress(profile.address || '');
+    setIsEmailVerified(!!profile.emailVerified);
+    setIsAddressVerified(!!profile.phoneVerified); // Use the phoneVerified flag from backend
   }, [profile]);
 
   // Keep internal tab in sync with parent (e.g. when navigating to My Account / Orders)
@@ -210,12 +212,15 @@ export default function AccountSection({
       });
       return;
     }
-    const saved = { name, email, phoneNumber, address };
-    console.log('Account Details:', {
-      ...saved,
-      isAddressVerified,
-      isEmailVerified,
-    });
+    const saved = {
+      name,
+      email,
+      phoneNumber,
+      address,
+      emailVerified: isEmailVerified,
+      phoneVerified: isAddressVerified // Backend uses phoneVerified field for generic verification state
+    };
+    console.log('Account Details Saved:', saved);
     onSaveProfile?.(saved);
     setEditMode(false);
   };
@@ -304,14 +309,14 @@ export default function AccountSection({
 
                     return (
                       <div
-                        key={order.id}
+                        key={order.id || order._id}
                         className="border border-darkPurple-700/70 rounded-lg p-4 bg-black/40"
                       >
                         {/* Order Header */}
                         <div className="flex items-center justify-between mb-3">
                           <div>
                             <div className="text-sm font-semibold text-gray-100">
-                              {order.orderNumber || `Order #${order.id.toString().slice(-6)}`}
+                              {order.orderNumber || (order.id || order._id ? `Order #${(order.id || order._id).toString().slice(-6)}` : 'Order #------')}
                             </div>
                             {order.trackingNumber && (
                               <div className="text-xs text-darkPurple-400 mt-1">
@@ -347,11 +352,11 @@ export default function AccountSection({
 
                         {/* Order Items */}
                         <div className="text-xs text-darkPurple-300 mb-2">
-                          {order.items.length} item{order.items.length > 1 ? 's' : ''}
+                          {(order.items || []).length} item{(order.items || []).length !== 1 ? 's' : ''}
                         </div>
                         <ul className="text-xs text-gray-200 space-y-1 mb-3">
-                          {order.items.map(item => (
-                            <li key={item.id} className="flex justify-between">
+                          {(order.items || []).map((item, idx) => (
+                            <li key={item.id || item._id || item.productId || idx} className="flex justify-between">
                               <span>
                                 {item.series || item.name}{' '}
                                 {item.flavor && `- ${item.flavor}`}
@@ -486,16 +491,28 @@ export default function AccountSection({
                     required
                     disabled={isEmailVerified}
                   />
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-col gap-2">
                     {!isEmailVerified ? (
-                      <button
-                        type="button"
-                        onClick={handleRequestOtp}
-                        disabled={verifying || otpSent}
-                        className="px-4 py-2 rounded-lg bg-yellow-500 text-black font-semibold text-sm hover:bg-yellow-400 transition-colors focus:outline-none focus:ring-2 focus:ring-yellow-400/70 whitespace-nowrap disabled:opacity-50"
-                      >
-                        {otpSent ? 'OTP Sent' : 'Get OTP'}
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={handleRequestOtp}
+                          disabled={verifying || otpSent}
+                          className="px-4 py-2 rounded-lg bg-yellow-500 text-black font-semibold text-sm hover:bg-yellow-400 transition-colors focus:outline-none focus:ring-2 focus:ring-yellow-400/70 whitespace-nowrap disabled:opacity-50"
+                        >
+                          {otpSent ? 'OTP Sent' : 'Get OTP'}
+                        </button>
+                        {/* Dev fallback: Allow generating local OTP if on localhost or if explicitly needed */}
+                        {(window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && (
+                          <button
+                            type="button"
+                            onClick={generateEmailOtp}
+                            className="text-[10px] text-darkPurple-400 hover:text-yellow-400 underline uppercase tracking-tighter"
+                          >
+                            Dev: Demo OTP
+                          </button>
+                        )}
+                      </div>
                     ) : (
                       <span className="text-green-400 text-sm font-medium">Verified!</span>
                     )}

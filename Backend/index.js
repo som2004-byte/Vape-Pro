@@ -92,16 +92,35 @@ if (typeof MONGODB_URI === 'string' && MONGODB_URI.trim()) {
 
 // Mail transporter
 let mailTransporter = null;
-if (SMTP_HOST && SMTP_USER && SMTP_PASS && SMTP_FROM) {
+if (SMTP_HOST && SMTP_USER && SMTP_PASS) {
+  const fromEmail = SMTP_FROM || SMTP_USER; // Fallback to user email if FROM is not set
+
   mailTransporter = nodemailer.createTransport({
     host: SMTP_HOST,
     port: SMTP_PORT || (SMTP_SECURE ? 465 : 587),
-    secure: SMTP_SECURE || false,
+    secure: SMTP_SECURE, // true for 465, false for other ports
     auth: {
       user: SMTP_USER,
       pass: SMTP_PASS
     }
   });
+
+  // Verify connection configuration
+  mailTransporter.verify((error, success) => {
+    if (error) {
+      console.error('❌ SMTP Connection Error:', error);
+    } else {
+      console.log('✅ SMTP Server is ready to take our messages');
+    }
+  });
+} else {
+  const missing = [];
+  if (!SMTP_HOST) missing.push('SMTP_HOST');
+  if (!SMTP_USER) missing.push('SMTP_USER');
+  if (!SMTP_PASS) missing.push('SMTP_PASS');
+  if (missing.length > 0) {
+    console.warn(`⚠️ SMTP is not fully configured. Missing: ${missing.join(', ')}. Email features will be disabled.`);
+  }
 }
 
 const sendOtpEmail = async (toEmail, code) => {
@@ -114,12 +133,18 @@ const sendOtpEmail = async (toEmail, code) => {
       <p>This code expires in 10 minutes.</p>
     </div>
   `;
-  return mailTransporter.sendMail({
-    from: SMTP_FROM,
-    to: toEmail,
-    subject: `Your Verification Code: ${code}`,
-    html
-  });
+  const fromEmail = SMTP_FROM || SMTP_USER;
+  try {
+    await mailTransporter.sendMail({
+      from: fromEmail,
+      to: toEmail,
+      subject: 'Your verification code',
+      html
+    });
+  } catch (error) {
+    console.error('❌ Failed to send OTP email:', error);
+    throw error;
+  }
 };
 
 const isValidEmail = (email) => {
@@ -204,6 +229,125 @@ app.get('/api/profile', authenticateToken, async (req, res) => {
   }
 });
 
+app.get('/', (req, res) => {
+  res.send('Backend is running!');
+});
+
+// -----------------------------
+// Admin auth
+// -----------------------------
+
+// Optional seed admin on startup
+
+
+
+
+// -----------------------------
+// Cart endpoints (JWT required)
+// -----------------------------
+
+// Helper to find or create a cart
+const getOrCreateCart = async (userId) => {
+  let cart = await Cart.findOne({ userId });
+  if (!cart) {
+    cart = new Cart({ userId, items: [] });
+    await cart.save();
+  }
+  return cart;
+};
+
+// Get current user's cart
+app.get('/api/cart', authenticateToken, async (req, res) => {
+  try {
+    const cart = await getOrCreateCart(req.user.id);
+    res.json({ items: cart.items, count: cart.items.reduce((s, i) => s + i.quantity, 0) });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Add item to cart (or increase quantity if same product/variant exists)
+app.post('/api/cart', authenticateToken, async (req, res) => {
+  try {
+    const { productId, name, price, image, flavor = '', series = '', quantity = 1 } = req.body || {};
+    if (!productId || typeof price !== 'number') {
+      return res.status(400).json({ message: 'productId and numeric price are required' });
+    }
+    const qty = Math.max(1, parseInt(quantity, 10) || 1);
+    const cart = await getOrCreateCart(req.user.id);
+
+    const idx = cart.items.findIndex(
+      (it) => it.productId === productId && it.flavor === flavor && it.series === series
+    );
+    if (idx >= 0) {
+      cart.items[idx].quantity += qty;
+    } else {
+      cart.items.push({ productId, name, price, image, flavor, series, quantity: qty });
+    }
+    cart.updatedAt = new Date();
+    await cart.save();
+    res.json({ message: 'Added to cart', items: cart.items });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Update quantity of an item
+app.put('/api/cart', authenticateToken, async (req, res) => {
+  try {
+    const { productId, flavor = '', series = '', quantity } = req.body || {};
+    const qty = parseInt(quantity, 10);
+    if (!productId || !Number.isInteger(qty) || qty < 1) {
+      return res.status(400).json({ message: 'productId and quantity >= 1 are required' });
+    }
+    const cart = await getOrCreateCart(req.user.id);
+    const idx = cart.items.findIndex(
+      (it) => it.productId === productId && it.flavor === flavor && it.series === series
+    );
+    if (idx === -1) return res.status(404).json({ message: 'Item not found' });
+    cart.items[idx].quantity = qty;
+    cart.updatedAt = new Date();
+    await cart.save();
+    res.json({ message: 'Quantity updated', items: cart.items });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Remove an item from cart
+app.delete('/api/cart/item', authenticateToken, async (req, res) => {
+  try {
+    const { productId, flavor = '', series = '' } = req.body || {};
+    if (!productId) return res.status(400).json({ message: 'productId required' });
+    const cart = await getOrCreateCart(req.user.id);
+    const before = cart.items.length;
+    cart.items = cart.items.filter(
+      (it) => !(it.productId === productId && it.flavor === flavor && it.series === series)
+    );
+    if (cart.items.length === before) return res.status(404).json({ message: 'Item not found' });
+    cart.updatedAt = new Date();
+    await cart.save();
+    res.json({ message: 'Item removed', items: cart.items });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Clear the cart
+app.delete('/api/cart', authenticateToken, async (req, res) => {
+  try {
+    const cart = await getOrCreateCart(req.user.id);
+    cart.items = [];
+    cart.updatedAt = new Date();
+    await cart.save();
+    res.json({ message: 'Cart cleared', items: cart.items });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+
+
 // Account details
 app.get('/api/account', authenticateToken, async (req, res) => {
   try {
@@ -271,7 +415,7 @@ app.post('/api/request-email-otp', async (req, res) => {
     await EmailOtp.findOneAndUpdate(
       { email },
       { codeHash, expiresAt, attempts: 0, requestedAt: new Date(), purpose },
-      { upsert: true, new: true, setDefaultsOnInsert: true }
+      { upsert: true, new: true, setDefaultsOnInsert: true, runValidators: true }
     );
 
     await sendOtpEmail(email, code);
@@ -318,8 +462,10 @@ app.post('/api/verify-email-otp', async (req, res) => {
   }
 });
 
+
+// Optional seed admin on startup
 const seedAdminIfNeeded = async () => {
-  if (!ADMIN_EMAIL || !ADMIN_PASSWORD) return;
+  if (!ADMIN_EMAIL || !ADMIN_PASSWORD) return; // skip when not configured
   const existing = await Admin.findOne({ email: ADMIN_EMAIL });
   if (existing) return;
   const hashed = await bcrypt.hash(ADMIN_PASSWORD, 10);
@@ -327,8 +473,12 @@ const seedAdminIfNeeded = async () => {
   console.log('✅ Seeded default admin from env');
 };
 
-seedAdminIfNeeded().catch((e) => console.warn('Admin seed skipped:', e.message));
+// 404 Handler
+app.use((req, res) => {
+  res.status(404).json({ message: `Route ${req.method} ${req.url} not found` });
+});
 
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+app.listen(PORT, async () => {
+  console.log(`🚀 Server running on http://localhost:${PORT}`);
+  await seedAdminIfNeeded().catch((e) => console.warn('Admin seed skipped:', e.message));
 });

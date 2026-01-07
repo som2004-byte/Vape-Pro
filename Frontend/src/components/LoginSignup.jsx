@@ -260,9 +260,6 @@ export default function LoginSignup({ onLogin, onAdminLogin }) {
         }
       }
 
-      console.log('Sending request to:', endpoint);
-      console.log('Request data:', requestData);
-
       // Make the API request
       const response = await fetch(endpoint, {
         method: 'POST',
@@ -273,8 +270,6 @@ export default function LoginSignup({ onLogin, onAdminLogin }) {
         credentials: 'include',
         body: JSON.stringify(requestData)
       });
-
-      console.log('Response status:', response.status);
 
       // Try to parse the response as JSON, but handle non-JSON responses
       let data;

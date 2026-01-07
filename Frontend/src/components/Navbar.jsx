@@ -10,6 +10,114 @@ export default function Navbar({
 }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
+  // Update dropdown position when it opens
+  useEffect(() => {
+    if (activeDropdown && buttonRefs.current[activeDropdown]) {
+      const rect = buttonRefs.current[activeDropdown].getBoundingClientRect();
+      setDropdownPosition({ top: rect.bottom + 8, left: rect.left });
+    }
+  }, [activeDropdown]);
+
+  const scrollToProducts = () => {
+    if (typeof window === 'undefined') return;
+    setTimeout(() => {
+      const el = document.getElementById('products');
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth' });
+      }
+    }, 200);
+  };
+
+  const handleBrandFilter = (brand) => {
+    onFilterChange?.({ type: 'brand', value: brand });
+    onFilterChange?.({ type: 'subCategory', value: null });
+    onCategoryChange?.('all');
+    onNavigate?.('home');
+    scrollToProducts();
+    setActiveDropdown(null);
+    setMobileMenuOpen(false);
+  };
+
+  const handleSubCategoryFilter = (series) => {
+    onFilterChange?.({ type: 'subCategory', value: series });
+    onCategoryChange?.('all');
+    onNavigate?.('home');
+    scrollToProducts();
+    setActiveDropdown(null);
+    setMobileMenuOpen(false);
+  };
+
+  const handlePriceFilter = (range) => {
+    onFilterChange?.({ type: 'price', value: range });
+    onCategoryChange?.('all');
+    onNavigate?.('home');
+    scrollToProducts();
+    setActiveDropdown(null);
+    setMobileMenuOpen(false);
+  };
+
+  const handlePuffFilter = (range) => {
+    onFilterChange?.({ type: 'puffs', value: range });
+    onCategoryChange?.('all');
+    onNavigate?.('home');
+    scrollToProducts();
+    setActiveDropdown(null);
+    setMobileMenuOpen(false);
+  };
+
+  const handleClearFilters = () => {
+    onFilterChange?.({ type: 'clear' });
+    onCategoryChange?.('all');
+    onNavigate?.('home');
+    setActiveDropdown(null);
+    setMobileMenuOpen(false);
+  };
+
+  const navigationItems = [
+    { key: 'podkits', label: 'PODKITS', isCategory: true },
+    { key: 'most-selling', label: 'MOST SELLING', isCategory: true },
+    { key: 'shop-by-brands', label: 'SHOP BY BRANDS', isCategory: false, type: 'brands' },
+    { key: 'shop-by-price', label: 'SHOP BY PRICE', isCategory: false, type: 'price' },
+    { key: 'disposable', label: 'DISPOSABLE', isCategory: true },
+    { key: 'nic-salts', label: 'NICSALTS', isCategory: true },
+    { key: 'shop-by-puffs', label: 'SHOP BY PUFFS', isCategory: false, type: 'puffs' },
+    { key: 'pods-coils', label: 'PODS & COILS', isCategory: true },
+    {
+      key: 'my-account', label: 'MY ACCOUNT', isCategory: false, type: 'account', options: [
+        { id: 'profile', label: 'Profile' },
+        { id: 'orders', label: 'Orders' },
+        { id: 'addresses', label: 'Addresses' }
+      ]
+    },
+    // { key: 'admin-portal', label: 'ADMIN PORTAL', isCategory: false, type: 'adminDashboard' }
+  ];
+
+  const renderAdminControls = () => {
+    if (isAdminLoggedIn) {
+      return (
+        <div className="flex items-center space-x-4">
+          <span className="text-sm font-medium text-purple-300">
+            Welcome, {adminUser?.username || 'Admin'}
+          </span>
+          <button
+            onClick={onAdminLogout}
+            className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-red-600 to-pink-600 rounded-md hover:from-red-700 hover:to-pink-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+          >
+            Logout
+          </button>
+        </div>
+      );
+    }
+    return (
+      <button
+        onClick={() => onNavigate?.('adminDashboard')}
+        className="ml-4 px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-purple-600 to-pink-600 rounded-md hover:from-purple-700 hover:to-pink-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+      >
+        Admin Portal
+      </button>
+    );
+  };
+
   return (
     <nav className="fixed top-0 left-0 right-0 z-[60] bg-black/80 backdrop-blur-xl border-b border-white/5">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

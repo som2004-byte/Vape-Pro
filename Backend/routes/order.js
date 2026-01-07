@@ -25,34 +25,38 @@ router.post(
         return res.status(400).json({ errors: errors.array() });
       }
 
-      const { shippingAddress, paymentMethod, paymentResult } = req.body;
+      const { shippingAddress, paymentMethod, paymentResult, items: bodyItems } = req.body;
       const cart = req.cart;
       const user = req.user;
 
-      // Check if cart is empty
-      if (cart.items.length === 0) {
-        return res.status(400).json({ message: 'Cart is empty' });
+      // Use items from body if provided (for local cart frontend), otherwise use backend cart
+      const itemsToProcess = bodyItems || cart.items;
+
+      // Check if items list is empty
+      if (!itemsToProcess || itemsToProcess.length === 0) {
+        return res.status(400).json({ message: 'Order must contain items' });
       }
 
       // Verify product availability and calculate total
       let total = 0;
       const orderItems = [];
-      
-      for (const item of cart.items) {
-        const product = await Product.findById(item.product);
-        
+
+      for (const item of itemsToProcess) {
+        const productId = item.product || item.id || item._id;
+        const product = await Product.findById(productId);
+
         if (!product) {
-          return res.status(400).json({ 
-            message: `Product ${item.product} not found` 
+          return res.status(400).json({
+            message: `Product ${productId} not found`
           });
         }
-        
+
         if (product.stock < item.quantity) {
-          return res.status(400).json({ 
+          return res.status(400).json({
             message: `Not enough stock for ${product.name}. Only ${product.stock} available.`
           });
         }
-        
+
         orderItems.push({
           product: product._id,
           name: product.name,
@@ -60,9 +64,9 @@ router.post(
           price: product.price,
           quantity: item.quantity,
         });
-        
+
         total += product.price * item.quantity;
-        
+
         // Reduce product stock
         product.stock -= item.quantity;
         await product.save();
@@ -71,14 +75,14 @@ router.post(
       // Apply discount if any
       let finalTotal = total;
       let discountAmount = 0;
-      
+
       if (cart.discount) {
         if (cart.discount.type === 'percentage') {
           discountAmount = (total * cart.discount.value) / 100;
         } else if (cart.discount.type === 'fixed') {
           discountAmount = cart.discount.value;
         }
-        
+
         finalTotal = Math.max(0, total - discountAmount);
       }
 
@@ -100,20 +104,20 @@ router.post(
         } : null,
         totalPrice: finalTotal,
         isPaid: paymentMethod === 'card' && paymentResult?.status === 'succeeded',
-        paidAt: paymentMethod === 'card' && paymentResult?.status === 'succeeded' 
-          ? new Date() 
+        paidAt: paymentMethod === 'card' && paymentResult?.status === 'succeeded'
+          ? new Date()
           : null,
       });
 
       const createdOrder = await order.save();
-      
+
       // Clear the cart
       cart.items = [];
       cart.total = 0;
       cart.discount = undefined;
       cart.totalAfterDiscount = undefined;
       await cart.save();
-      
+
       // Send order confirmation email
       try {
         await sendOrderConfirmationEmail(user.email, createdOrder);
@@ -121,7 +125,7 @@ router.post(
         console.error('Error sending order confirmation email:', emailError);
         // Don't fail the request if email fails
       }
-      
+
       res.status(201).json({
         message: 'Order created successfully',
         order: createdOrder,
@@ -137,7 +141,7 @@ router.post(
 router.get('/', authenticateToken, async (req, res) => {
   try {
     const { page = 1, limit = 10 } = req.query;
-    
+
     const orders = await Order.find({ user: req.user._id })
       .sort({ createdAt: -1 })
       .limit(limit * 1)
@@ -205,7 +209,7 @@ router.put(
       }
 
       const { paymentResult } = req.body;
-      
+
       const order = await Order.findOne({
         _id: req.params.orderId,
         user: req.user._id,
@@ -222,9 +226,9 @@ router.put(
       order.isPaid = true;
       order.paidAt = new Date();
       order.paymentResult = paymentResult;
-      
+
       const updatedOrder = await order.save();
-      
+
       res.json({
         message: 'Order paid successfully',
         order: updatedOrder,
@@ -249,7 +253,7 @@ router.put(
       if (!errors.isEmpty()) {
         return res.status(400).json({ errors: errors.array() });
       }
-      
+
       // Check if user is admin
       const user = await User.findById(req.user._id);
       if (!user.isAdmin) {
@@ -272,9 +276,9 @@ router.put(
 
       order.isDelivered = true;
       order.deliveredAt = new Date();
-      
+
       const updatedOrder = await order.save();
-      
+
       // Send delivery confirmation email
       try {
         const user = await User.findById(order.user);
@@ -285,7 +289,7 @@ router.put(
         console.error('Error sending delivery confirmation email:', emailError);
         // Don't fail the request if email fails
       }
-      
+
       res.json({
         message: 'Order marked as delivered',
         order: updatedOrder,
@@ -313,7 +317,7 @@ router.post(
       }
 
       const { reason } = req.body;
-      
+
       const order = await Order.findOne({
         _id: req.params.orderId,
         user: req.user._id,
@@ -327,10 +331,10 @@ router.post(
       if (order.status === 'cancelled') {
         return res.status(400).json({ message: 'Order is already cancelled' });
       }
-      
+
       if (order.status === 'delivered') {
-        return res.status(400).json({ 
-          message: 'Cannot cancel an order that has been delivered' 
+        return res.status(400).json({
+          message: 'Cannot cancel an order that has been delivered'
         });
       }
 
@@ -338,7 +342,7 @@ router.post(
       order.status = 'cancelled';
       order.cancellationReason = reason || 'Cancelled by user';
       order.cancelledAt = new Date();
-      
+
       // If order was paid, process refund (in a real app, you would integrate with payment provider)
       if (order.isPaid) {
         // Process refund logic here
@@ -348,7 +352,7 @@ router.post(
           requestedAt: new Date(),
         };
       }
-      
+
       // Restore product stock
       for (const item of order.items) {
         await Product.updateOne(
@@ -356,9 +360,9 @@ router.post(
           { $inc: { stock: item.quantity } }
         );
       }
-      
+
       const updatedOrder = await order.save();
-      
+
       // Send cancellation confirmation email
       try {
         const user = await User.findById(order.user);
@@ -369,7 +373,7 @@ router.post(
         console.error('Error sending cancellation email:', emailError);
         // Don't fail the request if email fails
       }
-      
+
       res.json({
         message: 'Order cancelled successfully',
         order: updatedOrder,
@@ -389,17 +393,17 @@ router.post(
   async (req, res) => {
     try {
       const cart = req.cart;
-      
+
       if (cart.items.length === 0) {
         return res.status(400).json({ message: 'Cart is empty' });
       }
-      
+
       // In a real app, you would integrate with Stripe or another payment processor here
       // This is a simplified example
-      
+
       const lineItems = await Promise.all(cart.items.map(async (item) => {
         const product = await Product.findById(item.product);
-        
+
         return {
           price_data: {
             currency: 'usd',
@@ -413,7 +417,7 @@ router.post(
           quantity: item.quantity,
         };
       }));
-      
+
       // Add shipping if needed
       if (cart.shippingPrice > 0) {
         lineItems.push({
@@ -428,7 +432,7 @@ router.post(
           quantity: 1,
         });
       }
-      
+
       // Add discount if any
       if (cart.discount) {
         lineItems.push({
@@ -443,13 +447,13 @@ router.post(
           quantity: 1,
         });
       }
-      
+
       // In a real app, you would create a Stripe session here
       const session = {
         id: 'mock_session_id_' + Math.random().toString(36).substr(2, 9),
         url: 'https://checkout.stripe.com/pay/mock_payment_intent',
       };
-      
+
       res.json({
         sessionId: session.id,
         url: session.url,
@@ -466,10 +470,10 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
   try {
     // In a real app, you would verify the webhook signature here
     // and process the payment confirmation
-    
+
     const sig = req.headers['stripe-signature'];
     let event;
-    
+
     try {
       // Verify webhook signature (example for Stripe)
       // event = stripe.webhooks.constructEvent(
@@ -477,21 +481,21 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
       //   sig,
       //   process.env.STRIPE_WEBHOOK_SECRET
       // );
-      
+
       // For now, just parse the request body
       event = req.body;
     } catch (err) {
       console.error('Webhook signature verification failed:', err);
       return res.status(400).send(`Webhook Error: ${err.message}`);
     }
-    
+
     // Handle the event
     switch (event.type) {
       case 'payment_intent.succeeded':
         // Update order status to paid
         const paymentIntent = event.data.object;
         const orderId = paymentIntent.metadata.orderId;
-        
+
         if (orderId) {
           await Order.findByIdAndUpdate(orderId, {
             isPaid: true,
@@ -505,13 +509,13 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
           });
         }
         break;
-        
+
       // Handle other event types as needed
-      
+
       default:
-        console.log(`Unhandled event type ${event.type}`);
+      // console.warn(`Unhandled event type ${event.type}`);
     }
-    
+
     // Return a 200 response to acknowledge receipt of the event
     res.json({ received: true });
   } catch (error) {

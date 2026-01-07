@@ -660,6 +660,25 @@ export const PRODUCTS = [
     cardImage: "/images/products/elfbar-bc20000/mango-twist.png",
     modelUrl: ""
   },
+  {
+    id: "elfbar-bc20000-pineapple-ice",
+    brand: "ELFBAR",
+    series: "BC20000",
+    category: "elfbar-bc20000",
+    mainCategory: "disposable",
+    flavor: "Pineapple Ice",
+    type: "Disposable Pod Device",
+    puffs: 20000,
+    nicotine: "5%",
+    features: "Mesh Coil | 15W/35W",
+    price: 1499,
+    originalPrice: null,
+    soldOut: false,
+    isBestSelling: false,
+    poster: "/images/elfbar-pineapple.png",
+    cardImage: "/images/elfbar-pineapple.png",
+    modelUrl: ""
+  },
 
   // ========== YUOTO Thanos Series ==========
   ...Array(6).fill(null).map((_, i) => ({
@@ -903,7 +922,7 @@ export const MAIN_CATEGORIES = {
 // UWELL has: Caliburn G4 Pro, Caliburn G4 Pro KOKO
 export const BRANDS = [
   'ELFBAR',
-  'YUOTO', 
+  'YUOTO',
   'IGET',
   'ELFWORLD',
   'UWELL'

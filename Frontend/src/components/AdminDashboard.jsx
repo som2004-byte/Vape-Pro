@@ -25,6 +25,10 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [newOrderStatus, setNewOrderStatus] = useState('');
+  const [newTransitInfo, setNewTransitInfo] = useState('');
+  const [connectionStatus, setConnectionStatus] = useState('checking'); // 'checking', 'live', 'offline'
+  const [lastError, setLastError] = useState(null);
 
   const API_BASE_URL = `${API_BASE_URL_ROOT}/api/admin`;
 
@@ -35,19 +39,50 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout }) {
       setLoading(true);
       setError('');
 
-      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-        headers: { Authorization: `Bearer ${adminToken}` },
-      });
+      // Try to fetch from API if token exists
+      if (adminToken) {
+        setConnectionStatus('checking');
+        const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+          headers: { Authorization: `Bearer ${adminToken}` },
+        });
 
-      if (response.ok) {
-        const data = await response.json();
-        setter(data);
+        if (response.ok) {
+          const data = await response.json();
+          let finalData = data;
+
+          // Handle paginated responses
+          if (data.orders && Array.isArray(data.orders)) finalData = data.orders;
+          else if (data.users && Array.isArray(data.users)) finalData = data.users;
+
+          setter(finalData);
+          setLoading(false);
+          setConnectionStatus('live');
+          return;
+        } else {
+          const errData = await response.json().catch(() => ({}));
+          console.error(`API Error (${endpoint}):`, response.status, errData);
+          setLastError(`API Error ${response.status}: ${errData.message || response.statusText}`);
+        }
+      } else {
+        setConnectionStatus('offline');
       }
+
+      // Fallback to mock data
+      if (endpoint === '/users') setter(MOCK_DATA.users);
+      if (endpoint === '/orders') setter(MOCK_DATA.orders);
+      if (endpoint === '/client-requirements') setter(MOCK_DATA.requirements);
+
+      setLoading(false);
+      if (adminToken) setConnectionStatus('offline');
     } catch (err) {
       console.error('Fetch error:', err);
-      setError('Failed to fetch data');
-    } finally {
+      setLastError(err.message);
+      // Use mock data on error
+      if (endpoint === '/users') setter(MOCK_DATA.users);
+      if (endpoint === '/orders') setter(MOCK_DATA.orders);
+      if (endpoint === '/client-requirements') setter(MOCK_DATA.requirements);
       setLoading(false);
+      setConnectionStatus('offline');
     }
   };
 
@@ -59,10 +94,21 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout }) {
         headers: { Authorization: `Bearer ${adminToken}` },
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        setStats(data);
+        if (response.ok) {
+          const data = await response.json();
+          // Merge with current stats to preserve pendingOrders if missing
+          setStats(prev => ({ ...prev, ...data }));
+          return;
+        }
       }
+
+      // Calculate from mock data
+      setStats({
+        totalUsers: MOCK_DATA.users.length,
+        totalOrders: MOCK_DATA.orders.length,
+        totalRevenue: MOCK_DATA.orders.reduce((sum, order) => sum + (order.totalAmount || order.total || 0), 0),
+        pendingOrders: MOCK_DATA.orders.filter(o => o.orderStatus === 'pending' || o.status === 'pending').length
+      });
     } catch (err) {
       console.error('Stats fetch error:', err);
     }
@@ -182,17 +228,26 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout }) {
       <div className="max-w-7xl mx-auto mb-10">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-8">
           <div>
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 bg-gradient-to-tr from-purple-600 to-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-purple-500/20">
-                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                </svg>
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-400 to-pink-600 bg-clip-text text-transparent">
+              {selectedUser ? 'User Details' : selectedOrder ? 'Order Details' : selectedRequirement ? 'Requirement Details' :
+                activeTab === 'overview' ? 'Network Overview' :
+                  activeTab === 'users' ? 'Users Management' :
+                    activeTab === 'orders' ? 'Orders Management' :
+                      'Requirements Management'}
+            </h1>
+            <div className="flex items-center gap-3 mt-1">
+              <div className="flex items-center gap-2">
+                <span className={`w-2 h-2 rounded-full ${connectionStatus === 'live' ? 'bg-green-500 shadow-[0_0_8px_#22c55e]' : connectionStatus === 'checking' ? 'bg-yellow-500 animate-pulse' : 'bg-red-500 shadow-[0_0_8px_#ef4444]'}`}></span>
+                <span className={`text-xs font-bold uppercase tracking-wider ${connectionStatus === 'live' ? 'text-green-400' : connectionStatus === 'checking' ? 'text-yellow-400' : 'text-red-400'}`}>
+                  {connectionStatus === 'live' ? 'Database Live' : connectionStatus === 'checking' ? 'Connecting...' : 'Offline (Mock Mode)'}
+                </span>
               </div>
-              <h1 className="text-3xl font-black tracking-tighter uppercase italic">
-                Vape<span className="text-purple-500">Smart</span> <span className="text-sm font-medium text-gray-500 not-italic tracking-normal lowercase ml-2">v2.5.0</span>
-              </h1>
+              <span className="text-darkPurple-600">|</span>
+              <p className="text-darkPurple-400 text-xs uppercase tracking-widest font-medium">Real-time metrics and system controls</p>
             </div>
-            <p className="text-darkPurple-400 font-medium">Welcome back, <span className="text-white">{adminUser?.name || 'Administrator'}</span>. System status is nominal.</p>
+            {lastError && connectionStatus === 'offline' && (
+              <p className="text-red-400 text-[10px] mt-1 font-mono">{lastError}</p>
+            )}
           </div>
 
           <div className="flex items-center gap-4">
@@ -232,11 +287,11 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout }) {
               { id: 'requirements', label: 'Requirement Log', icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' }
             ].map(tab => (
               <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-3 px-6 py-3 rounded-2xl font-bold text-sm transition-all border-2 ${activeTab === tab.id
-                  ? 'bg-purple-600 border-purple-500 text-white shadow-lg shadow-purple-600/30'
-                  : 'bg-gray-900 border-gray-800 text-gray-400 hover:border-gray-700'
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`px-6 py-3 rounded-t-xl font-bold text-sm transition-all ${activeTab === tab
+                  ? 'bg-darkPurple-800 text-white'
+                  : 'text-darkPurple-400 hover:text-white hover:bg-darkPurple-900/50'
                   }`}
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -515,30 +570,14 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout }) {
                       className="flex-1 bg-gray-900 border border-gray-800 rounded-2xl px-6 py-4 text-xl font-bold focus:border-purple-500 focus:outline-none transition-colors"
                     />
                     <button
-                      onClick={() => handleStockUpdate(selectedProduct._id, stockUpdateValue)}
-                      disabled={!stockUpdateValue}
-                      className="bg-purple-600 hover:bg-purple-500 text-white px-8 py-4 rounded-2xl font-black uppercase tracking-widest disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-purple-600/20"
+                      key={status}
+                      onClick={() => setNewOrderStatus(status)}
+                      className={`px-4 py-3 rounded-xl text-xs font-bold border-2 transition-all uppercase tracking-wide ${newOrderStatus === status
+                        ? 'bg-cyan-500 text-darkPurple-950 border-cyan-400 shadow-lg shadow-cyan-500/50'
+                        : 'bg-darkPurple-800/50 border-darkPurple-700 text-darkPurple-300 hover:border-darkPurple-500 hover:bg-darkPurple-800'
+                        }`}
                     >
-                      Update Stock
-                    </button>
-                  </div>
-
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <button onClick={() => handleStockUpdate(selectedProduct._id, selectedProduct.stock + 10)} className="p-4 rounded-2xl bg-gray-900 border border-gray-800 hover:border-green-500/50 hover:bg-green-500/10 transition-all group">
-                      <p className="text-green-500 font-black text-lg group-hover:scale-110 transition-transform">+10</p>
-                      <p className="text-[10px] font-bold uppercase text-gray-500">Quick Add</p>
-                    </button>
-                    <button onClick={() => handleStockUpdate(selectedProduct._id, selectedProduct.stock + 50)} className="p-4 rounded-2xl bg-gray-900 border border-gray-800 hover:border-green-500/50 hover:bg-green-500/10 transition-all group">
-                      <p className="text-green-500 font-black text-lg group-hover:scale-110 transition-transform">+50</p>
-                      <p className="text-[10px] font-bold uppercase text-gray-500">Bulk Add</p>
-                    </button>
-                    <button onClick={() => handleStockUpdate(selectedProduct._id, selectedProduct.stock - 10)} className="p-4 rounded-2xl bg-gray-900 border border-gray-800 hover:border-yellow-500/50 hover:bg-yellow-500/10 transition-all group">
-                      <p className="text-yellow-500 font-black text-lg group-hover:scale-110 transition-transform">-10</p>
-                      <p className="text-[10px] font-bold uppercase text-gray-500">Reduce</p>
-                    </button>
-                    <button onClick={() => handleStockUpdate(selectedProduct._id, 0)} className="p-4 rounded-2xl bg-gray-900 border border-gray-800 hover:border-red-500/50 hover:bg-red-500/10 transition-all group">
-                      <p className="text-red-500 font-black text-lg group-hover:scale-110 transition-transform">ZERO</p>
-                      <p className="text-[10px] font-bold uppercase text-gray-500">Deplete</p>
+                      {status}
                     </button>
                   </div>
                 </div>
