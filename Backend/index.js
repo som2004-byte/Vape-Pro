@@ -13,6 +13,7 @@ const Cart = require('./models/Cart');
 const Order = require('./models/Order');
 const Admin = require('./models/Admin');
 const adminRoutes = require('./routes/admin');
+const orderRoutes = require('./routes/order');
 
 const app = express();
 
@@ -130,12 +131,8 @@ app.get('/api/cart', authenticateToken, async (req, res) => {
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-app.get('/api/orders', authenticateToken, async (req, res) => {
-  try {
-    const orders = await Order.find({ userId: req.user.id }).sort({ createdAt: -1 });
-    res.json({ orders });
-  } catch (error) { res.status(500).json({ error: error.message }); }
-});
+// Use order routes
+app.use('/api/orders', orderRoutes);
 
 app.get('/api/account', authenticateToken, async (req, res) => {
   try {
