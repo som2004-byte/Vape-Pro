@@ -1,4 +1,4 @@
-// Vape-Pro Backend - Fixed cart and checkout endpoints - Triggering redeploy v2
+// Vape-Pro Backend - Fixed cart and checkout endpoints - Triggering redeploy v3 - CRITICAL FIXES
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
