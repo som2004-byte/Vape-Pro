@@ -171,12 +171,14 @@ app.post('/api/request-email-otp', async (req, res) => {
     const code = Math.floor(100000 + Math.random() * 900000).toString();
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
     await EmailOtp.findOneAndUpdate({ email }, { codeHash: await bcrypt.hash(code, 10), expiresAt }, { upsert: true });
-    try {
-      await sendOtpEmail(email, code);
-      res.json({ message: 'OTP sent' });
-    } catch (emailError) {
-      res.status(503).json({ message: 'Email service unavailable. Please try again later.', error: emailError.message });
-    }
+    res.json({ message: 'OTP sent' });
+    setImmediate(async () => {
+      try {
+        await sendOtpEmail(email, code);
+      } catch (emailError) {
+        console.error('OTP email send failed:', emailError);
+      }
+    });
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
