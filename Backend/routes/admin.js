@@ -212,7 +212,6 @@ router.get('/orders', authorizeAdmin, async (req, res) => {
 
     const orders = await Order.find(query)
       .populate('userId', 'name email')
-      .populate('items.product')
       .sort({ createdAt: -1 })
       .limit(limit * 1)
       .skip((page - 1) * limit);
@@ -478,7 +477,7 @@ router.get('/stats', authorizeAdmin, async (req, res) => {
     const recentOrders = await Order.find()
       .sort({ createdAt: -1 })
       .limit(5)
-      .populate('user', 'name email');
+      .populate('userId', 'name email');
 
     // Get sales by month for the last 6 months
     const sixMonthsAgo = new Date();
