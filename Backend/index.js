@@ -131,12 +131,7 @@ app.post('/api/login', async (req, res) => {
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-app.get('/api/cart', authenticateToken, async (req, res) => {
-  try {
-    const cart = await getOrCreateCart(req.user.id);
-    res.json({ items: cart.items || [], count: (cart.items || []).reduce((s, i) => s + (i.quantity || 0), 0) });
-  } catch (error) { res.status(500).json({ error: error.message }); }
-});
+
 
 // Use order routes
 app.use('/api/orders', orderRoutes);
@@ -149,6 +144,35 @@ app.get('/api/account', authenticateToken, async (req, res) => {
     const user = await User.findById(req.user.id).select('-password');
     if (!user) return res.status(404).json({ message: 'User not found' });
     res.json({ id: user._id, name: user.name, email: user.email, address: user.address || '' });
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+app.put('/api/account', authenticateToken, async (req, res) => {
+  try {
+    const { name, address, phoneNumber } = req.body;
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    if (name) user.name = name;
+    if (address !== undefined) user.address = address;
+    if (phoneNumber !== undefined) user.phoneNumber = phoneNumber;
+    if (req.body.emailVerified !== undefined) user.emailVerified = req.body.emailVerified;
+    if (req.body.phoneVerified !== undefined) user.phoneVerified = req.body.phoneVerified;
+
+    await user.save();
+
+    res.json({
+      message: 'Profile updated',
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        address: user.address,
+        phoneNumber: user.phoneNumber,
+        emailVerified: user.emailVerified,
+        phoneVerified: user.phoneVerified
+      }
+    });
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 

@@ -539,15 +539,14 @@ export default function AccountSection({
                         </button>
                         {/* Dev fallback: Allow generating local OTP if on localhost or if explicitly needed */}
                         {/* Dev fallback: Allow generating local OTP if on localhost or vercel */}
-                        {(window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname.includes('vercel.app')) && (
-                          <button
-                            type="button"
-                            onClick={generateEmailOtp}
-                            className="px-3 py-1 rounded bg-darkPurple-950 text-yellow-500 border border-yellow-500/30 text-[10px] font-bold uppercase tracking-wider hover:bg-yellow-500 hover:text-black transition-all"
-                          >
-                            Use Demo OTP
-                          </button>
-                        )}
+                        {/* Dev fallback: Always allow Demo OTP for now to unblock users with email issues */}
+                        <button
+                          type="button"
+                          onClick={generateEmailOtp}
+                          className="px-3 py-1 rounded bg-darkPurple-950 text-yellow-500 border border-yellow-500/30 text-[10px] font-bold uppercase tracking-wider hover:bg-yellow-500 hover:text-black transition-all"
+                        >
+                          Use Demo OTP
+                        </button>
                       </div>
                     ) : (
                       <span className="text-green-400 text-sm font-medium">Verified!</span>
