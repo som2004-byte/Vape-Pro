@@ -69,7 +69,10 @@ if (SMTP_HOST && SMTP_USER && SMTP_PASS) {
     host: SMTP_HOST,
     port: SMTP_PORT || (SMTP_SECURE ? 465 : 587),
     secure: SMTP_SECURE,
-    auth: { user: SMTP_USER, pass: SMTP_PASS }
+    auth: { user: SMTP_USER, pass: SMTP_PASS },
+    connectionTimeout: 5000,
+    greetingTimeout: 5000,
+    socketTimeout: 8000,
   });
 }
 
@@ -79,7 +82,10 @@ const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 const sendOtpEmail = async (toEmail, code) => {
   if (!mailTransporter) throw new Error('Mail transport not configured');
   const html = `<div style="font-family: Arial; color: #111;"><h2>Your Verification Code</h2><div style="font-size: 24px; font-weight: bold;">${code}</div></div>`;
-  await mailTransporter.sendMail({ from: SMTP_FROM || SMTP_USER, to: toEmail, subject: 'Your verification code', html });
+  await Promise.race([
+    mailTransporter.sendMail({ from: SMTP_FROM || SMTP_USER, to: toEmail, subject: 'Your verification code', html }),
+    new Promise((_, reject) => setTimeout(() => reject(new Error('Email send timeout')), 8000)),
+  ]);
 };
 
 const authenticateToken = (req, res, next) => {
@@ -162,8 +168,12 @@ app.post('/api/request-email-otp', async (req, res) => {
     const code = Math.floor(100000 + Math.random() * 900000).toString();
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
     await EmailOtp.findOneAndUpdate({ email }, { codeHash: await bcrypt.hash(code, 10), expiresAt }, { upsert: true });
-    await sendOtpEmail(email, code);
-    res.json({ message: 'OTP sent' });
+    try {
+      await sendOtpEmail(email, code);
+      res.json({ message: 'OTP sent' });
+    } catch (emailError) {
+      res.status(503).json({ message: 'Email service unavailable. Please try again later.', error: emailError.message });
+    }
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
