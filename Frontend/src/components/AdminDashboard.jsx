@@ -1,13 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import API_BASE_URL_ROOT from '../config';
-
-const MOCK_DATA = {
-  users: [],
-  orders: [],
-  requirements: []
-};
+import { PRODUCTS as USER_PRODUCTS } from '../data';
 
 export default function AdminDashboard({ adminUser, adminToken, onLogout }) {
+  const logo = '/images/vapesmart-logo.png';
   // Navigation and view states
   const [activeTab, setActiveTab] = useState('overview');
   const [selectedUser, setSelectedUser] = useState(null);
@@ -52,41 +48,28 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout }) {
           headers: { Authorization: `Bearer ${adminToken}` },
         });
 
-        if (response.ok) {
-          const data = await response.json();
-          let finalData = data;
-
-          // Handle paginated responses
-          if (data.orders && Array.isArray(data.orders)) finalData = data.orders;
-          else if (data.users && Array.isArray(data.users)) finalData = data.users;
-
-          setter(finalData);
-          setLoading(false);
-          setConnectionStatus('live');
-          return;
+      if (response.ok) {
+        const data = await response.json();
+        // Ensure data is an array for list endpoints
+        if (endpoint.includes('/orders') || endpoint.includes('/users') || endpoint.includes('/products') || endpoint.includes('/client-requirements')) {
+          setter(Array.isArray(data) ? data : []);
         } else {
-          const errData = await response.json().catch(() => ({}));
-          console.error(`API Error (${endpoint}):`, response.status, errData);
-          setLastError(`API Error ${response.status}: ${errData.message || response.statusText}`);
+          setter(data);
         }
       } else {
-        setConnectionStatus('offline');
+        let msg = `Failed to fetch ${endpoint}`;
+        try {
+          const errData = await response.json();
+          msg = errData?.message || errData?.error || msg;
+        } catch (e) {
+          // ignore parse errors
+        }
+        setError(msg);
       }
-
-      // Fallback to mock data
-      if (endpoint === '/users') setter(MOCK_DATA.users);
-      if (endpoint === '/orders') setter(MOCK_DATA.orders);
-      if (endpoint === '/client-requirements') setter(MOCK_DATA.requirements);
-
-      setLoading(false);
-      if (adminToken) setConnectionStatus('offline');
     } catch (err) {
       console.error('Fetch error:', err);
-      setLastError(err.message);
-      // Use mock data on error
-      if (endpoint === '/users') setter(MOCK_DATA.users);
-      if (endpoint === '/orders') setter(MOCK_DATA.orders);
-      if (endpoint === '/client-requirements') setter(MOCK_DATA.requirements);
+      setError(`Failed to fetch ${endpoint}: ${err.message}`);
+    } finally {
       setLoading(false);
       setConnectionStatus('offline');
     }
@@ -206,12 +189,28 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout }) {
     req.description?.toLowerCase().includes(searchQuery.toLowerCase())
   ) : [];
 
-  const filteredOrders = Array.isArray(orders) ? orders.filter(order =>
-    order._id?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    order.userId?.email?.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredOrders = Array.isArray(orders) && orders.length > 0 ? orders.filter(order =>
+    order && order._id && (
+      order._id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (order.userId && order.userId.email && order.userId.email.toLowerCase().includes(searchQuery.toLowerCase()))
+    )
   ) : [];
 
-  const filteredProducts = Array.isArray(products) ? products.filter(prod =>
+  const usingApiProducts = Array.isArray(products) && products.length > 0;
+
+  const supplyDepotProducts = usingApiProducts
+    ? products
+    : USER_PRODUCTS.map((p) => ({
+      _id: p.id,
+      name: `${p.brand} ${p.series} - ${p.flavor}`,
+      category: p.series || p.category || 'product',
+      stock: p.soldOut ? 0 : 25,
+      price: p.price || 0,
+      image: p.cardImage || p.poster || null,
+      sku: p.id,
+    }));
+
+  const filteredProducts = Array.isArray(supplyDepotProducts) ? supplyDepotProducts.filter(prod =>
     prod.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     prod.category?.toLowerCase().includes(searchQuery.toLowerCase())
   ) : [];
@@ -232,38 +231,29 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout }) {
     <div className="min-h-screen bg-black text-white p-4 md:p-8">
       {/* Header */}
       <div className="max-w-7xl mx-auto mb-10">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-8">
-          <div>
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-400 to-pink-600 bg-clip-text text-transparent">
-              {selectedUser ? 'User Details' : selectedOrder ? 'Order Details' : selectedRequirement ? 'Requirement Details' :
-                activeTab === 'overview' ? 'Network Overview' :
-                  activeTab === 'users' ? 'Users Management' :
-                    activeTab === 'orders' ? 'Orders Management' :
-                      'Requirements Management'}
-            </h1>
-            <div className="flex items-center gap-3 mt-1">
-              <div className="flex items-center gap-2">
-                <span className={`w-2 h-2 rounded-full ${connectionStatus === 'live' ? 'bg-green-500 shadow-[0_0_8px_#22c55e]' : connectionStatus === 'checking' ? 'bg-yellow-500 animate-pulse' : 'bg-red-500 shadow-[0_0_8px_#ef4444]'}`}></span>
-                <span className={`text-xs font-bold uppercase tracking-wider ${connectionStatus === 'live' ? 'text-green-400' : connectionStatus === 'checking' ? 'text-yellow-400' : 'text-red-400'}`}>
-                  {connectionStatus === 'live' ? 'Database Live' : connectionStatus === 'checking' ? 'Connecting...' : 'Offline (Mock Mode)'}
-                </span>
-              </div>
-              <span className="text-darkPurple-600">|</span>
-              <p className="text-darkPurple-400 text-xs uppercase tracking-widest font-medium">Real-time metrics and system controls</p>
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+          <div className="w-full md:w-auto">
+            <div className="flex items-center gap-3 mb-2">
+              <img
+                src={logo}
+                alt="VapeSmart"
+                className="w-8 h-8 md:w-10 md:h-10 rounded-xl object-contain bg-gradient-to-tr from-purple-600/20 to-blue-600/20 p-1 shadow-lg shadow-purple-500/20"
+              />
+              <h1 className="text-2xl md:text-3xl font-black tracking-tighter uppercase italic">
+                Vape<span className="text-purple-500">Smart</span> <span className="text-xs md:text-sm font-medium text-gray-500 not-italic tracking-normal lowercase ml-2">v2.5.0</span>
+              </h1>
             </div>
-            {lastError && connectionStatus === 'offline' && (
-              <p className="text-red-400 text-[10px] mt-1 font-mono">{lastError}</p>
-            )}
+            <p className="text-darkPurple-400 font-medium text-sm md:text-base">Welcome back, <span className="text-white">{adminUser?.name || 'Administrator'}</span>. System status is nominal.</p>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 md:gap-4 w-full md:w-auto justify-end">
             {(selectedUser || selectedRequirement || selectedOrder || selectedProduct) && (
               <button
                 onClick={() => { setSelectedUser(null); setSelectedRequirement(null); setSelectedOrder(null); setSelectedProduct(null); }}
-                className="px-5 py-2.5 rounded-xl bg-gray-900 border border-gray-800 text-sm font-bold hover:bg-gray-800 transition-all flex items-center gap-2"
+                className="px-3 md:px-5 py-2.5 rounded-xl bg-gray-900 border border-gray-800 text-sm font-bold hover:bg-gray-800 transition-all flex items-center gap-2"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
-                Return
+                <span className="hidden md:inline">Return</span>
               </button>
             )}
             <button
@@ -275,7 +265,7 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout }) {
             </button>
             <button
               onClick={onLogout}
-              className="px-6 py-2.5 rounded-xl bg-red-600 text-white text-sm font-black uppercase tracking-widest hover:bg-red-700 transition-all shadow-lg shadow-red-600/20"
+              className="px-4 md:px-6 py-2.5 rounded-xl bg-red-600 text-white text-xs md:text-sm font-black uppercase tracking-widest hover:bg-red-700 transition-all shadow-lg shadow-red-600/20"
             >
               Logout
             </button>
@@ -284,26 +274,27 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout }) {
 
         {/* Global Tabs */}
         {!selectedUser && !selectedRequirement && !selectedOrder && !selectedProduct && (
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap gap-2 md:gap-3">
             {[
-              { id: 'overview', label: 'Command Center', icon: 'M13 10V3L4 14h7v7l9-11h-7z' },
-              { id: 'logistics', label: 'Logistics Log', icon: 'M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z' },
-              { id: 'inventory', label: 'Supply Depot', icon: 'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4' },
-              { id: 'users', label: 'User Fleet', icon: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z' },
-              { id: 'requirements', label: 'Requirement Log', icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' }
+              { id: 'overview', label: 'Command', icon: 'M13 10V3L4 14h7v7l9-11h-7z' },
+              { id: 'logistics', label: 'Logistics', icon: 'M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z' },
+              { id: 'inventory', label: 'Supply', icon: 'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4' },
+              { id: 'users', label: 'Users', icon: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z' },
+              { id: 'requirements', label: 'Requirements', icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' }
             ].map(tab => (
               <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`px-6 py-3 rounded-t-xl font-bold text-sm transition-all ${activeTab === tab
-                  ? 'bg-darkPurple-800 text-white'
-                  : 'text-darkPurple-400 hover:text-white hover:bg-darkPurple-900/50'
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center gap-2 px-3 md:px-6 py-2.5 md:py-3 rounded-2xl font-bold text-xs md:text-sm transition-all border-2 ${activeTab === tab.id
+                  ? 'bg-purple-600 border-purple-500 text-white shadow-lg shadow-purple-600/30'
+                  : 'bg-gray-900 border-gray-800 text-gray-400 hover:border-gray-700'
                   }`}
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={tab.icon} />
                 </svg>
-                {tab.label}
+                <span className="hidden md:inline">{tab.label}</span>
+                <span className="md:hidden">{tab.label.slice(0, 4)}</span>
               </button>
             ))}
           </div>
@@ -367,48 +358,73 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout }) {
         )}
 
         {/* Logistics (Orders) Tab */}
-        {activeTab === 'logistics' && !selectedOrder && (
-          <div className="bg-gray-900/50 border border-gray-800 rounded-[32px] overflow-hidden backdrop-blur-xl">
-            <div className="p-6 md:p-8 border-b border-gray-800 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-              <h3 className="text-3xl font-black italic tracking-tighter uppercase">Logistics Log</h3>
-              <input
-                type="text"
-                placeholder="Search Order ID or Email..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full md:w-72 pl-4 pr-4 py-3 bg-black border border-gray-800 rounded-xl text-sm font-bold focus:outline-none focus:border-purple-500 transition-all"
-              />
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="bg-black/40">
-                    <th className="px-8 py-5 text-left text-[10px] font-black text-gray-500 uppercase tracking-[0.3em]">Order ID</th>
-                    <th className="px-8 py-5 text-left text-[10px] font-black text-gray-500 uppercase tracking-[0.3em]">Date</th>
-                    <th className="px-8 py-5 text-left text-[10px] font-black text-gray-500 uppercase tracking-[0.3em]">Customer</th>
-                    <th className="px-8 py-5 text-left text-[10px] font-black text-gray-500 uppercase tracking-[0.3em]">Total</th>
-                    <th className="px-8 py-5 text-right text-[10px] font-black text-gray-500 uppercase tracking-[0.3em]">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-800/50">
-                  {filteredOrders.map(order => (
-                    <tr key={order._id} className="group hover:bg-white/5 transition-all cursor-pointer" onClick={() => setSelectedOrder(order)}>
-                      <td className="px-8 py-6 font-mono text-sm text-purple-400">#{order._id.slice(-6).toUpperCase()}</td>
-                      <td className="px-8 py-6 text-sm text-gray-400">{new Date(order.createdAt).toLocaleDateString()}</td>
-                      <td className="px-8 py-6 text-sm font-bold text-white">{order.userId?.email || 'Guest'}</td>
-                      <td className="px-8 py-6 text-sm font-mono text-green-400">${order.total.toFixed(2)}</td>
-                      <td className="px-8 py-6 text-right">
-                        <span className={`inline-block px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${statusColors[order.status]}`}>
-                          {order.status}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
+        {(() => {
+          try {
+            if (activeTab !== 'logistics' || selectedOrder) return null;
+            
+            return (
+              <div className="bg-gray-900/50 border border-gray-800 rounded-[32px] overflow-hidden backdrop-blur-xl">
+                <div className="p-4 md:p-6 md:p-8 border-b border-gray-800 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                  <h3 className="text-xl md:text-3xl font-black italic tracking-tighter uppercase">Logistics Log</h3>
+                  <input
+                    type="text"
+                    placeholder="Search Order ID or Email..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full md:w-72 pl-4 pr-4 py-3 bg-black border border-gray-800 rounded-xl text-sm font-bold focus:outline-none focus:border-purple-500 transition-all"
+                  />
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="bg-black/40">
+                        <th className="px-4 md:px-8 py-3 md:py-5 text-left text-[8px] md:text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] md:tracking-[0.3em]">Order ID</th>
+                        <th className="px-4 md:px-8 py-3 md:py-5 text-left text-[8px] md:text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] md:tracking-[0.3em]">Date</th>
+                        <th className="hidden md:table-cell px-8 py-5 text-left text-[10px] font-black text-gray-500 uppercase tracking-[0.3em]">Customer</th>
+                        <th className="px-4 md:px-8 py-3 md:py-5 text-left text-[8px] md:text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] md:tracking-[0.3em]">Total</th>
+                        <th className="px-4 md:px-8 py-3 md:py-5 text-right text-[8px] md:text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] md:tracking-[0.3em]">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-800/50">
+                      {!Array.isArray(filteredOrders) || filteredOrders.length === 0 ? (
+                        <tr>
+                          <td colSpan="5" className="px-4 md:px-8 py-12 md:py-20 text-center text-gray-600 font-black italic text-sm md:text-base">
+                            {error ? `Failed to load orders: ${error}` : 'No orders found.'}
+                          </td>
+                        </tr>
+                      ) : (
+                        filteredOrders.map(order => {
+                          if (!order || !order._id) return null;
+                          return (
+                            <tr key={order._id} className="group hover:bg-white/5 transition-all cursor-pointer" onClick={() => setSelectedOrder(order)}>
+                              <td className="px-4 md:px-8 py-3 md:py-6 font-mono text-xs md:text-sm text-purple-400">#{order._id.slice(-6).toUpperCase()}</td>
+                              <td className="px-4 md:px-8 py-3 md:py-6 text-xs md:text-sm text-gray-400">{new Date(order.createdAt || Date.now()).toLocaleDateString()}</td>
+                              <td className="hidden md:table-cell px-8 py-6 text-sm font-bold text-white">{order.userId?.email || 'Guest'}</td>
+                              <td className="px-4 md:px-8 py-3 md:py-6 text-xs md:text-sm font-mono text-green-400">${(order.total || 0).toFixed(2)}</td>
+                              <td className="px-4 md:px-8 py-3 md:py-6 text-right">
+                                <span className={`inline-block px-2 md:px-3 py-1 rounded-full text-[8px] md:text-[10px] font-black uppercase tracking-widest border ${statusColors[order.status] || statusColors.pending}`}>
+                                  {order.status || 'pending'}
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            );
+          } catch (sectionError) {
+            console.error('Logistics section error:', sectionError);
+            return (
+              <div className="bg-red-900/20 border border-red-800 rounded-[32px] p-8 text-center">
+                <p className="text-red-400 font-black text-lg mb-4">Error loading Logistics Log</p>
+                <p className="text-red-600 text-sm">Please refresh the page to try again.</p>
+              </div>
+            );
+          }
+        })()}
 
         {/* Order Details View */}
         {selectedOrder && (
@@ -475,8 +491,8 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout }) {
         {/* Inventory/Supply Depot Tab */}
         {activeTab === 'inventory' && !selectedProduct && (
           <div className="bg-gray-900/50 border border-gray-800 rounded-[32px] overflow-hidden backdrop-blur-xl">
-            <div className="p-6 md:p-8 border-b border-gray-800 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-              <h3 className="text-3xl font-black italic tracking-tighter uppercase">Supply Depot</h3>
+            <div className="p-4 md:p-6 md:p-8 border-b border-gray-800 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+              <h3 className="text-xl md:text-3xl font-black italic tracking-tighter uppercase">Supply Depot</h3>
               <input
                 type="text"
                 placeholder="Search Supplies..."
@@ -489,33 +505,41 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout }) {
               <table className="w-full">
                 <thead>
                   <tr className="bg-black/40">
-                    <th className="px-8 py-5 text-left text-[10px] font-black text-gray-500 uppercase tracking-[0.3em]">Item Name</th>
-                    <th className="px-8 py-5 text-left text-[10px] font-black text-gray-500 uppercase tracking-[0.3em]">Category</th>
-                    <th className="px-8 py-5 text-left text-[10px] font-black text-gray-500 uppercase tracking-[0.3em]">Stock Level</th>
-                    <th className="px-8 py-5 text-left text-[10px] font-black text-gray-500 uppercase tracking-[0.3em]">Price</th>
-                    <th className="px-8 py-5 text-right text-[10px] font-black text-gray-500 uppercase tracking-[0.3em]">Status</th>
+                    <th className="px-4 md:px-8 py-3 md:py-5 text-left text-[8px] md:text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] md:tracking-[0.3em]">Item Name</th>
+                    <th className="hidden md:table-cell px-8 py-5 text-left text-[10px] font-black text-gray-500 uppercase tracking-[0.3em]">Category</th>
+                    <th className="px-4 md:px-8 py-3 md:py-5 text-left text-[8px] md:text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] md:tracking-[0.3em]">Stock</th>
+                    <th className="px-4 md:px-8 py-3 md:py-5 text-left text-[8px] md:text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] md:tracking-[0.3em]">Price</th>
+                    <th className="px-4 md:px-8 py-3 md:py-5 text-right text-[8px] md:text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] md:tracking-[0.3em]">Status</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-800/50">
-                  {filteredProducts.map(prod => (
-                    <tr key={prod._id} onClick={() => setSelectedProduct(prod)} className="group hover:bg-white/5 transition-all cursor-pointer">
-                      <td className="px-8 py-6 font-bold text-white group-hover:text-purple-400 transition-colors">{prod.name}</td>
-                      <td className="px-8 py-6 text-sm text-gray-400 capitalize">{prod.category}</td>
-                      <td className="px-8 py-6">
-                        <span className={`font-mono font-bold ${prod.stock < 10 ? 'text-red-500' : 'text-green-400'}`}>
-                          {prod.stock} Units
-                        </span>
-                      </td>
-                      <td className="px-8 py-6 font-mono text-gray-300">${prod.price}</td>
-                      <td className="px-8 py-6 text-right">
-                        {prod.stock > 0 ? (
-                          <span className="text-xs font-black text-green-500 uppercase tracking-widest bg-green-500/10 px-3 py-1 rounded-full border border-green-500/50">In Supply</span>
-                        ) : (
-                          <span className="text-xs font-black text-red-500 uppercase tracking-widest bg-red-500/10 px-3 py-1 rounded-full border border-red-500/50 animate-pulse">Depleted</span>
-                        )}
+                  {filteredProducts.length === 0 ? (
+                    <tr>
+                      <td colSpan="5" className="px-4 md:px-8 py-12 md:py-20 text-center text-gray-600 font-black italic text-sm md:text-base">
+                        No items found.
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    filteredProducts.map(prod => (
+                      <tr key={prod._id} onClick={() => (usingApiProducts ? setSelectedProduct(prod) : undefined)} className={`group hover:bg-white/5 transition-all ${usingApiProducts ? 'cursor-pointer' : ''}`}>
+                        <td className="px-4 md:px-8 py-3 md:py-6 font-bold text-sm md:text-base text-white group-hover:text-purple-400 transition-colors">{prod.name}</td>
+                        <td className="hidden md:table-cell px-8 py-6 text-sm text-gray-400 capitalize">{prod.category}</td>
+                        <td className="px-4 md:px-8 py-3 md:py-6">
+                          <span className={`font-mono font-bold text-xs md:text-sm ${prod.stock < 10 ? 'text-red-500' : 'text-green-400'}`}>
+                            {prod.stock} Units
+                          </span>
+                        </td>
+                        <td className="px-4 md:px-8 py-3 md:py-6 font-mono text-xs md:text-sm text-gray-300">${prod.price}</td>
+                        <td className="px-4 md:px-8 py-3 md:py-6 text-right">
+                          {prod.stock > 0 ? (
+                            <span className="text-[8px] md:text-xs font-black text-green-500 uppercase tracking-widest bg-green-500/10 px-2 md:px-3 py-1 rounded-full border border-green-500/50">In Supply</span>
+                          ) : (
+                            <span className="text-[8px] md:text-xs font-black text-red-500 uppercase tracking-widest bg-red-500/10 px-2 md:px-3 py-1 rounded-full border border-red-500/50 animate-pulse">Depleted</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
