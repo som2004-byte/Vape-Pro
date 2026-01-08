@@ -119,18 +119,32 @@ router.get('/users', authorizeAdmin, async (req, res) => {
 
 // Get dashboard stats (admin only)
 router.get('/stats', authorizeAdmin, async (req, res) => {
+  console.log('📊 Admin stats request received');
   try {
     const totalUsers = await User.countDocuments();
     const totalRequirements = await ClientRequirement.countDocuments();
     const pendingRequirements = await ClientRequirement.countDocuments({ status: 'New' });
+    
+    // Get order statistics
+    const totalOrders = await Order.countDocuments();
+    const pendingOrders = await Order.countDocuments({ status: 'pending' });
+    
+    // Calculate total revenue
+    const orders = await Order.find({ status: { $in: ['processed', 'delivered', 'completed'] } });
+    const totalRevenue = orders.reduce((sum, order) => sum + (order.total || 0), 0);
+
+    console.log('📈 Stats calculated:', { totalUsers, totalOrders, totalRevenue, pendingOrders });
 
     res.json({
       totalUsers,
+      totalOrders,
+      totalRevenue,
+      pendingOrders,
       totalRequirements,
       pendingRequirements,
     });
   } catch (error) {
-    console.error('Get stats error:', error);
+    console.error('❌ Get stats error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
