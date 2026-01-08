@@ -49,8 +49,14 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
       if (response.ok) {
         const data = await response.json();
         // Ensure data is an array for list endpoints
-        if (endpoint.includes('/orders') || endpoint.includes('/users') || endpoint.includes('/products') || endpoint.includes('/client-requirements')) {
-          setter(Array.isArray(data) ? data : []);
+        if (endpoint.includes('/orders')) {
+          setter(Array.isArray(data) ? data : (data.orders || []));
+        } else if (endpoint.includes('/products')) {
+          setter(Array.isArray(data) ? data : (data.products || []));
+        } else if (endpoint.includes('/users')) {
+          setter(Array.isArray(data) ? data : (data.users || []));
+        } else if (endpoint.includes('/client-requirements')) {
+          setter(Array.isArray(data) ? data : (data.requirements || [])); // Fallback if backend wraps it
         } else {
           setter(data);
         }
