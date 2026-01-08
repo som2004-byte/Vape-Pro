@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const Admin = require('../models/Admin');
+const Cart = require('../models/Cart');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
@@ -17,9 +18,9 @@ const authenticateToken = async (req, res, next) => {
 
     // Verify token
     const decoded = jwt.verify(token, JWT_SECRET);
-    
+
     // Find user and attach to request
-    const user = await User.findById(decoded.id).select('-password');
+    const user = await User.findById(decoded.id || decoded._id).select('-password');
     if (!user) {
       return res.status(401).json({ message: 'Invalid token - user not found' });
     }
@@ -41,33 +42,25 @@ const authenticateToken = async (req, res, next) => {
 // Middleware to check if user is admin
 const authorizeAdmin = async (req, res, next) => {
   try {
-    console.log('🔐 AuthorizeAdmin middleware called');
     const authHeader = req.headers.authorization;
     const token = authHeader && authHeader.split(' ')[1];
 
     if (!token) {
-      console.log('❌ No token provided');
       return res.status(401).json({ message: 'No token provided' });
     }
 
-    console.log('🎫 Token found, verifying...');
     const decoded = jwt.verify(token, JWT_SECRET);
-    console.log('🔓 Token decoded:', decoded);
-    
+
     // Find admin user
-    const admin = await Admin.findById(decoded.id).select('-password');
-    console.log('👨‍💼 Admin found:', admin ? 'YES' : 'NO');
-    
+    const admin = await Admin.findById(decoded.id || decoded._id).select('-password');
     if (!admin) {
-      console.log('❌ Admin access required - user not found in Admin collection');
       return res.status(403).json({ message: 'Admin access required' });
     }
 
     req.admin = admin;
-    console.log('✅ Admin authorized successfully');
     next();
   } catch (error) {
-    console.error('❌ Admin auth error:', error);
+    console.error('Admin auth error:', error);
     if (error.name === 'TokenExpiredError') {
       return res.status(401).json({ message: 'Token expired' });
     }
@@ -85,14 +78,18 @@ const getOrCreateCart = async (req, res, next) => {
       return res.status(401).json({ message: 'User not authenticated' });
     }
 
-    let cart = await Cart.findOne({ user: req.user._id });
-    
+    const userId = req.user._id || req.user.id;
+    if (!userId) {
+      return res.status(400).json({ message: 'User ID missing in request' });
+    }
+
+    let cart = await Cart.findOne({ userId });
+
     if (!cart) {
       // Create new cart if it doesn't exist
       cart = new Cart({
-        user: req.user._id,
+        userId,
         items: [],
-        total: 0,
       });
       await cart.save();
     }

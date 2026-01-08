@@ -1,14 +1,137 @@
 const express = require('express');
-const { body, param } = require('express-validator');
+const { body, param, validationResult } = require('express-validator');
 const { authenticateToken, getOrCreateCart } = require('../middleware/auth');
 const Order = require('../models/Order');
 const Cart = require('../models/Cart');
 const Product = require('../models/Product');
-const { sendOrderConfirmationEmail } = require('../utils/email');
+const User = require('../models/User');
+const { sendOrderConfirmationEmail, sendOrderDeliveredEmail, sendOrderCancellationEmail } = require('../utils/email');
 
 const router = express.Router();
 
-// Create a new order
+// Create a new order - checkout endpoint
+router.post(
+  '/checkout',
+  authenticateToken,
+  getOrCreateCart,
+  [
+    body('shippingAddress').optional().trim(),
+    body('paymentMethod').isIn(['cod', 'card']).withMessage('Invalid payment method'),
+    body('paymentResult').optional().isObject(),
+  ],
+  async (req, res) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+      }
+
+      const { shippingAddress, paymentMethod, paymentResult, items: bodyItems } = req.body;
+      const cart = req.cart;
+      const user = req.user;
+
+      // Use items from body if provided (for local cart frontend), otherwise use backend cart
+      const itemsToProcess = bodyItems || cart.items;
+
+      // Check if items list is empty
+      if (!itemsToProcess || itemsToProcess.length === 0) {
+        return res.status(400).json({ message: 'Order must contain items' });
+      }
+
+      // Verify product availability and calculate total
+      let total = 0;
+      const orderItems = [];
+
+      for (const item of itemsToProcess) {
+        const productId = item.product || item.id || item._id || item.productId;
+        
+        // Try to find product in database, but don't fail if not found
+        let product = null;
+        try {
+          product = await Product.findOne({ productId: productId });
+        } catch (err) {
+          console.log('Product lookup failed, using item data:', productId);
+        }
+
+        // Use item data if product not found in database
+        const itemName = product?.name || item.name || 'Product';
+        const itemPrice = product?.price || item.price || 0;
+        const itemImage = product?.images?.[0] || item.image || '';
+
+        orderItems.push({
+          productId: productId,
+          name: itemName,
+          image: itemImage,
+          price: itemPrice,
+          quantity: item.quantity,
+        });
+
+        total += itemPrice * item.quantity;
+
+        // Reduce product stock only if product exists in database
+        if (product && product.stock >= item.quantity) {
+          product.stock -= item.quantity;
+          await product.save();
+        } else if (product) {
+          console.warn(`Not enough stock for ${itemName}. Available: ${product?.stock || 0}, Requested: ${item.quantity}`);
+        }
+      }
+
+      // Apply discount if any
+      let finalTotal = total;
+      let discountAmount = 0;
+
+      if (cart.discount) {
+        if (cart.discount.type === 'percentage') {
+          discountAmount = (total * cart.discount.value) / 100;
+        } else if (cart.discount.type === 'fixed') {
+          discountAmount = cart.discount.value;
+        }
+
+        finalTotal = Math.max(0, total - discountAmount);
+      }
+
+      // Create order
+      const order = new Order({
+        userId: user._id,
+        items: orderItems,
+        shippingAddress: shippingAddress || user.address,
+        paymentMethod,
+        paymentResult,
+        total: finalTotal,
+        status: 'processing',
+        paymentStatus: paymentMethod === 'card' && paymentResult?.status === 'succeeded' ? 'completed' : 'cod',
+      });
+
+      const createdOrder = await order.save();
+
+      // Clear the cart
+      cart.items = [];
+      cart.total = 0;
+      cart.discount = undefined;
+      cart.totalAfterDiscount = undefined;
+      await cart.save();
+
+      // Send order confirmation email
+      try {
+        await sendOrderConfirmationEmail(user.email, createdOrder);
+      } catch (emailError) {
+        console.error('Error sending order confirmation email:', emailError);
+        // Don't fail the request if email fails
+      }
+
+      res.status(201).json({
+        message: 'Order created successfully',
+        order: createdOrder,
+      });
+    } catch (error) {
+      console.error('Create order error:', error);
+      res.status(500).json({ message: 'Server error', error: error.message });
+    }
+  }
+);
+
+// Create a new order (legacy endpoint)
 router.post(
   '/',
   authenticateToken,
@@ -25,44 +148,48 @@ router.post(
         return res.status(400).json({ errors: errors.array() });
       }
 
-      const { shippingAddress, paymentMethod, paymentResult } = req.body;
+      const { shippingAddress, paymentMethod, paymentResult, items: bodyItems } = req.body;
       const cart = req.cart;
       const user = req.user;
 
-      // Check if cart is empty
-      if (cart.items.length === 0) {
-        return res.status(400).json({ message: 'Cart is empty' });
+      // Use items from body if provided (for local cart frontend), otherwise use backend cart
+      const itemsToProcess = bodyItems || cart.items;
+
+      // Check if items list is empty
+      if (!itemsToProcess || itemsToProcess.length === 0) {
+        return res.status(400).json({ message: 'Order must contain items' });
       }
 
       // Verify product availability and calculate total
       let total = 0;
       const orderItems = [];
-      
-      for (const item of cart.items) {
-        const product = await Product.findById(item.product);
-        
+
+      for (const item of itemsToProcess) {
+        const productId = item.product || item.id || item._id || item.productId;
+        const product = await Product.findOne({ productId: productId });
+
         if (!product) {
-          return res.status(400).json({ 
-            message: `Product ${item.product} not found` 
+          return res.status(400).json({
+            message: `Product ${productId} not found`
           });
         }
-        
+
         if (product.stock < item.quantity) {
-          return res.status(400).json({ 
+          return res.status(400).json({
             message: `Not enough stock for ${product.name}. Only ${product.stock} available.`
           });
         }
-        
+
         orderItems.push({
-          product: product._id,
+          productId: productId,
           name: product.name,
           image: product.images?.[0] || null,
           price: product.price,
           quantity: item.quantity,
         });
-        
+
         total += product.price * item.quantity;
-        
+
         // Reduce product stock
         product.stock -= item.quantity;
         await product.save();
@@ -71,49 +198,38 @@ router.post(
       // Apply discount if any
       let finalTotal = total;
       let discountAmount = 0;
-      
+
       if (cart.discount) {
         if (cart.discount.type === 'percentage') {
           discountAmount = (total * cart.discount.value) / 100;
         } else if (cart.discount.type === 'fixed') {
           discountAmount = cart.discount.value;
         }
-        
+
         finalTotal = Math.max(0, total - discountAmount);
       }
 
       // Create order
       const order = new Order({
-        user: user._id,
+        userId: user._id,
         items: orderItems,
         shippingAddress: shippingAddress || user.address,
         paymentMethod,
         paymentResult,
-        itemsPrice: total,
-        taxPrice: 0, // You can calculate tax if needed
-        shippingPrice: 0, // You can calculate shipping if needed
-        discount: cart.discount ? {
-          code: cart.discount.code,
-          amount: discountAmount,
-          type: cart.discount.type,
-          value: cart.discount.value,
-        } : null,
-        totalPrice: finalTotal,
-        isPaid: paymentMethod === 'card' && paymentResult?.status === 'succeeded',
-        paidAt: paymentMethod === 'card' && paymentResult?.status === 'succeeded' 
-          ? new Date() 
-          : null,
+        total: finalTotal,
+        status: 'processing',
+        paymentStatus: paymentMethod === 'card' && paymentResult?.status === 'succeeded' ? 'completed' : 'cod',
       });
 
       const createdOrder = await order.save();
-      
+
       // Clear the cart
       cart.items = [];
       cart.total = 0;
       cart.discount = undefined;
       cart.totalAfterDiscount = undefined;
       await cart.save();
-      
+
       // Send order confirmation email
       try {
         await sendOrderConfirmationEmail(user.email, createdOrder);
@@ -121,7 +237,7 @@ router.post(
         console.error('Error sending order confirmation email:', emailError);
         // Don't fail the request if email fails
       }
-      
+
       res.status(201).json({
         message: 'Order created successfully',
         order: createdOrder,
@@ -137,14 +253,13 @@ router.post(
 router.get('/', authenticateToken, async (req, res) => {
   try {
     const { page = 1, limit = 10 } = req.query;
-    
-    const orders = await Order.find({ user: req.user._id })
+
+    const orders = await Order.find({ userId: req.user._id })
       .sort({ createdAt: -1 })
       .limit(limit * 1)
-      .skip((page - 1) * limit)
-      .populate('items.product', 'name price image');
+      .skip((page - 1) * limit);
 
-    const count = await Order.countDocuments({ user: req.user._id });
+    const count = await Order.countDocuments({ userId: req.user._id });
 
     res.json({
       totalPages: Math.ceil(count / limit),
@@ -174,8 +289,8 @@ router.get(
 
       const order = await Order.findOne({
         _id: req.params.orderId,
-        user: req.user._id,
-      }).populate('items.product', 'name price image');
+        userId: req.user._id,
+      });
 
       if (!order) {
         return res.status(404).json({ message: 'Order not found' });
@@ -205,10 +320,10 @@ router.put(
       }
 
       const { paymentResult } = req.body;
-      
+
       const order = await Order.findOne({
         _id: req.params.orderId,
-        user: req.user._id,
+        userId: req.user._id,
       });
 
       if (!order) {
@@ -222,9 +337,9 @@ router.put(
       order.isPaid = true;
       order.paidAt = new Date();
       order.paymentResult = paymentResult;
-      
+
       const updatedOrder = await order.save();
-      
+
       res.json({
         message: 'Order paid successfully',
         order: updatedOrder,
@@ -249,7 +364,7 @@ router.put(
       if (!errors.isEmpty()) {
         return res.status(400).json({ errors: errors.array() });
       }
-      
+
       // Check if user is admin
       const user = await User.findById(req.user._id);
       if (!user.isAdmin) {
@@ -272,12 +387,12 @@ router.put(
 
       order.isDelivered = true;
       order.deliveredAt = new Date();
-      
+
       const updatedOrder = await order.save();
-      
+
       // Send delivery confirmation email
       try {
-        const user = await User.findById(order.user);
+        const user = await User.findById(order.userId);
         if (user) {
           await sendOrderDeliveredEmail(user.email, updatedOrder);
         }
@@ -285,7 +400,7 @@ router.put(
         console.error('Error sending delivery confirmation email:', emailError);
         // Don't fail the request if email fails
       }
-      
+
       res.json({
         message: 'Order marked as delivered',
         order: updatedOrder,
@@ -313,10 +428,10 @@ router.post(
       }
 
       const { reason } = req.body;
-      
+
       const order = await Order.findOne({
         _id: req.params.orderId,
-        user: req.user._id,
+        userId: req.user._id,
       });
 
       if (!order) {
@@ -327,10 +442,10 @@ router.post(
       if (order.status === 'cancelled') {
         return res.status(400).json({ message: 'Order is already cancelled' });
       }
-      
+
       if (order.status === 'delivered') {
-        return res.status(400).json({ 
-          message: 'Cannot cancel an order that has been delivered' 
+        return res.status(400).json({
+          message: 'Cannot cancel an order that has been delivered'
         });
       }
 
@@ -338,7 +453,7 @@ router.post(
       order.status = 'cancelled';
       order.cancellationReason = reason || 'Cancelled by user';
       order.cancelledAt = new Date();
-      
+
       // If order was paid, process refund (in a real app, you would integrate with payment provider)
       if (order.isPaid) {
         // Process refund logic here
@@ -348,7 +463,7 @@ router.post(
           requestedAt: new Date(),
         };
       }
-      
+
       // Restore product stock
       for (const item of order.items) {
         await Product.updateOne(
@@ -356,12 +471,12 @@ router.post(
           { $inc: { stock: item.quantity } }
         );
       }
-      
+
       const updatedOrder = await order.save();
-      
+
       // Send cancellation confirmation email
       try {
-        const user = await User.findById(order.user);
+        const user = await User.findById(order.userId);
         if (user) {
           await sendOrderCancellationEmail(user.email, updatedOrder, reason);
         }
@@ -369,7 +484,7 @@ router.post(
         console.error('Error sending cancellation email:', emailError);
         // Don't fail the request if email fails
       }
-      
+
       res.json({
         message: 'Order cancelled successfully',
         order: updatedOrder,
@@ -389,17 +504,17 @@ router.post(
   async (req, res) => {
     try {
       const cart = req.cart;
-      
+
       if (cart.items.length === 0) {
         return res.status(400).json({ message: 'Cart is empty' });
       }
-      
+
       // In a real app, you would integrate with Stripe or another payment processor here
       // This is a simplified example
-      
+
       const lineItems = await Promise.all(cart.items.map(async (item) => {
         const product = await Product.findById(item.product);
-        
+
         return {
           price_data: {
             currency: 'usd',
@@ -413,7 +528,7 @@ router.post(
           quantity: item.quantity,
         };
       }));
-      
+
       // Add shipping if needed
       if (cart.shippingPrice > 0) {
         lineItems.push({
@@ -428,7 +543,7 @@ router.post(
           quantity: 1,
         });
       }
-      
+
       // Add discount if any
       if (cart.discount) {
         lineItems.push({
@@ -443,13 +558,13 @@ router.post(
           quantity: 1,
         });
       }
-      
+
       // In a real app, you would create a Stripe session here
       const session = {
         id: 'mock_session_id_' + Math.random().toString(36).substr(2, 9),
         url: 'https://checkout.stripe.com/pay/mock_payment_intent',
       };
-      
+
       res.json({
         sessionId: session.id,
         url: session.url,
@@ -466,10 +581,10 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
   try {
     // In a real app, you would verify the webhook signature here
     // and process the payment confirmation
-    
+
     const sig = req.headers['stripe-signature'];
     let event;
-    
+
     try {
       // Verify webhook signature (example for Stripe)
       // event = stripe.webhooks.constructEvent(
@@ -477,21 +592,21 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
       //   sig,
       //   process.env.STRIPE_WEBHOOK_SECRET
       // );
-      
+
       // For now, just parse the request body
       event = req.body;
     } catch (err) {
       console.error('Webhook signature verification failed:', err);
       return res.status(400).send(`Webhook Error: ${err.message}`);
     }
-    
+
     // Handle the event
     switch (event.type) {
       case 'payment_intent.succeeded':
         // Update order status to paid
         const paymentIntent = event.data.object;
         const orderId = paymentIntent.metadata.orderId;
-        
+
         if (orderId) {
           await Order.findByIdAndUpdate(orderId, {
             isPaid: true,
@@ -505,13 +620,13 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
           });
         }
         break;
-        
+
       // Handle other event types as needed
-      
+
       default:
-        console.log(`Unhandled event type ${event.type}`);
+      // console.warn(`Unhandled event type ${event.type}`);
     }
-    
+
     // Return a 200 response to acknowledge receipt of the event
     res.json({ received: true });
   } catch (error) {
