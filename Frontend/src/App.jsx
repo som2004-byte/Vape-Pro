@@ -465,6 +465,7 @@ export default function App() {
     if (activeFilters.price) products = products.filter(p => p.price >= activeFilters.price.min && (activeFilters.price.max === Infinity ? true : p.price <= activeFilters.price.max))
     if (activeFilters.puffs) products = products.filter(p => p.puffs >= activeFilters.puffs.min && (activeFilters.puffs.max === Infinity ? true : (p.puffs || 0) <= activeFilters.puffs.max))
 
+
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim()
       products = products.filter(p => [p.brand, p.series, p.name, p.flavor, p.type].some(f => f?.toLowerCase().includes(q)))
