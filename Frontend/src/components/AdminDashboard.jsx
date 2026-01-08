@@ -230,6 +230,19 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout }) {
             </div>
 
             <div className="flex items-center gap-3">
+              {(selectedUser || selectedOrder || selectedProduct || selectedRequirement) && (
+                <button
+                  onClick={() => {
+                    setSelectedUser(null);
+                    setSelectedOrder(null);
+                    setSelectedRequirement(null);
+                    setSelectedProduct(null);
+                  }}
+                  className="px-4 py-2 bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 rounded-xl text-sm font-medium transition-all duration-200 border border-purple-500/30 hover:border-purple-400/50"
+                >
+                  ← Back
+                </button>
+              )}
               <button
                 onClick={() => navigate('/')}
                 className="px-4 py-2 bg-gray-800/50 hover:bg-gray-700/50 text-gray-300 rounded-xl text-sm font-medium transition-all duration-200 border border-gray-700/50 hover:border-gray-600/50"
