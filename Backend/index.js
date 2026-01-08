@@ -170,7 +170,14 @@ app.post('/api/request-email-otp', async (req, res) => {
     }
     const code = Math.floor(100000 + Math.random() * 900000).toString();
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
-    await EmailOtp.findOneAndUpdate({ email }, { codeHash: await bcrypt.hash(code, 10), expiresAt }, { upsert: true });
+    try {
+      await Promise.race([
+        EmailOtp.findOneAndUpdate({ email }, { codeHash: await bcrypt.hash(code, 10), expiresAt }, { upsert: true }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Database timeout')), 5000)),
+      ]);
+    } catch (dbError) {
+      return res.status(503).json({ message: 'Database timeout. Please try again later.', error: dbError.message });
+    }
     res.json({ message: 'OTP sent' });
     setImmediate(async () => {
       try {
@@ -188,10 +195,34 @@ app.post('/api/verify-email-otp', async (req, res) => {
     if (mongoose.connection.readyState !== 1) {
       return res.status(503).json({ message: 'Database unavailable. Please try again later.' });
     }
-    const record = await EmailOtp.findOne({ email });
+    let record;
+    try {
+      record = await Promise.race([
+        EmailOtp.findOne({ email }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Database timeout')), 5000)),
+      ]);
+    } catch (dbError) {
+      return res.status(503).json({ message: 'Database timeout. Please try again later.', error: dbError.message });
+    }
     if (!record || record.expiresAt < Date.now() || !(await bcrypt.compare(otp, record.codeHash))) return res.status(400).json({ message: 'Invalid/Expired OTP' });
-    await EmailOtp.deleteOne({ email });
-    const user = await User.findOne({ email });
+    try {
+      await Promise.race([
+        EmailOtp.deleteOne({ email }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Database timeout')), 5000)),
+      ]);
+    } catch (dbError) {
+      return res.status(503).json({ message: 'Database timeout. Please try again later.', error: dbError.message });
+    }
+
+    let user;
+    try {
+      user = await Promise.race([
+        User.findOne({ email }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Database timeout')), 5000)),
+      ]);
+    } catch (dbError) {
+      return res.status(503).json({ message: 'Database timeout. Please try again later.', error: dbError.message });
+    }
     if (user) {
       user.emailVerified = true; await user.save();
       const token = jwt.sign({ id: user._id, email: user.email }, JWT_SECRET, { expiresIn: '24h' });
