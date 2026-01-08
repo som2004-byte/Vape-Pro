@@ -2,9 +2,7 @@ import React, { useState } from 'react';
 import VapeSmokeEffect from './VapeSmokeEffect';
 import API_BASE_URL from '../config';
 
-// Use public URL instead of importing
 const logo = '/images/vapesmart-logo.png';
-
 
 export default function AdminLogin({ onAdminLogin }) {
   const [isLogin, setIsLogin] = useState(true);
@@ -67,7 +65,7 @@ export default function AdminLogin({ onAdminLogin }) {
       }
 
       setSuccess('Admin account created successfully! You can now login.');
-      setIsLogin(true); // Switch back to login form
+      setIsLogin(true);
       setEmail('');
       setPassword('');
       setConfirmPassword('');
@@ -80,79 +78,114 @@ export default function AdminLogin({ onAdminLogin }) {
   };
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center bg-gradient-to-b from-darkPurple-950 via-darkPurple-950/20 to-black text-gray-100 overflow-hidden">
+    <div className="relative min-h-screen flex items-center justify-center bg-black text-gray-100 overflow-hidden">
       <div className="fixed inset-0 z-0">
         <video
-          className="w-full h-full object-cover opacity-90"
+          className="w-full h-full object-cover opacity-60 grayscale"
           src="/videos/login-bg.mp4"
           autoPlay
           loop
           muted
           playsInline
-          onError={(e) => console.error("Video error:", e.target.error)}
         />
       </div>
-      <VapeSmokeEffect density={55} speed={0.55} opacity={0.4} />
+      <VapeSmokeEffect density={60} speed={0.4} opacity={0.3} />
 
-      <div className="absolute inset-0 bg-black/60 via-black/55 to-black/85 z-[1]"></div>
+      <div className="absolute inset-0 bg-gradient-to-br from-black via-black/80 to-purple-900/40 z-[1]"></div>
 
-      <div className="relative z-10 p-8 max-w-md w-full rounded-2xl shadow-purple-glow bg-gradient-to-br from-darkPurple-900/90 to-black/90 border border-darkPurple-700/60 backdrop-blur-sm">
-        <div className="flex flex-col items-center mb-6">
-          <img src={logo} alt="VapeSmart Logo" className="h-12 w-12 mb-2" />
-          <h1 className="text-3xl font-bold text-yellowGradient-start">
-            {isLogin ? 'Admin Login' : 'Create Admin Account'}
+      <div className="relative z-10 p-10 max-w-md w-full rounded-[40px] bg-black/60 border border-white/10 backdrop-blur-3xl shadow-[0_0_100px_rgba(168,85,247,0.15)]">
+        <div className="flex flex-col items-center mb-10">
+          <img src={logo} alt="Logo" className="h-16 w-16 mb-4 filter drop-shadow-[0_0_10px_rgba(168,85,247,0.5)]" />
+          <h1 className="text-4xl font-black italic tracking-tighter uppercase text-white">
+            {isLogin ? 'Admin Access' : 'Register Node'}
           </h1>
+          <p className="text-sm font-bold text-gray-500 mt-2 uppercase tracking-widest">
+            {isLogin ? 'Authorized Personnel Only' : 'System Administrator Invite'}
+          </p>
         </div>
 
         {success && (
-          <div className="mb-4 p-3 bg-green-900/50 border border-green-700 text-green-200 rounded-md text-sm">
+          <div className="mb-6 p-4 bg-green-500/10 border border-green-500/50 text-green-400 rounded-2xl text-sm font-bold italic">
             {success}
           </div>
         )}
 
         {error && (
-          <div className="mb-4 p-3 bg-red-900/50 border border-red-700 text-red-200 rounded-md text-sm">
+          <div className="mb-6 p-4 bg-red-500/10 border border-red-500/50 text-red-400 rounded-2xl text-sm font-bold italic">
             {error}
           </div>
         )}
 
-        <form onSubmit={handleLogin} className="space-y-4">
+        <form onSubmit={isLogin ? handleLogin : handleSignup} className="space-y-6">
+          {!isLogin && (
+            <div>
+              <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 ml-1">Full Name</label>
+              <input
+                type="text"
+                className="w-full px-6 py-4 bg-black border border-gray-800 rounded-2xl text-white placeholder-gray-700 focus:border-purple-500 transition-all outline-none font-bold italic"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+              />
+            </div>
+          )}
+
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-darkPurple-200 mb-1">
-              Email
-            </label>
+            <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 ml-1">Email Node</label>
             <input
               type="email"
-              id="email"
-              className="w-full px-4 py-2 bg-darkPurple-800 border border-darkPurple-600 rounded-md text-gray-100 placeholder-darkPurple-400 focus:ring-2 focus:ring-yellowGradient-start focus:border-transparent transition-all"
+              className="w-full px-6 py-4 bg-black border border-gray-800 rounded-2xl text-white placeholder-gray-700 focus:border-purple-500 transition-all outline-none font-bold italic"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              placeholder="admin@vapesmart.ai"
               required
             />
           </div>
+
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-darkPurple-200 mb-1">
-              Password
-            </label>
+            <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 ml-1">Access Key</label>
             <input
               type="password"
-              id="password"
-              className="w-full px-4 py-2 bg-darkPurple-800 border border-darkPurple-600 rounded-md text-gray-100 placeholder-darkPurple-400 focus:ring-2 focus:ring-yellowGradient-start focus:border-transparent transition-all"
+              className="w-full px-6 py-4 bg-black border border-gray-800 rounded-2xl text-white placeholder-gray-700 focus:border-purple-500 transition-all outline-none font-bold italic"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••••••"
               required
             />
           </div>
+
+          {!isLogin && (
+            <div>
+              <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 ml-1">Confirm Key</label>
+              <input
+                type="password"
+                className="w-full px-6 py-4 bg-black border border-gray-800 rounded-2xl text-white placeholder-gray-700 focus:border-purple-500 transition-all outline-none font-bold italic"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="••••••••••••"
+                required
+              />
+            </div>
+          )}
+
           <button
             type="submit"
-            className="w-full py-2 px-4 mt-4 rounded-md shadow-sm text-lg font-semibold text-darkPurple-950 bg-yellowGradient-start hover:bg-yellowGradient-end focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellowGradient-start transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full py-5 px-4 mt-4 rounded-2xl bg-white text-black font-black uppercase tracking-widest hover:bg-purple-600 hover:text-white transition-all duration-300 shadow-xl shadow-white/5 disabled:opacity-50"
             disabled={loading}
           >
-            {loading ? 'Logging in...' : 'Login'}
+            {loading ? 'Processing...' : (isLogin ? 'Initiate Login' : 'Create Admin')}
           </button>
         </form>
+
+        <div className="mt-8 text-center">
+          <button
+            onClick={() => { setIsLogin(!isLogin); setError(''); setSuccess(''); }}
+            className="text-[10px] font-black text-gray-500 hover:text-purple-400 uppercase tracking-widest transition-colors"
+          >
+            {isLogin ? "Need a master node? Register here" : "Return to authorized entry"}
+          </button>
+        </div>
       </div>
     </div>
   );
 }
-

@@ -464,7 +464,11 @@ export default function App() {
     if (activeFilters.brand && activeFilters.subCategory) products = products.filter(p => p.series === activeFilters.subCategory)
     if (activeFilters.price) products = products.filter(p => p.price >= activeFilters.price.min && (activeFilters.price.max === Infinity ? true : p.price <= activeFilters.price.max))
     if (activeFilters.puffs) products = products.filter(p => p.puffs >= activeFilters.puffs.min && (activeFilters.puffs.max === Infinity ? true : (p.puffs || 0) <= activeFilters.puffs.max))
+<<<<<<< HEAD
     
+=======
+
+>>>>>>> dev-admin
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim()
       products = products.filter(p => [p.brand, p.series, p.name, p.flavor, p.type].some(f => f?.toLowerCase().includes(q)))
@@ -485,7 +489,11 @@ export default function App() {
       <div className="relative min-h-screen bg-gradient-to-b from-black via-darkPurple-950/20 to-black text-gray-100">
         <div className="fixed inset-0 -z-10 opacity-80"><VapeSmokeEffect density={40} speed={0.4} opacity={0.35} /></div>
         <Navbar user={adminUser} onLogout={handleAdminLogout} isAdmin={true} onNavigate={handleNavigate} isAdminLoggedIn={true} adminUser={adminUser} />
+<<<<<<< HEAD
         <main className="pt-32"><AdminDashboard adminUser={adminUser || { username: 'Admin' }} adminToken={adminToken} /></main>
+=======
+        <main className="pt-32"><AdminDashboard adminUser={adminUser || { username: 'Admin' }} adminToken={adminToken} onNavigateToStore={() => setCurrentPage('home')} /></main>
+>>>>>>> dev-admin
       </div>
     )
   }
