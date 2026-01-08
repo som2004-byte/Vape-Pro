@@ -195,6 +195,14 @@ export default function App() {
   }, [currentPage]);
 
   const handleLogin = (userData) => {
+    // Clear any admin session to prevent UI mix-ups
+    setIsAdminLoggedIn(false);
+    setAdminUser(null);
+    setAdminToken(null);
+    localStorage.removeItem('vapesmart_adminUser');
+    localStorage.removeItem('vapesmart_isAdmin');
+    localStorage.removeItem('vapesmart_adminToken');
+
     setUser(userData)
     setIsLoggedIn(true)
     localStorage.setItem('vapesmart_user', JSON.stringify(userData))
@@ -206,6 +214,13 @@ export default function App() {
   }
 
   const handleAdminLogin = (token, adminData) => {
+    // Clear any user session
+    setIsLoggedIn(false);
+    setUser(null);
+    localStorage.removeItem('vapesmart_user');
+    localStorage.removeItem('vapesmart_isLoggedIn');
+    localStorage.removeItem('token');
+
     setIsAdminLoggedIn(true);
     setAdminUser(adminData);
     setAdminToken(token);
