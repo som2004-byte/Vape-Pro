@@ -165,6 +165,9 @@ app.use('/api/admin', adminRoutes);
 app.post('/api/request-email-otp', async (req, res) => {
   try {
     const { email } = req.body;
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({ message: 'Database unavailable. Please try again later.' });
+    }
     const code = Math.floor(100000 + Math.random() * 900000).toString();
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
     await EmailOtp.findOneAndUpdate({ email }, { codeHash: await bcrypt.hash(code, 10), expiresAt }, { upsert: true });
@@ -180,6 +183,9 @@ app.post('/api/request-email-otp', async (req, res) => {
 app.post('/api/verify-email-otp', async (req, res) => {
   try {
     const { email, otp } = req.body;
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({ message: 'Database unavailable. Please try again later.' });
+    }
     const record = await EmailOtp.findOne({ email });
     if (!record || record.expiresAt < Date.now() || !(await bcrypt.compare(otp, record.codeHash))) return res.status(400).json({ message: 'Invalid/Expired OTP' });
     await EmailOtp.deleteOne({ email });
