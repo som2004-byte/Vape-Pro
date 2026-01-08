@@ -9,11 +9,12 @@ const router = express.Router();
 // Get cart
 router.get('/', authenticateToken, getOrCreateCart, async (req, res) => {
   try {
-    await req.cart.populate('items.product');
+    // await req.cart.populate('items.product'); // Disabled because Schema definition for product ref is missing in Cart model items
     res.json(req.cart);
   } catch (error) {
     console.error('Get cart error:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
+    console.error('Get cart error:', error);
+    res.status(500).json({ message: `Get cart error: ${error.message}` });
   }
 });
 
@@ -73,7 +74,8 @@ router.post('/', authenticateToken, getOrCreateCart, [
     });
   } catch (error) {
     console.error('Add to cart error:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
+    console.error('Add to cart error:', error);
+    res.status(500).json({ message: `Add cart error: ${error.message}` });
   }
 });
 
@@ -95,7 +97,8 @@ router.put('/', authenticateToken, getOrCreateCart, async (req, res) => {
     });
   } catch (error) {
     console.error('Update cart error:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
+    console.error('Update cart error:', error);
+    res.status(500).json({ message: `Update cart error: ${error.message}` });
   }
 });
 
