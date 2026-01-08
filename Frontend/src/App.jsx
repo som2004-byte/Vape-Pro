@@ -47,12 +47,17 @@ export default function App() {
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(persistedState.isAdminLoggedIn);
   const [adminUser, setAdminUser] = useState(persistedState.adminUser);
   const [adminToken, setAdminToken] = useState(persistedState.adminToken);
+  const [isViewingAdminDashboard, setIsViewingAdminDashboard] = useState(persistedState.isAdminLoggedIn);
   const [currentPage, setCurrentPage] = useState('home');
   const [accountTab, setAccountTab] = useState('profile');
   const [toast, setToast] = useState(null);
   const [customerProfile, setCustomerProfile] = useState(persistedState.profile);
 
   const handleNavigate = (page, subPage = 'profile') => {
+    if (page === 'adminDashboard' && isAdminLoggedIn) {
+      setIsViewingAdminDashboard(true);
+      return;
+    }
     setCurrentPage(page);
     if (page === 'account') {
       setAccountTab(subPage);
@@ -87,7 +92,7 @@ export default function App() {
     setIsLoggedIn(true);
     localStorage.setItem('vapesmart_user', JSON.stringify(userData));
     localStorage.setItem('vapesmart_isLoggedIn', 'true');
-    
+
     if (userData.token) {
       fetchUserData(userData.token);
     }
@@ -98,6 +103,7 @@ export default function App() {
     setIsAdminLoggedIn(true);
     setAdminUser(adminData);
     setAdminToken(token);
+    setIsViewingAdminDashboard(true); // Default to dashboard on login
     setCurrentPage('adminDashboard');
 
     localStorage.setItem('vapesmart_adminToken', token);
@@ -109,6 +115,7 @@ export default function App() {
 
   const handleAdminLogout = () => {
     setIsAdminLoggedIn(false);
+    setIsViewingAdminDashboard(false);
     setAdminUser(null);
     setAdminToken(null);
     localStorage.removeItem('vapesmart_adminUser');
@@ -121,6 +128,7 @@ export default function App() {
     setIsLoggedIn(false);
     setUser(null);
     setIsAdminLoggedIn(false);
+    setIsViewingAdminDashboard(false);
     setAdminUser(null);
     localStorage.removeItem('vapesmart_user');
     localStorage.removeItem('vapesmart_isLoggedIn');
@@ -138,12 +146,13 @@ export default function App() {
   }, [toast]);
 
   const renderContent = () => {
-    if (isAdminLoggedIn) {
+    if (isAdminLoggedIn && isViewingAdminDashboard) {
       return (
         <AdminDashboard
           adminUser={adminUser}
           adminToken={adminToken}
           onLogout={handleAdminLogout}
+          onNavigateToStore={() => setIsViewingAdminDashboard(false)}
         />
       );
     }
@@ -201,11 +210,10 @@ export default function App() {
 
       {/* Toast Notification */}
       {toast && (
-        <div className={`fixed bottom-8 left-1/2 -translate-x-1/2 z-[10000] px-6 py-3 rounded-2xl border backdrop-blur-md shadow-2xl flex items-center gap-3 transition-all animate-in slide-in-from-bottom-4 duration-300 ${
-          toast.type === 'success' ? 'bg-green-500/10 border-green-500/50 text-green-400' :
+        <div className={`fixed bottom-8 left-1/2 -translate-x-1/2 z-[10000] px-6 py-3 rounded-2xl border backdrop-blur-md shadow-2xl flex items-center gap-3 transition-all animate-in slide-in-from-bottom-4 duration-300 ${toast.type === 'success' ? 'bg-green-500/10 border-green-500/50 text-green-400' :
           toast.type === 'error' ? 'bg-red-500/10 border-red-500/50 text-red-400' :
-          'bg-darkPurple-800/80 border-darkPurple-500/50 text-white'
-        }`}>
+            'bg-darkPurple-800/80 border-darkPurple-500/50 text-white'
+          }`}>
           <span>{toast.message}</span>
         </div>
       )}
