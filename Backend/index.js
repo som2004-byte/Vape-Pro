@@ -9,9 +9,8 @@ require('dotenv').config();
 
 const User = require('./models/User');
 const EmailOtp = require('./models/EmailOtp');
-const Cart = require('./models/Cart');
-const Order = require('./models/Order');
 const Admin = require('./models/Admin');
+const { authenticateToken } = require('./middleware/auth');
 const adminRoutes = require('./routes/admin');
 const orderRoutes = require('./routes/order');
 const cartRoutes = require('./routes/cart');
@@ -70,8 +69,6 @@ if (SMTP_HOST && SMTP_USER && SMTP_PASS) {
 }
 
 // Helpers
-const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-
 const sendOtpEmail = async (toEmail, code) => {
   if (!mailTransporter) throw new Error('Mail transport not configured');
   const html = `<div style="font-family: Arial; color: #111;"><h2>Your Verification Code</h2><div style="font-size: 24px; font-weight: bold;">${code}</div></div>`;
@@ -79,28 +76,6 @@ const sendOtpEmail = async (toEmail, code) => {
     mailTransporter.sendMail({ from: SMTP_FROM || SMTP_USER, to: toEmail, subject: 'Your verification code', html }),
     new Promise((_, reject) => setTimeout(() => reject(new Error('Email send timeout')), 8000)),
   ]);
-};
-
-const authenticateToken = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
-  if (!token) return res.status(401).json({ message: 'Access token required' });
-  jwt.verify(token, JWT_SECRET, (err, decoded) => {
-    if (err) return res.status(403).json({ message: 'Invalid or expired token' });
-    req.user = { ...decoded, id: decoded.id || decoded._id };
-    next();
-  });
-};
-
-const getOrCreateCart = async (userId) => {
-  if (!userId) throw new Error('User ID required');
-  const query = { userId: mongoose.Types.ObjectId.isValid(userId) ? new mongoose.Types.ObjectId(userId) : userId };
-  let cart = await Cart.findOne(query);
-  if (!cart) {
-    cart = new Cart({ userId: query.userId, items: [] });
-    await cart.save();
-  }
-  return cart;
 };
 
 // --- ROUTES ---

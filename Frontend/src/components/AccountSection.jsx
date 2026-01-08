@@ -89,7 +89,8 @@ export default function AccountSection({
         subTitle: msg
       });
 
-      // Automatically show demo option if it failed
+      // Automatically switch to demo mode if backend fails
+      generateEmailOtp();
       setOtpSent(false);
     } finally {
       setVerifying(false);
@@ -110,11 +111,7 @@ export default function AccountSection({
       const savedDemoOtp = localStorage.getItem('demo_otp');
       const isDemoOtp = emailOtp === savedDemoOtp;
 
-      const isLocalHost = window.location.hostname === 'localhost' ||
-        window.location.hostname === '127.0.0.1' ||
-        window.location.hostname.includes('vercel.app'); // Allow on vercel too for easy testing
-
-      if (isDemoOtp && isLocalHost) {
+      if (isDemoOtp) {
         setIsEmailVerified(true);
         setShowEmailOtpInput(false);
         setEmailOtp('');
