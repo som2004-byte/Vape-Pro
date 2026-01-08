@@ -48,23 +48,24 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout }) {
           headers: { Authorization: `Bearer ${adminToken}` },
         });
 
-      if (response.ok) {
-        const data = await response.json();
-        // Ensure data is an array for list endpoints
-        if (endpoint.includes('/orders') || endpoint.includes('/users') || endpoint.includes('/products') || endpoint.includes('/client-requirements')) {
-          setter(Array.isArray(data) ? data : []);
+        if (response.ok) {
+          const data = await response.json();
+          // Ensure data is an array for list endpoints
+          if (endpoint.includes('/orders') || endpoint.includes('/users') || endpoint.includes('/products') || endpoint.includes('/client-requirements')) {
+            setter(Array.isArray(data) ? data : []);
+          } else {
+            setter(data);
+          }
         } else {
-          setter(data);
+          let msg = `Failed to fetch ${endpoint}`;
+          try {
+            const errData = await response.json();
+            msg = errData?.message || errData?.error || msg;
+          } catch (e) {
+            // ignore parse errors
+          }
+          setError(msg);
         }
-      } else {
-        let msg = `Failed to fetch ${endpoint}`;
-        try {
-          const errData = await response.json();
-          msg = errData?.message || errData?.error || msg;
-        } catch (e) {
-          // ignore parse errors
-        }
-        setError(msg);
       }
     } catch (err) {
       console.error('Fetch error:', err);
