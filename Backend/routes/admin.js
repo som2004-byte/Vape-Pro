@@ -131,7 +131,7 @@ router.get('/stats', authorizeAdmin, async (req, res) => {
     
     // Calculate total revenue
     const orders = await Order.find({ status: { $in: ['processed', 'delivered', 'completed'] } });
-    const totalRevenue = orders.reduce((sum, order) => sum + (order.total || 0), 0);
+    const totalRevenue = (orders || []).reduce((sum, order) => sum + (order.total || 0), 0);
 
     console.log('📈 Stats calculated:', { totalUsers, totalOrders, totalRevenue, pendingOrders });
 
