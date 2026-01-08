@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import API_BASE_URL_ROOT from '../config';
 import { PRODUCTS as USER_PRODUCTS } from '../data';
 
-export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavigateToStore }) {
+export default function AdminDashboard({ adminUser, adminToken, onLogout }) {
+  const navigate = useNavigate();
   const logo = '/images/vapesmart-logo.png';
 
   // Navigation and view states
@@ -245,7 +247,7 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
                 </button>
               )}
               <button
-                onClick={onNavigateToStore}
+                onClick={() => navigate('/')}
                 className="px-4 py-2 bg-gray-800/50 hover:bg-gray-700/50 text-gray-300 rounded-xl text-sm font-medium transition-all duration-200 border border-gray-700/50 hover:border-gray-600/50"
               >
                 ← Store
