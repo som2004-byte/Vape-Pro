@@ -120,31 +120,62 @@ router.get('/users', authorizeAdmin, async (req, res) => {
 router.get('/stats', authorizeAdmin, async (req, res) => {
   console.log('📊 Admin stats request received');
   try {
-    const totalUsers = await User.countDocuments();
-    const totalRequirements = await ClientRequirement.countDocuments();
-    const pendingRequirements = await ClientRequirement.countDocuments({ status: 'New' });
-    
-    // Get order statistics
-    const totalOrders = await Order.countDocuments();
-    const pendingOrders = await Order.countDocuments({ status: 'pending' });
-    
-    // Calculate total revenue
-    const orders = await Order.find({ status: { $in: ['processed', 'delivered', 'completed'] } });
-    const totalRevenue = orders.reduce((sum, order) => sum + (order.total || 0), 0);
+    let totalUsers = 0, totalOrders = 0, pendingOrders = 0, totalRevenue = 0;
+    let totalRequirements = 0, pendingRequirements = 0;
 
-    console.log('📈 Stats calculated:', { totalUsers, totalOrders, totalRevenue, pendingOrders });
+    // Safely get user count
+    try {
+      totalUsers = await User.countDocuments();
+    } catch (err) {
+      console.error('❌ Error counting users:', err);
+    }
 
-    res.json({
-      totalUsers,
-      totalOrders,
-      totalRevenue,
-      pendingOrders,
-      totalRequirements,
-      pendingRequirements,
-    });
+    // Safely get requirements count
+    try {
+      totalRequirements = await ClientRequirement.countDocuments();
+      pendingRequirements = await ClientRequirement.countDocuments({ status: 'New' });
+    } catch (err) {
+      console.error('❌ Error counting requirements:', err);
+    }
+    
+    // Safely get order statistics
+    try {
+      totalOrders = await Order.countDocuments();
+      pendingOrders = await Order.countDocuments({ status: 'pending' });
+      
+      // Calculate total revenue with fallback
+      const orders = await Order.find({ status: { $in: ['processed', 'delivered', 'completed'] } });
+      if (Array.isArray(orders)) {
+        totalRevenue = orders.reduce((sum, order) => sum + (order.total || 0), 0);
+      }
+    } catch (err) {
+      console.error('❌ Error getting order stats:', err);
+    }
+
+    const stats = {
+      totalUsers: totalUsers || 0,
+      totalOrders: totalOrders || 0,
+      totalRevenue: totalRevenue || 0,
+      pendingOrders: pendingOrders || 0,
+      totalRequirements: totalRequirements || 0,
+      pendingRequirements: pendingRequirements || 0,
+    };
+
+    console.log('📈 Stats calculated:', stats);
+    res.json(stats);
   } catch (error) {
     console.error('❌ Get stats error:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(500).json({ 
+      message: 'Server error', 
+      error: error.message,
+      // Return fallback stats
+      totalUsers: 0,
+      totalOrders: 0,
+      totalRevenue: 0,
+      pendingOrders: 0,
+      totalRequirements: 0,
+      pendingRequirements: 0,
+    });
   }
 });
 
