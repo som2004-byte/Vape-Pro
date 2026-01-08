@@ -147,13 +147,16 @@ router.get('/client-requirements', authorizeAdmin, async (req, res) => {
 
 // Get all orders (admin only)
 router.get('/orders', authorizeAdmin, async (req, res) => {
+  console.log('📋 Admin orders request received');
+  console.log('👤 Admin user:', req.admin);
   try {
     const orders = await Order.find()
       .populate('userId', 'name email phoneNumber address')
       .sort({ createdAt: -1 });
+    console.log('📦 Found orders:', orders.length);
     res.json(orders);
   } catch (error) {
-    console.error('Get orders error:', error);
+    console.error('❌ Get orders error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
