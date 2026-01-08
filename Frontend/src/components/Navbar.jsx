@@ -59,7 +59,7 @@ export default function Navbar({
               </button>
             )}
 
-            {!isAdminLoggedIn && !user && (
+            {!isAdminLoggedIn && (
               <button
                 onClick={() => onNavigate?.('adminLogin')}
                 className="text-[11px] font-black text-gray-500 hover:text-purple-400 transition-all uppercase tracking-[0.2em]"
@@ -139,7 +139,7 @@ export default function Navbar({
 
           <div className="w-12 h-1 bg-white/10 rounded-full" />
 
-          {!isAdminLoggedIn && !user && (
+          {!isAdminLoggedIn && (
             <button onClick={() => { onNavigate?.('adminLogin'); setMobileMenuOpen(false); }} className="text-2xl font-bold text-gray-500 uppercase tracking-widest">Admin Master</button>
           )}
 
