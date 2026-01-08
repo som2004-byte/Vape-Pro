@@ -61,7 +61,8 @@ router.post(
   }
 );
 
-// Admin signup
+// Admin signup (DISABLED FOR SECURITY)
+/*
 router.post(
   '/signup',
   [
@@ -106,6 +107,7 @@ router.post(
     }
   }
 );
+*/
 
 
 // Get all users (admin only)
@@ -212,6 +214,8 @@ router.get('/orders', authorizeAdmin, async (req, res) => {
 
     const orders = await Order.find(query)
       .populate('userId', 'name email')
+
+
       .sort({ createdAt: -1 })
       .limit(limit * 1)
       .skip((page - 1) * limit);
