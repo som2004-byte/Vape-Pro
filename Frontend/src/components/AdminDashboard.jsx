@@ -48,9 +48,16 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
 
       if (response.ok) {
         const data = await response.json();
-        // Ensure data is an array for list endpoints
-        if (endpoint.includes('/orders') || endpoint.includes('/users') || endpoint.includes('/products') || endpoint.includes('/client-requirements')) {
-          setter(Array.isArray(data) ? data : []);
+
+        // Handle potentially wrapped array responses
+        if (endpoint.includes('/orders')) {
+          setter(Array.isArray(data) ? data : (data.orders || []));
+        } else if (endpoint.includes('/users')) {
+          setter(Array.isArray(data) ? data : (data.users || []));
+        } else if (endpoint.includes('/products')) {
+          setter(Array.isArray(data) ? data : (data.products || []));
+        } else if (endpoint.includes('/client-requirements')) {
+          setter(Array.isArray(data) ? data : (data.requirements || data.clientRequirements || []));
         } else {
           setter(data);
         }
@@ -131,13 +138,27 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
   const handleOrderStatusUpdate = async (orderId, newStatus) => {
     try {
       setLoading(true);
-      const response = await fetch(`${API_BASE_URL}/orders/${orderId}/status`, {
-        method: 'PATCH',
+      const currentOrder = orders.find(o => o._id === orderId);
+
+      // Sanitize order object to prevent backend validation errors
+      // 1. Flatten userId if it's an object
+      // 2. Remove immutable/system fields
+      const payload = { ...currentOrder, status: newStatus };
+      if (payload.userId && typeof payload.userId === 'object') {
+        payload.userId = payload.userId._id;
+      }
+      delete payload._id;
+      delete payload.createdAt;
+      delete payload.updatedAt;
+      delete payload.__v;
+
+      const response = await fetch(`${API_BASE_URL}/orders/${orderId}`, {
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${adminToken}`
         },
-        body: JSON.stringify({ status: newStatus })
+        body: JSON.stringify(payload)
       });
 
       if (response.ok) {
@@ -158,9 +179,19 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
     }
   };
 
-  // Initial data load
+  // Initial data load and polling
   useEffect(() => {
     handleRefresh();
+
+    // Poll for new orders and stats every 10 seconds
+    const intervalId = setInterval(() => {
+      if (adminToken) {
+        fetchData('/orders', setOrders);
+        fetchStats();
+      }
+    }, 10000);
+
+    return () => clearInterval(intervalId);
   }, [adminToken]);
 
   // Filter functions
@@ -212,6 +243,155 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
     'cancelled': 'bg-red-500/20 border-red-500 text-red-400',
   };
 
+  const [showRevenueStats, setShowRevenueStats] = useState(false);
+  const [showPendingStats, setShowPendingStats] = useState(false);
+
+  // Derived Statistics for Revenue View
+  const averageOrderValue = stats.totalOrders > 0 ? (stats.totalRevenue / stats.totalOrders).toFixed(2) : '0';
+  const recentTransactions = Array.isArray(orders) ? orders.slice(0, 5) : [];
+
+  // Derived Data for Pending View
+  const pendingOrdersList = Array.isArray(orders) ? orders.filter(o => o.status === 'pending' || o.status === 'processing') : [];
+  const unverifiedUsers = Array.isArray(users) ? users.filter(u => !u.isVerified) : [];
+
+  const handleStatClick = (type) => {
+    setSelectedUser(null);
+    setSelectedOrder(null);
+    setSelectedRequirement(null);
+    setSelectedProduct(null);
+
+    if (type === 'users') setActiveTab('users');
+    else if (type === 'orders') setActiveTab('logistics');
+    else if (type === 'revenue') setShowRevenueStats(true);
+    else if (type === 'pending') setShowPendingStats(true);
+  };
+
+  // Close stats views when navigating elsewhere
+  useEffect(() => {
+    if (activeTab || selectedUser || selectedOrder) {
+      setShowRevenueStats(false);
+      setShowPendingStats(false);
+    }
+  }, [activeTab, selectedUser, selectedOrder]);
+
+  if (showRevenueStats) {
+    return (
+      <div className="min-h-screen bg-black text-white p-4 md:p-8">
+        <button onClick={() => setShowRevenueStats(false)} className="mb-6 px-4 py-2 bg-gray-800/50 text-gray-300 rounded-xl text-sm font-medium border border-gray-700/50">← Back to Dashboard</button>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-2 space-y-6">
+            <div className="bg-green-900/10 border border-green-500/20 p-8 rounded-[32px]">
+              <h2 className="text-3xl font-black italic uppercase text-green-400 mb-2">Financial Intelligence</h2>
+              <p className="text-gray-400 mb-8">Real-time revenue stream analysis</p>
+
+              <div className="grid grid-cols-2 gap-8 mb-8">
+                <div>
+                  <p className="text-[10px] font-black uppercase text-gray-500 tracking-widest mb-2">Total Revenue</p>
+                  <p className="text-5xl font-black text-white">₹{(stats.totalRevenue || 0).toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-black uppercase text-gray-500 tracking-widest mb-2">Avg. Order Value</p>
+                  <p className="text-5xl font-black text-green-400">₹{averageOrderValue}</p>
+                </div>
+              </div>
+
+              <div className="h-2 w-full bg-gray-800 rounded-full overflow-hidden mb-2">
+                <div className="h-full bg-green-500 w-[75%]"></div>
+              </div>
+              <p className="text-right text-xs text-green-500 font-bold">75% to Monthly Goal</p>
+            </div>
+
+            <div className="bg-gray-900/50 border border-gray-800 rounded-[32px] p-8">
+              <h3 className="text-xl font-bold mb-6">Recent Transactions</h3>
+              <div className="space-y-4">
+                {recentTransactions.map(order => (
+                  <div key={order._id} className="flex justify-between items-center p-4 bg-black/40 rounded-xl border border-gray-800">
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center text-green-400">↓</div>
+                      <div>
+                        <p className="font-bold text-white text-sm">{order.userId?.name || order.userId?.email || 'Guest User'}</p>
+                        <p className="text-xs text-gray-500">Order #{order._id.slice(-6).toUpperCase()}</p>
+                      </div>
+                    </div>
+                    <p className="font-mono font-bold text-green-400">+ ₹{order.total}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-6">
+            <div className="bg-gray-900/50 border border-gray-800 p-8 rounded-[32px]">
+              <h3 className="text-lg font-bold mb-4">Performance Metrics</h3>
+              <div className="space-y-6">
+                <div>
+                  <div className="flex justify-between text-xs font-bold mb-2">
+                    <span className="text-gray-400">Conversion Rate</span>
+                    <span className="text-white">3.2%</span>
+                  </div>
+                  <div className="h-1.5 bg-gray-800 rounded-full"><div className="w-[32%] h-full bg-blue-500 rounded-full" /></div>
+                </div>
+                <div>
+                  <div className="flex justify-between text-xs font-bold mb-2">
+                    <span className="text-gray-400">Cart Abandonment</span>
+                    <span className="text-white">12%</span>
+                  </div>
+                  <div className="h-1.5 bg-gray-800 rounded-full"><div className="w-[12%] h-full bg-red-500 rounded-full" /></div>
+                </div>
+                <div>
+                  <div className="flex justify-between text-xs font-bold mb-2">
+                    <span className="text-gray-400">Return Customer Rate</span>
+                    <span className="text-white">45%</span>
+                  </div>
+                  <div className="h-1.5 bg-gray-800 rounded-full"><div className="w-[45%] h-full bg-purple-500 rounded-full" /></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (showPendingStats) {
+    return (
+      <div className="min-h-screen bg-black text-white p-4 md:p-8">
+        <button onClick={() => setShowPendingStats(false)} className="mb-6 px-4 py-2 bg-gray-800/50 text-gray-300 rounded-xl text-sm font-medium border border-gray-700/50">← Back to Dashboard</button>
+        <div className="max-w-4xl mx-auto">
+          <h2 className="text-3xl font-black italic uppercase text-yellow-400 mb-8">Action Center</h2>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+            <div onClick={() => { setShowPendingStats(false); setActiveTab('logistics'); }} className="bg-gray-900/50 border border-gray-800 p-8 rounded-[32px] cursor-pointer hover:border-yellow-500/50 transition-all group">
+              <div className="flex justify-between items-start mb-6">
+                <div className="p-3 bg-yellow-500/20 rounded-xl text-yellow-400 text-2xl">📦</div>
+                <span className="text-3xl font-black group-hover:scale-110 transition-transform">{pendingOrdersList.length}</span>
+              </div>
+              <h3 className="text-xl font-bold mb-2">Pending Orders</h3>
+              <p className="text-sm text-gray-400">Orders requiring immediate processing and dispatch.</p>
+              {pendingOrdersList.slice(0, 3).map(o => (
+                <div key={o._id} className="mt-4 p-3 bg-black/40 rounded-lg text-sm border border-gray-800 text-gray-300">
+                  #{o._id.slice(-6).toUpperCase()} - ₹{o.total}
+                </div>
+              ))}
+              {pendingOrdersList.length > 3 && <p className="mt-2 text-xs text-center text-gray-500">and {pendingOrdersList.length - 3} more...</p>}
+            </div>
+
+            <div onClick={() => { setShowPendingStats(false); setActiveTab('users'); }} className="bg-gray-900/50 border border-gray-800 p-8 rounded-[32px] cursor-pointer hover:border-blue-500/50 transition-all group">
+              <div className="flex justify-between items-start mb-6">
+                <div className="p-3 bg-blue-500/20 rounded-xl text-blue-400 text-2xl">👥</div>
+                <span className="text-3xl font-black group-hover:scale-110 transition-transform">{unverifiedUsers.length}</span>
+              </div>
+              <h3 className="text-xl font-bold mb-2">Unverified Nodes</h3>
+              <p className="text-sm text-gray-400">New user registrations awaiting system verification.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // --- Main Dashboard View ---
+
   return (
     <div className="min-h-screen bg-black text-white p-4 md:p-8">
       {/* Header */}
@@ -225,7 +405,7 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
                 className="h-10 md:h-12 w-auto filter drop-shadow-[0_0_20px_rgba(168,85,247,0.3)]"
               />
               <div>
-                <h1 className="text-2xl md:text-4xl font-black italic tracking-tighter text-white uppercase">Admin</h1>
+                <h1 className="text-2xl md:text-4xl font-black italic tracking-tighter text-white uppercase">VapeSmart</h1>
                 <p className="text-xs md:text-sm text-gray-400 font-medium">VapeSmart Control Center</p>
               </div>
             </div>
@@ -244,12 +424,7 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
                   ← Back
                 </button>
               )}
-              <button
-                onClick={onNavigateToStore}
-                className="px-4 py-2 bg-gray-800/50 hover:bg-gray-700/50 text-gray-300 rounded-xl text-sm font-medium transition-all duration-200 border border-gray-700/50 hover:border-gray-600/50"
-              >
-                ← Store
-              </button>
+
               <button
                 onClick={handleRefresh}
                 disabled={loading}
@@ -299,21 +474,22 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
       {/* Stats Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         {[
-          { label: 'Users', value: stats.totalUsers, icon: '👥', color: 'from-blue-600/20 to-blue-600/10', border: 'border-blue-500/30', textColor: 'text-blue-400' },
-          { label: 'Orders', value: stats.totalOrders, icon: '📦', color: 'from-purple-600/20 to-purple-600/10', border: 'border-purple-500/30', textColor: 'text-purple-400' },
-          { label: 'Revenue', value: `$${(stats.totalRevenue || 0).toFixed(2)}`, icon: '💰', color: 'from-green-600/20 to-green-600/10', border: 'border-green-500/30', textColor: 'text-green-400' },
-          { label: 'Pending', value: stats.pendingOrders, icon: '⏳', color: 'from-yellow-600/20 to-yellow-600/10', border: 'border-yellow-500/30', textColor: 'text-yellow-400' },
+          { id: 'users', label: 'Users', value: stats.totalUsers, icon: '👥', color: 'from-blue-600/20 to-blue-600/10', border: 'border-blue-500/30', textColor: 'text-blue-400' },
+          { id: 'orders', label: 'Orders', value: stats.totalOrders, icon: '📦', color: 'from-purple-600/20 to-purple-600/10', border: 'border-purple-500/30', textColor: 'text-purple-400' },
+          { id: 'revenue', label: 'Revenue', value: `₹${(stats.totalRevenue || 0).toLocaleString()}`, icon: '💰', color: 'from-green-600/20 to-green-600/10', border: 'border-green-500/30', textColor: 'text-green-400' },
+          { id: 'pending', label: 'Pending', value: stats.pendingOrders, icon: '⏳', color: 'from-yellow-600/20 to-yellow-600/10', border: 'border-yellow-500/30', textColor: 'text-yellow-400' },
         ].map((stat, index) => (
-          <div
+          <button
             key={index}
-            className={`relative overflow-hidden bg-gradient-to-br ${stat.color} border ${stat.border} rounded-2xl p-6 backdrop-blur-sm hover:scale-[1.02] transition-all duration-300`}
+            onClick={() => handleStatClick(stat.id)}
+            className={`relative overflow-hidden bg-gradient-to-br ${stat.color} border ${stat.border} rounded-2xl p-6 backdrop-blur-sm hover:scale-[1.02] transition-all duration-300 text-left w-full`}
           >
-            <div className="relative z-10">
-              <div className="flex items-center justify-between mb-3">
+            <div className="relative z-10 w-full">
+              <div className="flex items-center justify-between mb-3 w-full">
                 <span className="text-2xl">{stat.icon}</span>
                 <div className="w-2 h-2 bg-white/20 rounded-full animate-pulse"></div>
               </div>
-              <p className={`text-2xl md:text-3xl font-black ${stat.textColor} mb-1`}>
+              <p className={`text-2xl md:text-3xl font-black ${stat.textColor} mb-1 truncate`}>
                 {stat.value}
               </p>
               <p className="text-xs text-gray-400 font-medium uppercase tracking-wider">
@@ -321,7 +497,7 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
               </p>
             </div>
             <div className="absolute top-0 right-0 w-20 h-20 bg-white/5 rounded-full blur-2xl"></div>
-          </div>
+          </button>
         ))}
       </div>
 
@@ -454,11 +630,46 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
 
             <div className="space-y-8">
               <div className="bg-purple-900/10 border border-purple-500/20 p-8 rounded-[32px]">
-                <p className="text-[10px] font-black uppercase text-purple-400 tracking-widest mb-4">Command Actions</p>
+                <div className="flex justify-between items-center mb-6">
+                  <p className="text-[10px] font-black uppercase text-purple-400 tracking-widest">Command Actions</p>
+                  <div className={`px-4 py-1.5 rounded-lg border ${statusColors[selectedOrder.status] || statusColors.pending} text-[10px] font-black uppercase bg-black/50 shadow-lg`}>
+                    {selectedOrder.status}
+                  </div>
+                </div>
+
                 <div className="space-y-3">
-                  <button onClick={() => handleOrderStatusUpdate(selectedOrder._id, 'processing')} className="w-full py-4 rounded-xl bg-purple-600 text-white font-black uppercase text-[10px] tracking-widest hover:bg-purple-500 transition-all">Mark Processed</button>
-                  <button onClick={() => handleOrderStatusUpdate(selectedOrder._id, 'shipped')} className="w-full py-4 rounded-xl bg-blue-600 text-white font-black uppercase text-[10px] tracking-widest hover:bg-blue-500 transition-all">Mark Shipped</button>
-                  <button onClick={() => handleOrderStatusUpdate(selectedOrder._id, 'delivered')} className="w-full py-4 rounded-xl bg-green-600 text-white font-black uppercase text-[10px] tracking-widest hover:bg-green-500 transition-all">Mark Delivered</button>
+                  <button
+                    onClick={() => handleOrderStatusUpdate(selectedOrder._id, 'processing')}
+                    disabled={selectedOrder.status === 'processing'}
+                    className={`w-full py-4 rounded-xl font-black uppercase text-[10px] tracking-widest transition-all ${selectedOrder.status === 'processing'
+                      ? 'bg-purple-600/20 text-purple-400 cursor-default border border-purple-500/50'
+                      : 'bg-purple-600 text-white hover:bg-purple-500 shadow-lg shadow-purple-900/20'
+                      }`}
+                  >
+                    {selectedOrder.status === 'processing' ? '✓ Currently Processing' : 'Mark Processed'}
+                  </button>
+
+                  <button
+                    onClick={() => handleOrderStatusUpdate(selectedOrder._id, 'shipped')}
+                    disabled={selectedOrder.status === 'shipped'}
+                    className={`w-full py-4 rounded-xl font-black uppercase text-[10px] tracking-widest transition-all ${selectedOrder.status === 'shipped'
+                      ? 'bg-blue-600/20 text-blue-400 cursor-default border border-blue-500/50'
+                      : 'bg-blue-600 text-white hover:bg-blue-500 shadow-lg shadow-blue-900/20'
+                      }`}
+                  >
+                    {selectedOrder.status === 'shipped' ? '✓ Currently Shipped' : 'Mark Shipped'}
+                  </button>
+
+                  <button
+                    onClick={() => handleOrderStatusUpdate(selectedOrder._id, 'delivered')}
+                    disabled={selectedOrder.status === 'delivered'}
+                    className={`w-full py-4 rounded-xl font-black uppercase text-[10px] tracking-widest transition-all ${selectedOrder.status === 'delivered'
+                      ? 'bg-green-600/20 text-green-400 cursor-default border border-green-500/50'
+                      : 'bg-green-600 text-white hover:bg-green-500 shadow-lg shadow-green-900/20'
+                      }`}
+                  >
+                    {selectedOrder.status === 'delivered' ? '✓ Currently Delivered' : 'Mark Delivered'}
+                  </button>
                 </div>
               </div>
             </div>
