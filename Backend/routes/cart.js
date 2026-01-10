@@ -29,18 +29,36 @@ router.post('/', authenticateToken, getOrCreateCart, [
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { productId, quantity } = req.body;
+    const { productId, quantity, name, price, image } = req.body;
     const cart = req.cart;
 
-    // Check if product exists
-    const product = await Product.findById(productId);
-    if (!product) {
-      return res.status(404).json({ message: 'Product not found' });
+    let productData = {
+      price: price || 0,
+      name: name || 'Unknown Product',
+      stock: 999 // Fallback stock
+    };
+
+    // Check if product exists in DB (if valid ObjectId)
+    // We wrap this in try-catch to handle "Cast to ObjectId failed" errors silently
+    try {
+      if (productId.match(/^[0-9a-fA-F]{24}$/)) {
+        const dbProduct = await Product.findById(productId);
+        if (dbProduct) {
+          productData = {
+            price: dbProduct.price,
+            name: dbProduct.name,
+            stock: dbProduct.stock,
+            image: dbProduct.images?.[0] || ''
+          };
+        }
+      }
+    } catch (err) {
+      // Ignore cast errors, proceed with fallback data from request
     }
 
-    if (product.stock < quantity) {
+    if (productData.stock < quantity) {
       return res.status(400).json({
-        message: `Only ${product.stock} items available in stock`
+        message: `Only ${productData.stock} items available in stock`
       });
     }
 
@@ -50,9 +68,9 @@ router.post('/', authenticateToken, getOrCreateCart, [
     );
 
     if (existingItem) {
-      if (product.stock < existingItem.quantity + quantity) {
+      if (productData.stock < existingItem.quantity + quantity) {
         return res.status(400).json({
-          message: `Cannot add ${quantity} more items. Only ${product.stock - existingItem.quantity} available.`
+          message: `Cannot add ${quantity} more items. Only ${productData.stock - existingItem.quantity} available.`
         });
       }
       existingItem.quantity += quantity;
@@ -60,9 +78,9 @@ router.post('/', authenticateToken, getOrCreateCart, [
       cart.items.push({
         productId: productId,
         quantity,
-        price: product.price,
-        name: product.name,
-        image: product.images?.[0] || ''
+        price: productData.price,
+        name: productData.name,
+        image: image || productData.image || ''
       });
     }
 

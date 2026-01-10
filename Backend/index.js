@@ -151,8 +151,6 @@ app.put('/api/account', authenticateToken, async (req, res) => {
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-<<<<<<< HEAD
-=======
 // Alias for user profile (used by some frontends)
 app.get('/api/user/profile', authenticateToken, async (req, res) => {
   try {
@@ -161,8 +159,6 @@ app.get('/api/user/profile', authenticateToken, async (req, res) => {
     res.json({ id: user._id, name: user.name, email: user.email, address: user.address || '' });
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
-
->>>>>>> dev-admin
 app.use('/api/admin', adminRoutes);
 
 // OTP Routes

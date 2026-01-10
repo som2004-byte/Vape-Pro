@@ -1,9 +1,9 @@
 import React, { useRef, useEffect } from 'react'
 import * as THREE from 'three'
 
-const VapeSmokeEffect = ({ 
-  density = 50, 
-  speed = 0.5, 
+const VapeSmokeEffect = ({
+  density = 50,
+  speed = 0.5,
   opacity = 0.6,
   position = [0, 0, 0]
 }) => {
@@ -25,25 +25,39 @@ const VapeSmokeEffect = ({
     )
     camera.position.z = 1000
 
-    const renderer = new THREE.WebGLRenderer({
-      alpha: true,
-      antialias: true
-    })
+    let renderer
+    try {
+      renderer = new THREE.WebGLRenderer({
+        alpha: true,
+        antialias: true,
+        powerPreference: 'low-power',
+        failIfMajorPerformanceCaveat: false
+      })
+    } catch (e) {
+      console.warn('VapeSmokeEffect: WebGL not supported or context creation failed', e)
+      return
+    }
+
+    if (!renderer || !renderer.getContext()) {
+      console.warn('VapeSmokeEffect: Could not acquire WebGL context')
+      return
+    }
+
     renderer.setSize(mountRef.current.clientWidth, mountRef.current.clientHeight)
-    renderer.setPixelRatio(window.devicePixelRatio || 1)
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)) // Limit pixel ratio for performance
     mountRef.current.appendChild(renderer.domElement)
 
     // Create smoke texture
     const smokeTexture = createSmokeTexture()
-    
+
     // Create smoke particles with varying sizes for depth
     const smokeParticles = []
     const baseSizes = [200, 250, 300, 350]
-    
+
     for (let i = 0; i < density; i++) {
       const size = baseSizes[Math.floor(Math.random() * baseSizes.length)]
       const smokeGeometry = new THREE.PlaneGeometry(size, size)
-      
+
       const smokeMaterial = new THREE.MeshLambertMaterial({
         map: smokeTexture,
         transparent: true,
@@ -52,9 +66,9 @@ const VapeSmokeEffect = ({
         blending: THREE.AdditiveBlending,
         side: THREE.DoubleSide
       })
-      
+
       const smokeMesh = new THREE.Mesh(smokeGeometry, smokeMaterial)
-      
+
       // Start from bottom center area
       smokeMesh.position.set(
         (Math.random() - 0.5) * 600,
@@ -64,7 +78,7 @@ const VapeSmokeEffect = ({
       smokeMesh.rotation.z = Math.random() * Math.PI * 2
       smokeMesh.rotation.x = Math.random() * 0.5
       smokeMesh.rotation.y = Math.random() * 0.5
-      
+
       // Store initial properties for animation
       smokeMesh.userData = {
         baseX: smokeMesh.position.x,
@@ -76,7 +90,7 @@ const VapeSmokeEffect = ({
         phase: Math.random() * Math.PI * 2,
         scaleSpeed: 0.001 + Math.random() * 0.002
       }
-      
+
       scene.add(smokeMesh)
       smokeParticles.push(smokeMesh)
     }
@@ -100,18 +114,18 @@ const VapeSmokeEffect = ({
       smokeParticles.forEach((particle, i) => {
         const data = particle.userData
         const time = frame * data.speed
-        
+
         // Vertical rise with acceleration
         particle.position.y += (1 + time * 0.001) * speed * 0.8
-        
+
         // Curling motion - spiral effect
         const curlPhase = time * data.curlSpeed + data.phase
         particle.position.x = data.baseX + Math.cos(curlPhase) * (100 + time * 0.5)
         particle.position.z = data.baseZ + Math.sin(curlPhase * 1.3) * (80 + time * 0.4)
-        
+
         // Gentle horizontal drift
         particle.position.x += data.driftX * speed
-        
+
         // Rotation for 3D curling effect
         particle.rotation.z += data.curlSpeed * 0.5 * speed
         particle.rotation.y += Math.sin(curlPhase) * 0.002 * speed
@@ -134,9 +148,9 @@ const VapeSmokeEffect = ({
         particle.material.opacity = opacity * fadeIn * fadeOut * opacityVariation
 
         // Reset position when it moves too far up or away
-        if (particle.position.y > 500 || 
-            Math.abs(particle.position.x) > 600 || 
-            particle.position.z > 500) {
+        if (particle.position.y > 500 ||
+          Math.abs(particle.position.x) > 600 ||
+          particle.position.z > 500) {
           particle.position.set(
             (Math.random() - 0.5) * 600,
             -300 + Math.random() * 200,
@@ -172,10 +186,13 @@ const VapeSmokeEffect = ({
       if (animationIdRef.current) {
         cancelAnimationFrame(animationIdRef.current)
       }
-      if (mountRef.current && renderer.domElement) {
-        mountRef.current.removeChild(renderer.domElement)
+      if (renderer) {
+        if (mountRef.current && renderer.domElement && mountRef.current.contains(renderer.domElement)) {
+          mountRef.current.removeChild(renderer.domElement)
+        }
+        renderer.dispose()
+        renderer.forceContextLoss() // Explicitly try to free the context
       }
-      renderer.dispose()
       smokeTexture.dispose()
       smokeParticles.forEach(particle => {
         particle.material.dispose()
@@ -185,7 +202,7 @@ const VapeSmokeEffect = ({
   }, [density, speed, opacity])
 
   return (
-    <div 
+    <div
       ref={mountRef}
       className="absolute inset-0 w-full h-full pointer-events-none"
       style={{ zIndex: 0 }}
@@ -203,7 +220,7 @@ const createSmokeTexture = () => {
   // Create multiple layered gradients for depth
   const centerX = canvas.width / 2
   const centerY = canvas.height / 2
-  
+
   // Core bright center
   const coreGradient = ctx.createRadialGradient(
     centerX, centerY, 0,
@@ -248,11 +265,11 @@ const createSmokeTexture = () => {
       Math.pow(x - centerX, 2) + Math.pow(y - centerY, 2)
     )
     const maxDist = canvas.width / 2
-    
+
     // Add organic noise that fades toward edges
     const noiseStrength = (1 - distFromCenter / maxDist) * 0.15
     const noise = (Math.random() - 0.5) * noiseStrength
-    
+
     data[i] = Math.min(255, Math.max(0, data[i] + noise * 255))     // R
     data[i + 1] = Math.min(255, Math.max(0, data[i + 1] + noise * 255)) // G
     data[i + 2] = Math.min(255, Math.max(0, data[i + 2] + noise * 255)) // B
