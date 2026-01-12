@@ -49,19 +49,24 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
       if (response.ok) {
         const data = await response.json();
 
-        // Handle potentially wrapped array responses
+        // Handle different response structures
         if (endpoint.includes('/orders')) {
-          setter(Array.isArray(data) ? data : (data.orders || []));
-        } else if (endpoint.includes('/users')) {
-          setter(Array.isArray(data) ? data : (data.users || []));
+          setter(data.orders || (Array.isArray(data) ? data : []));
         } else if (endpoint.includes('/products')) {
-          setter(Array.isArray(data) ? data : (data.products || []));
+          setter(data.products || (Array.isArray(data) ? data : []));
+        } else if (endpoint.includes('/users')) {
+          setter(data.users || (Array.isArray(data) ? data : []));
         } else if (endpoint.includes('/client-requirements')) {
-          setter(Array.isArray(data) ? data : (data.requirements || data.clientRequirements || []));
+          setter(data.requirements || (Array.isArray(data) ? data : []));
         } else {
           setter(data);
         }
       } else {
+        if (response.status === 401) {
+          console.warn('Session expired or unauthorized. Logging out...');
+          onLogout();
+          return;
+        }
         let msg = `Failed to fetch ${endpoint}`;
         try {
           const errData = await response.json();
