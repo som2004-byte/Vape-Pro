@@ -623,13 +623,7 @@ export default function AccountSection({
                         >
                           {otpSent ? 'OTP Sent' : 'Get OTP'}
                         </button>
-                        <button
-                          type="button"
-                          onClick={generateEmailOtp}
-                          className="flex-1 md:flex-none px-3 py-2 rounded bg-darkPurple-950 text-yellow-500 border border-yellow-500/30 text-[10px] font-bold uppercase tracking-wider hover:bg-yellow-500 hover:text-black transition-all whitespace-nowrap"
-                        >
-                          Use Demo OTP
-                        </button>
+
                       </div>
                     ) : (
                       <span className="text-green-400 text-sm font-medium">Verified!</span>

@@ -74,7 +74,7 @@ const sendOtpEmail = async (toEmail, code) => {
   const html = `<div style="font-family: Arial; color: #111;"><h2>Your Verification Code</h2><div style="font-size: 24px; font-weight: bold;">${code}</div></div>`;
   await Promise.race([
     mailTransporter.sendMail({ from: SMTP_FROM || SMTP_USER, to: toEmail, subject: 'Your verification code', html }),
-    new Promise((_, reject) => setTimeout(() => reject(new Error('Email send timeout')), 8000)),
+    new Promise((_, reject) => setTimeout(() => reject(new Error('Email send timeout')), 15000)),
   ]);
 };
 
@@ -173,9 +173,12 @@ app.post('/api/request-email-otp', async (req, res) => {
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
     await EmailOtp.findOneAndUpdate({ email }, { codeHash: await bcrypt.hash(code, 10), expiresAt }, { upsert: true });
     try {
+      console.log(`Attempting to send OTP to ${email}...`);
       await sendOtpEmail(email, code);
+      console.log(`OTP sent successfully to ${email}`);
       res.json({ message: 'OTP sent' });
     } catch (emailError) {
+      console.error('Email Send Error:', emailError);
       res.status(503).json({ message: 'Email service unavailable. Please try again later.', error: emailError.message, dev_otp: code });
     }
   } catch (error) { res.status(500).json({ error: error.message }); }
