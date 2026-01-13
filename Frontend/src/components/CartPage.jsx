@@ -73,7 +73,7 @@ export default function CartPage({
                       <div className="flex items-center gap-4">
                         <div className="flex items-center border border-darkPurple-700 rounded-md">
                           <button
-                            onClick={() => onUpdateQuantity(item.id, item.quantity - 1, { flavor: item.flavor, series: item.series })}
+                            onClick={() => onUpdateQuantity(item.id, item.quantity - 1, { flavor: item.flavor, series: item.series, isAbsolute: true })}
                             disabled={item.quantity <= 1}
                             className="px-3 py-1 text-yellow-400 hover:bg-darkPurple-800 rounded-l-md disabled:opacity-50"
                           >
@@ -81,7 +81,7 @@ export default function CartPage({
                           </button>
                           <span className="px-3 py-1 text-white bg-darkPurple-900/50">{item.quantity}</span>
                           <button
-                            onClick={() => onUpdateQuantity(item.id, item.quantity + 1, { flavor: item.flavor, series: item.series })}
+                            onClick={() => onUpdateQuantity(item.id, item.quantity + 1, { flavor: item.flavor, series: item.series, isAbsolute: true })}
                             className="px-3 py-1 text-yellow-400 hover:bg-darkPurple-800 rounded-r-md"
                           >
                             +

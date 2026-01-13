@@ -5,108 +5,151 @@ import { Suspense } from 'react'
 import { OrbitControls, Environment, useGLTF } from '@react-three/drei'
 import VapeSmokeEffect from './VapeSmokeEffect'
 
-function Model({ url }){
+function Model({ url }) {
   const { scene } = useGLTF(url)
   return <primitive object={scene} dispose={null} />
 }
 
 const modalVideoSrc = '/videos/login-bg.mp4' // reuse hero/login background
 
-export default function ProductModal({ product, onClose, onAddToCart, onBuyNow }){
+export default function ProductModal({ product, onClose, onAddToCart, onBuyNow }) {
   return (
-    <Dialog open={true} onClose={onClose} className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="fixed inset-0 bg-black/60" aria-hidden="true" />
-      <div className="bg-neutral-900 rounded-2xl max-w-4xl w-full mx-4 p-6 z-10">
-        <div className="flex justify-between items-start">
-          <div>
-            {product.brand && (
-              <p className="text-sm text-gray-400 uppercase tracking-wide mb-1">{product.brand}</p>
-            )}
-            <h3 className="text-2xl font-semibold">
-              {product.series || product.name}
-              {product.flavor && ` - ${product.flavor}`}
-            </h3>
-          </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-white">✕</button>
-        </div>
+    <Dialog open={true} onClose={onClose} className="relative z-[2000]">
+      <div className="fixed inset-0 bg-black/90" aria-hidden="true" />
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-          {/* Product visual with video + smoke background */}
-          <div className="relative h-96 rounded-md bg-black/40 overflow-hidden">
-            {/* Background video */}
-            <video
-              className="absolute inset-0 w-full h-full object-cover opacity-60"
-              src={modalVideoSrc}
-              autoPlay
-              muted
-              loop
-              playsInline
-            />
-
-            {/* Smoke effect over video */}
-            <div className="absolute inset-0">
-              <VapeSmokeEffect density={45} speed={0.5} opacity={0.45} />
+      <div className="fixed inset-0 overflow-y-auto">
+        <div className="flex min-h-full items-center justify-center p-4 text-center">
+          <Dialog.Panel className="w-full max-w-4xl transform overflow-hidden rounded-2xl bg-neutral-900 p-6 text-left align-middle shadow-xl transition-all border border-neutral-800">
+            <div className="flex justify-between items-start mb-4">
+              <div className="pr-8">
+                {product.brand && (
+                  <p className="text-sm text-gray-400 uppercase tracking-wide mb-1">{product.brand}</p>
+                )}
+                <h3 className="text-xl md:text-2xl font-semibold text-white leading-tight">
+                  {product.series || product.name}
+                  {product.flavor && ` - ${product.flavor}`}
+                </h3>
+              </div>
+              <button
+                onClick={onClose}
+                className="absolute top-4 right-4 p-2 text-gray-400 hover:text-white bg-neutral-800/50 hover:bg-neutral-700 rounded-full transition-colors z-20"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
             </div>
 
-            {/* Dark overlay for contrast */}
-            <div className="absolute inset-0 bg-gradient-to-br from-black/75 via-black/65 to-black/85" />
-
-            {/* Foreground product content */}
-            <div className="relative z-10 h-full flex items-center justify-center p-2">
-              {product.modelUrl ? (
-                <Canvas camera={{ fov: 35, position: [0,0,3] }}>
-                  <ambientLight intensity={0.6} />
-                  <directionalLight position={[5,10,5]} intensity={1.2} />
-                  <Suspense fallback={<img src={product.poster} alt="poster" className="w-full h-full object-cover" />}>
-                    <Model url={product.modelUrl} />
-                    <Environment preset="city" />
-                  </Suspense>
-                  <OrbitControls />
-                </Canvas>
-              ) : (
-                <img
-                  src={product.poster || product.cardImage}
-                  alt={product.series || product.name}
-                  className="w-full h-full object-contain float-soft"
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Product visual with video + smoke background */}
+              <div className="relative h-64 md:h-96 rounded-xl bg-black/40 overflow-hidden w-full group">
+                {/* Background video */}
+                <video
+                  className="absolute inset-0 w-full h-full object-cover opacity-60 transition-transform duration-700 group-hover:scale-110"
+                  src={modalVideoSrc}
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
                 />
-              )}
-            </div>
-          </div>
 
-          <div className="space-y-3">
-            <div className="text-yellowGradient-end font-bold text-2xl">₹{product.price?.toLocaleString()}</div>
-            <div className="space-y-1 text-gray-300">
-              {product.type && <p className="text-sm"><span className="text-gray-500">Type:</span> {product.type}</p>}
-              {product.puffs && <p className="text-sm"><span className="text-gray-500">Puffs:</span> {product.puffs.toLocaleString()}</p>}
-              {product.nicotine && <p className="text-sm"><span className="text-gray-500">Nicotine:</span> {product.nicotine}</p>}
-              {product.features && <p className="text-sm"><span className="text-gray-500">Features:</span> {product.features}</p>}
+                {/* Smoke effect over video */}
+                <div className="absolute inset-0">
+                  <VapeSmokeEffect density={45} speed={0.5} opacity={0.45} />
+                </div>
+
+                {/* Dark overlay for contrast */}
+                <div className="absolute inset-0 bg-gradient-to-br from-black/75 via-black/65 to-black/85" />
+
+                {/* Foreground product content */}
+                <div className="relative z-10 h-full flex items-center justify-center p-4">
+                  {product.modelUrl ? (
+                    <Canvas camera={{ fov: 35, position: [0, 0, 3] }}>
+                      <ambientLight intensity={0.6} />
+                      <directionalLight position={[5, 10, 5]} intensity={1.2} />
+                      <Suspense fallback={<img src={product.poster} alt="poster" className="w-full h-full object-contain" />}>
+                        <Model url={product.modelUrl} />
+                        <Environment preset="city" />
+                      </Suspense>
+                      <OrbitControls enableZoom={false} />
+                    </Canvas>
+                  ) : (
+                    <img
+                      src={product.poster || product.cardImage}
+                      alt={product.series || product.name}
+                      className="w-full h-full object-contain float-soft drop-shadow-2xl"
+                    />
+                  )}
+                </div>
+              </div>
+
+              <div className="flex flex-col justify-between space-y-4">
+                <div className="space-y-4">
+                  <div className="text-3xl font-bold bg-gradient-to-r from-yellow-200 to-yellow-500 bg-clip-text text-transparent">
+                    ₹{product.price?.toLocaleString()}
+                  </div>
+
+                  <div className="space-y-3 bg-neutral-800/30 p-4 rounded-xl border border-neutral-800">
+                    {product.type && (
+                      <div className="flex justify-between items-center text-sm border-b border-neutral-800 pb-2 last:border-0 last:pb-0">
+                        <span className="text-gray-500 font-medium">Type</span>
+                        <span className="text-gray-200">{product.type}</span>
+                      </div>
+                    )}
+                    {product.puffs && (
+                      <div className="flex justify-between items-center text-sm border-b border-neutral-800 pb-2 last:border-0 last:pb-0">
+                        <span className="text-gray-500 font-medium">Puffs</span>
+                        <span className="text-gray-200">{product.puffs.toLocaleString()}</span>
+                      </div>
+                    )}
+                    {product.nicotine && (
+                      <div className="flex justify-between items-center text-sm border-b border-neutral-800 pb-2 last:border-0 last:pb-0">
+                        <span className="text-gray-500 font-medium">Nicotine</span>
+                        <span className="text-gray-200">{product.nicotine}</span>
+                      </div>
+                    )}
+                    {product.features && (
+                      <div className="flex justify-between items-top text-sm border-b border-neutral-800 pb-2 last:border-0 last:pb-0">
+                        <span className="text-gray-500 font-medium">Features</span>
+                        <span className="text-gray-200 text-right max-w-[60%]">{product.features}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-3 pt-2">
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      className="px-4 py-3.5 rounded-xl bg-yellow-500 text-black font-bold hover:bg-yellow-400 transition-all transform active:scale-95 shadow-lg shadow-yellow-500/20"
+                      onClick={() => {
+                        if (onBuyNow) {
+                          onBuyNow(product)
+                        } else if (onAddToCart) {
+                          onAddToCart(product)
+                        }
+                        onClose?.()
+                      }}
+                    >
+                      Buy Now
+                    </button>
+                    <button
+                      className="px-4 py-3.5 rounded-xl border border-neutral-700 bg-neutral-800/50 text-white font-semibold hover:bg-neutral-800 hover:border-neutral-600 transition-all transform active:scale-95"
+                      onClick={() => {
+                        onAddToCart?.(product)
+                        onClose?.()
+                      }}
+                    >
+                      Add to Cart
+                    </button>
+                  </div>
+                  <div className="flex items-start gap-2 text-xs text-gray-500 bg-neutral-950/50 p-3 rounded-lg">
+                    <span className="text-yellow-500 text-base">⚠️</span>
+                    <p>Products may be subject to local law. Verify age and legality before purchase.</p>
+                  </div>
+                </div>
+              </div>
             </div>
-            <div className="flex gap-2 mt-4">
-              <button
-                className="px-4 py-3 rounded-full bg-yellowGradient-end text-black font-semibold hover:bg-yellow-300 transition-colors"
-                onClick={() => {
-                  if (onBuyNow) {
-                    onBuyNow(product)
-                  } else if (onAddToCart) {
-                    onAddToCart(product)
-                  }
-                  onClose?.()
-                }}
-              >
-                Buy now
-              </button>
-              <button
-                className="px-4 py-3 rounded-full border border-neutral-700 hover:bg-neutral-800/60 transition-colors"
-                onClick={() => {
-                  onAddToCart?.(product)
-                  onClose?.()
-                }}
-              >
-                Add to cart
-              </button>
-            </div>
-            <div className="text-sm text-gray-400 mt-4">⚠️ Products may be subject to local law. Verify age and legality before purchase.</div>
-          </div>
+          </Dialog.Panel>
         </div>
       </div>
     </Dialog>

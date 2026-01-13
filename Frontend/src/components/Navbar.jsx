@@ -1,7 +1,7 @@
 ﻿import React, { useState } from 'react'
 import { MAIN_CATEGORIES, BRANDS, PRICE_RANGES, PUFF_RANGES, getSubCategoriesByBrand } from '../data'
 
-export default function Navbar({ user, onLogout, currentCategory = 'all', onCategoryChange, onFilterChange, activeFilters = {}, onNavigate, cartItemCount }) {
+export default function Navbar({ user, onLogout, currentCategory = 'all', onCategoryChange, onFilterChange, activeFilters = {}, onNavigate, cartItemCount, searchQuery, onSearchChange }) {
   const [activeDropdown, setActiveDropdown] = useState(null)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
 
@@ -96,10 +96,10 @@ export default function Navbar({ user, onLogout, currentCategory = 'all', onCate
           }}
           className="flex items-center gap-2 md:gap-3 hover:opacity-80 transition-opacity flex-shrink-0"
         >
-          <img src="/images/vapesmart-logo.png" alt="logo" className="h-10 md:h-20 w-auto object-contain" />
-          <div className="hidden md:block">
-            <div className="font-bold text-xl bg-gradient-to-r from-white via-cyan-300 to-white bg-clip-text text-transparent">VapeSmart</div>
-            <div className="font-semibold text-sm text-cyan-300">Smart vaping starts here</div>
+          <img src="/images/vapesmart-logo.png" alt="logo" className="h-10 md:h-12 w-auto object-contain" />
+          <div className="flex flex-col items-start">
+            <div className="font-bold text-lg md:text-xl bg-gradient-to-r from-white via-cyan-300 to-white bg-clip-text text-transparent">VapeSmart</div>
+            <div className="hidden md:block font-semibold text-xs md:text-sm text-cyan-300">Smart vaping starts here</div>
           </div>
         </button>
 
@@ -110,6 +110,8 @@ export default function Navbar({ user, onLogout, currentCategory = 'all', onCate
             </svg>
             <input
               aria-label="Search"
+              value={searchQuery || ''}
+              onChange={(e) => onSearchChange?.(e.target.value)}
               className="w-full rounded-full py-2 pl-10 pr-4 bg-gray-900/50 border border-gray-700/50 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-400/50 focus:border-cyan-400/50"
               placeholder="Search flavour, puffs, brand..."
             />
@@ -158,6 +160,8 @@ export default function Navbar({ user, onLogout, currentCategory = 'all', onCate
           </svg>
           <input
             aria-label="Search"
+            value={searchQuery || ''}
+            onChange={(e) => onSearchChange?.(e.target.value)}
             className="w-full rounded-2xl py-2 pl-9 pr-4 bg-gray-900/50 border border-gray-700/50 text-white text-sm placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-cyan-400/50 focus:border-cyan-400/50"
             placeholder="Search..."
           />

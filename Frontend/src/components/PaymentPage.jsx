@@ -8,7 +8,7 @@ export default function PaymentPage({
   onPaymentSuccess,
   onCancel,
 }) {
-  const [paymentMethod, setPaymentMethod] = useState('card');
+  const [paymentMethod, setPaymentMethod] = useState('cod');
   const [cardNumber, setCardNumber] = useState('');
   const [cardName, setCardName] = useState('');
   const [expiry, setExpiry] = useState('');
@@ -24,16 +24,22 @@ export default function PaymentPage({
 
   // Simulate payment processing
   const handlePayment = async () => {
-    // Handle Cash on Delivery differently
+    // Verify address
+    if (!customerProfile || !customerProfile.address || !customerProfile.address.trim()) {
+      alert('Please provide a valid shipping address in your profile before placing the order.');
+      return;
+    }
+
+    // Handle Cash on Delivery
     if (paymentMethod === 'cod') {
       setIsProcessing(true);
       setPaymentStatus('processing');
-      
+
       // For COD, immediately confirm order (no payment processing needed)
       setTimeout(() => {
         setPaymentStatus('success');
         const transactionId = `COD${Date.now()}${Math.floor(Math.random() * 1000)}`;
-        
+
         setTimeout(() => {
           onPaymentSuccess({
             transactionId,
@@ -70,11 +76,11 @@ export default function PaymentPage({
     setTimeout(() => {
       // Simulate 90% success rate for demo
       const isSuccess = Math.random() > 0.1;
-      
+
       if (isSuccess) {
         setPaymentStatus('success');
         const transactionId = generateTransactionId();
-        
+
         // Wait a moment then call success handler
         setTimeout(() => {
           onPaymentSuccess({
@@ -141,7 +147,7 @@ export default function PaymentPage({
               {paymentMethod === 'cod' ? 'Order Placed Successfully!' : 'Payment Successful!'}
             </h2>
             <p className="text-darkPurple-300 mb-4">
-              {paymentMethod === 'cod' 
+              {paymentMethod === 'cod'
                 ? 'Your order has been placed. Pay cash on delivery when your order arrives.'
                 : 'Your order has been placed successfully.'}
             </p>
@@ -213,128 +219,17 @@ export default function PaymentPage({
                 <label className="block text-sm font-medium text-darkPurple-300 mb-3">
                   Payment Method
                 </label>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 gap-4">
                   <button
                     type="button"
-                    onClick={() => setPaymentMethod('card')}
-                    className={`p-4 rounded-lg border-2 transition-colors ${
-                      paymentMethod === 'card'
-                        ? 'border-yellow-400 bg-yellow-400/10'
-                        : 'border-darkPurple-700 hover:border-darkPurple-600'
-                    }`}
-                  >
-                    <div className="text-white font-semibold text-sm">Credit/Debit Card</div>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPaymentMethod('upi')}
-                    className={`p-4 rounded-lg border-2 transition-colors ${
-                      paymentMethod === 'upi'
-                        ? 'border-yellow-400 bg-yellow-400/10'
-                        : 'border-darkPurple-700 hover:border-darkPurple-600'
-                    }`}
-                  >
-                    <div className="text-white font-semibold text-sm">UPI</div>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPaymentMethod('cod')}
-                    className={`p-4 rounded-lg border-2 transition-colors ${
-                      paymentMethod === 'cod'
-                        ? 'border-yellow-400 bg-yellow-400/10'
-                        : 'border-darkPurple-700 hover:border-darkPurple-600'
-                    }`}
+                    className="p-4 rounded-lg border-2 border-yellow-400 bg-yellow-400/10 transition-colors"
                   >
                     <div className="text-white font-semibold text-sm">Cash on Delivery</div>
                   </button>
                 </div>
               </div>
 
-              {paymentMethod === 'card' && (
-                <div className="space-y-4">
-                  <div>
-                    <label htmlFor="cardNumber" className="block text-sm font-medium text-darkPurple-300 mb-1">
-                      Card Number
-                    </label>
-                    <input
-                      type="text"
-                      id="cardNumber"
-                      maxLength="19"
-                      className="w-full px-4 py-2 rounded-lg bg-darkPurple-900/50 border border-darkPurple-700 focus:outline-none focus:ring-2 focus:ring-yellow-400/50 text-white"
-                      placeholder="1234 5678 9012 3456"
-                      value={cardNumber}
-                      onChange={handleCardNumberChange}
-                      disabled={isProcessing}
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="cardName" className="block text-sm font-medium text-darkPurple-300 mb-1">
-                      Cardholder Name
-                    </label>
-                    <input
-                      type="text"
-                      id="cardName"
-                      className="w-full px-4 py-2 rounded-lg bg-darkPurple-900/50 border border-darkPurple-700 focus:outline-none focus:ring-2 focus:ring-yellow-400/50 text-white"
-                      placeholder="John Doe"
-                      value={cardName}
-                      onChange={(e) => setCardName(e.target.value)}
-                      disabled={isProcessing}
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label htmlFor="expiry" className="block text-sm font-medium text-darkPurple-300 mb-1">
-                        Expiry Date
-                      </label>
-                      <input
-                        type="text"
-                        id="expiry"
-                        maxLength="5"
-                        className="w-full px-4 py-2 rounded-lg bg-darkPurple-900/50 border border-darkPurple-700 focus:outline-none focus:ring-2 focus:ring-yellow-400/50 text-white"
-                        placeholder="MM/YY"
-                        value={expiry}
-                        onChange={handleExpiryChange}
-                        disabled={isProcessing}
-                      />
-                    </div>
-                    <div>
-                      <label htmlFor="cvv" className="block text-sm font-medium text-darkPurple-300 mb-1">
-                        CVV
-                      </label>
-                      <input
-                        type="text"
-                        id="cvv"
-                        maxLength="4"
-                        className="w-full px-4 py-2 rounded-lg bg-darkPurple-900/50 border border-darkPurple-700 focus:outline-none focus:ring-2 focus:ring-yellow-400/50 text-white"
-                        placeholder="123"
-                        value={cvv}
-                        onChange={(e) => setCvv(e.target.value.replace(/\D/g, ''))}
-                        disabled={isProcessing}
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
 
-              {paymentMethod === 'upi' && (
-                <div className="space-y-4">
-                  <div>
-                    <label htmlFor="upiId" className="block text-sm font-medium text-darkPurple-300 mb-1">
-                      UPI ID
-                    </label>
-                    <input
-                      type="text"
-                      id="upiId"
-                      className="w-full px-4 py-2 rounded-lg bg-darkPurple-900/50 border border-darkPurple-700 focus:outline-none focus:ring-2 focus:ring-yellow-400/50 text-white"
-                      placeholder="yourname@paytm"
-                      disabled={isProcessing}
-                    />
-                  </div>
-                  <p className="text-sm text-darkPurple-400">
-                    You will be redirected to your UPI app to complete the payment.
-                  </p>
-                </div>
-              )}
 
               {paymentMethod === 'cod' && (
                 <div className="space-y-4">
@@ -353,9 +248,7 @@ export default function PaymentPage({
                   </div>
                   <div className="p-4 bg-darkPurple-900/30 rounded-lg">
                     <p className="text-sm text-darkPurple-300">
-                      <span className="font-semibold text-white">Delivery Time:</span> 3-5 business days
-                    </p>
-                    <p className="text-sm text-darkPurple-300 mt-1">
+
                       <span className="font-semibold text-white">COD Charges:</span> No additional charges
                     </p>
                   </div>
@@ -391,7 +284,7 @@ export default function PaymentPage({
                       {paymentMethod === 'cod' ? 'Placing Order...' : 'Processing...'}
                     </span>
                   ) : (
-                    paymentMethod === 'cod' 
+                    paymentMethod === 'cod'
                       ? `Place Order (₹${total.toLocaleString()})`
                       : `Pay ₹${total.toLocaleString()}`
                   )}

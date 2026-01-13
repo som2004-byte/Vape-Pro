@@ -387,10 +387,10 @@ export default function App() {
       setToast({ type: 'error', message: 'Your cart is empty' })
       return
     }
-    if (!customerProfile) {
+    if (!customerProfile || !customerProfile.address || !customerProfile.address.trim()) {
       setToast({
         type: 'error',
-        message: 'Please complete your profile first',
+        message: 'Please provide a shipping address',
         subTitle: 'Go to My Account to add your details'
       })
       setCurrentPage('account')

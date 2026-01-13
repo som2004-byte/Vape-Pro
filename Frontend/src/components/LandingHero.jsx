@@ -3,7 +3,7 @@ import VapeSmokeEffect from './VapeSmokeEffect'
 
 const heroVideoSrc = '/videos/login-bg.mp4' // reuse login video for hero background
 
-export default function LandingHero({ onNavigate, onCategoryChange, onFilterChange }){
+export default function LandingHero({ onNavigate, onCategoryChange, onFilterChange }) {
   return (
     <section className="relative overflow-hidden rounded-3xl border border-gray-800 bg-black px-6 py-16 md:px-12 md:py-24 min-h-[600px] flex items-center justify-center shadow-[0_30px_80px_rgba(0,0,0,0.35)]">
       {/* Background video (same style as login) */}
@@ -18,9 +18,9 @@ export default function LandingHero({ onNavigate, onCategoryChange, onFilterChan
 
       {/* Subtle vape smoke over video for extra depth */}
       <div className="absolute inset-0 z-0">
-        <VapeSmokeEffect 
-          density={55} 
-          speed={0.55} 
+        <VapeSmokeEffect
+          density={55}
+          speed={0.55}
           opacity={0.45}
         />
       </div>
@@ -30,9 +30,9 @@ export default function LandingHero({ onNavigate, onCategoryChange, onFilterChan
 
       {/* Background Logo */}
       <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none overflow-hidden">
-        <img 
-          src="/images/vapesmart-logo.png" 
-          alt="VapeSmart Logo" 
+        <img
+          src="/images/vapesmart-logo.png"
+          alt="VapeSmart Logo"
           onError={(e) => {
             console.error('Logo image failed to load. Please ensure the image is at /public/images/vapesmart-logo.png');
           }}
@@ -43,14 +43,14 @@ export default function LandingHero({ onNavigate, onCategoryChange, onFilterChan
 
       {/* Centered Text Content */}
       <div className="relative z-20 w-full flex items-center justify-center">
-        <div className="max-w-4xl w-full text-center space-y-8">
-          <div className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-darkPurple-700 to-yellowGradient-end border border-darkPurple-700/50 px-6 py-3 text-sm uppercase tracking-[0.25em] text-black font-bold">Cloudy Vapes</div>
-          <h1 className="text-6xl md:text-8xl lg:text-9xl font-bold leading-[1.05] text-white">
+        <div className="max-w-4xl w-full text-center space-y-6 md:space-y-8">
+          <div className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-darkPurple-700 to-yellowGradient-end border border-darkPurple-700/50 px-4 py-2 md:px-6 md:py-3 text-xs md:text-sm uppercase tracking-[0.25em] text-black font-bold">Smart vaping starts here</div>
+          <h1 className="text-5xl md:text-8xl lg:text-9xl font-bold leading-[1.05] text-white">
             Elevate your <span className="text-yellowGradient-end">vape</span> experience
           </h1>
-          <p className="text-gray-300 max-w-2xl mx-auto text-xl md:text-2xl">Floaty, futuristic, and responsive. Tap a device to spin it in 3D, or hover to watch it gently levitate.</p>
+          <p className="text-gray-300 max-w-2xl mx-auto text-lg md:text-2xl px-4">Floaty, futuristic, and responsive. Tap a device to spin it in 3D, or hover to watch it gently levitate.</p>
           <div className="flex flex-wrap gap-4 justify-center pt-4">
-            <button 
+            <button
               onClick={() => {
                 // Show ALL products: clear filters, category = all
                 onNavigate?.('home');
@@ -64,11 +64,11 @@ export default function LandingHero({ onNavigate, onCategoryChange, onFilterChan
                   }
                 }, 300);
               }}
-              className="px-10 py-5 rounded-full bg-gradient-to-r from-yellowGradient-start to-yellowGradient-end text-black font-bold text-lg md:text-xl shadow-lg hover:from-yellowGradient-end hover:to-yellowGradient-start transition-all duration-300 transform hover:-translate-y-1 hover:shadow-[0_15px_30px_rgba(255,215,0,0.4)]"
+              className="px-8 py-4 md:px-10 md:py-5 rounded-full bg-gradient-to-r from-yellowGradient-start to-yellowGradient-end text-black font-bold text-base md:text-xl shadow-lg hover:from-yellowGradient-end hover:to-yellowGradient-start transition-all duration-300 transform hover:-translate-y-1 hover:shadow-[0_15px_30px_rgba(255,215,0,0.4)]"
             >
               Shop Now
             </button>
-            <button 
+            <button
               onClick={() => {
                 // View Flavours: keep only products that have a flavour defined
                 onNavigate?.('home');
@@ -83,7 +83,7 @@ export default function LandingHero({ onNavigate, onCategoryChange, onFilterChan
                   }
                 }, 300);
               }}
-              className="px-10 py-5 rounded-full border-2 border-darkPurple-700 text-darkPurple-100 hover:border-yellowGradient-start hover:text-yellowGradient-start transition text-lg md:text-xl font-semibold"
+              className="px-8 py-4 md:px-10 md:py-5 rounded-full border-2 border-darkPurple-700 text-darkPurple-100 hover:border-yellowGradient-start hover:text-yellowGradient-start transition text-base md:text-xl font-semibold"
             >
               View Flavours
             </button>
