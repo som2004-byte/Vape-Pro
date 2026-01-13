@@ -24,9 +24,15 @@ export default function PaymentPage({
 
   // Simulate payment processing
   const handlePayment = async () => {
-    // Verify address
+    // Verify address and phone number
     if (!customerProfile || !customerProfile.address || !customerProfile.address.trim()) {
       alert('Please provide a valid shipping address in your profile before placing the order.');
+      return;
+    }
+
+    const phoneRegex = /^(\+91[\-\s]?)?[6789]\d{9}$/;
+    if (!customerProfile || !customerProfile.phoneNumber || !phoneRegex.test(customerProfile.phoneNumber)) {
+      alert('Please provide a valid Indian phone number in your profile before placing the order.');
       return;
     }
 
@@ -137,7 +143,7 @@ export default function PaymentPage({
           playsInline
         />
         <div className="absolute inset-0">
-          <VapeSmokeEffect density={55} speed={0.55} opacity={0.4} />
+          <VapeSmokeEffect density={100} speed={0.55} opacity={0.6} />
         </div>
         <div className="absolute inset-0 bg-gradient-to-br from-black/40 via-black/25 to-black/50" />
         <div className="relative z-10 text-center p-8">
@@ -159,7 +165,7 @@ export default function PaymentPage({
   }
 
   return (
-    <div className="relative min-h-screen overflow-hidden">
+    <div className="relative min-h-screen overflow-hidden pt-24">
       {/* Background video */}
       <video
         className="absolute inset-0 w-full h-full object-cover opacity-90"
@@ -170,126 +176,119 @@ export default function PaymentPage({
         playsInline
       />
 
-      {/* Global vape smoke - blended with video */}
-      <div className="absolute inset-0">
-        <VapeSmokeEffect density={55} speed={0.55} opacity={0.4} />
-      </div>
-
       {/* Subtle overlay for readability - lighter to blend better */}
       <div className="absolute inset-0 bg-gradient-to-br from-black/40 via-black/25 to-black/50" />
 
       {/* Content */}
-      <div className="relative min-h-screen text-gray-100 p-4">
-        <div className="container mx-auto max-w-4xl py-8">
-          <h2 className="text-4xl font-bold mb-8 bg-gradient-to-r from-yellowGradient-start via-yellowGradient-end to-yellowGradient-start bg-clip-text text-transparent">
-            Payment & Checkout
-          </h2>
+      <div className="relative z-20 container mx-auto px-4 pb-8">
+        <h2 className="text-3xl font-bold mb-8 text-center bg-gradient-to-r from-yellowGradient-start via-yellowGradient-end to-yellowGradient-start bg-clip-text text-transparent">
+          Payment & Checkout
+        </h2>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {/* Order Summary */}
-            <div className="md:col-span-1 bg-gradient-to-br from-darkPurple-950/90 to-black/90 backdrop-blur-sm p-6 rounded-lg shadow-lg border border-darkPurple-700/50 h-fit">
-              <h3 className="text-2xl font-bold text-white mb-4">Order Summary</h3>
-              <div className="space-y-2 mb-4">
-                {cartItems.map((item) => (
-                  <div key={item.id} className="flex justify-between text-sm text-darkPurple-300">
-                    <span>{item.series || item.name} x{item.quantity}</span>
-                    <span>₹{((item.price || 0) * (item.quantity || 1)).toLocaleString()}</span>
-                  </div>
-                ))}
-              </div>
-              <div className="border-t border-darkPurple-700 my-4"></div>
-              <div className="flex justify-between items-center text-white text-xl font-bold mb-4">
-                <span>Total</span>
-                <span>₹{total.toLocaleString()}</span>
-              </div>
-              {customerProfile && (
-                <div className="mt-4 pt-4 border-t border-darkPurple-700">
-                  <p className="text-xs text-darkPurple-400 mb-1">Shipping to:</p>
-                  <p className="text-sm text-darkPurple-300">{customerProfile.address || 'No address provided'}</p>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          {/* Order Summary */}
+          <div className="md:col-span-1 bg-gradient-to-br from-darkPurple-950/90 to-black/90 backdrop-blur-sm p-6 rounded-lg shadow-lg border border-darkPurple-700/50 h-fit">
+            <h3 className="text-2xl font-bold text-white mb-4">Order Summary</h3>
+            <div className="space-y-2 mb-4">
+              {cartItems.map((item) => (
+                <div key={item.id} className="flex justify-between text-sm text-darkPurple-300">
+                  <span>{item.series || item.name} x{item.quantity}</span>
+                  <span>₹{((item.price || 0) * (item.quantity || 1)).toLocaleString()}</span>
                 </div>
-              )}
+              ))}
+            </div>
+            <div className="border-t border-darkPurple-700 my-4"></div>
+            <div className="flex justify-between items-center text-white text-xl font-bold mb-4">
+              <span>Total</span>
+              <span>₹{total.toLocaleString()}</span>
+            </div>
+            {customerProfile && (
+              <div className="mt-4 pt-4 border-t border-darkPurple-700">
+                <p className="text-xs text-darkPurple-400 mb-1">Shipping to:</p>
+                <p className="text-sm text-darkPurple-300">{customerProfile.address || 'No address provided'}</p>
+              </div>
+            )}
+          </div>
+
+          {/* Payment Form */}
+          <div className="md:col-span-2 bg-gradient-to-br from-darkPurple-950/90 to-black/90 backdrop-blur-sm p-8 rounded-lg shadow-lg border border-darkPurple-700/50">
+            <h3 className="text-2xl font-bold text-white mb-6">Payment Details</h3>
+
+            {/* Payment Method Selection */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-darkPurple-300 mb-3">
+                Payment Method
+              </label>
+              <div className="grid grid-cols-1 gap-4">
+                <button
+                  type="button"
+                  className="p-4 rounded-lg border-2 border-yellow-400 bg-yellow-400/10 transition-colors"
+                >
+                  <div className="text-white font-semibold text-sm">Cash on Delivery</div>
+                </button>
+              </div>
             </div>
 
-            {/* Payment Form */}
-            <div className="md:col-span-2 bg-gradient-to-br from-darkPurple-950/90 to-black/90 backdrop-blur-sm p-8 rounded-lg shadow-lg border border-darkPurple-700/50">
-              <h3 className="text-2xl font-bold text-white mb-6">Payment Details</h3>
-
-              {/* Payment Method Selection */}
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-darkPurple-300 mb-3">
-                  Payment Method
-                </label>
-                <div className="grid grid-cols-1 gap-4">
-                  <button
-                    type="button"
-                    className="p-4 rounded-lg border-2 border-yellow-400 bg-yellow-400/10 transition-colors"
-                  >
-                    <div className="text-white font-semibold text-sm">Cash on Delivery</div>
-                  </button>
-                </div>
-              </div>
 
 
-
-              {paymentMethod === 'cod' && (
-                <div className="space-y-4">
-                  <div className="p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
-                    <div className="flex items-start gap-3">
-                      <svg className="w-6 h-6 text-yellow-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                      </svg>
-                      <div>
-                        <p className="text-yellow-400 font-semibold mb-1">Cash on Delivery</p>
-                        <p className="text-sm text-darkPurple-300">
-                          Pay with cash when your order is delivered. Please keep exact change ready for the delivery person.
-                        </p>
-                      </div>
+            {paymentMethod === 'cod' && (
+              <div className="space-y-4">
+                <div className="p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+                  <div className="flex items-start gap-3">
+                    <svg className="w-6 h-6 text-yellow-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    <div>
+                      <p className="text-yellow-400 font-semibold mb-1">Cash on Delivery</p>
+                      <p className="text-sm text-darkPurple-300">
+                        Pay with cash when your order is delivered. Please keep exact change ready for the delivery person.
+                      </p>
                     </div>
                   </div>
-                  <div className="p-4 bg-darkPurple-900/30 rounded-lg">
-                    <p className="text-sm text-darkPurple-300">
-
-                      <span className="font-semibold text-white">COD Charges:</span> No additional charges
-                    </p>
-                  </div>
                 </div>
-              )}
+                <div className="p-4 bg-darkPurple-900/30 rounded-lg">
+                  <p className="text-sm text-darkPurple-300">
 
-              {paymentStatus === 'failed' && (
-                <div className="mt-4 p-4 bg-red-500/20 border border-red-500/50 rounded-lg">
-                  <p className="text-red-300 text-sm">
-                    Payment failed. Please try again or use a different payment method.
+                    <span className="font-semibold text-white">COD Charges:</span> No additional charges
                   </p>
                 </div>
-              )}
-
-              <div className="flex gap-4 mt-8">
-                <button
-                  type="button"
-                  onClick={onCancel}
-                  className="flex-1 py-3 px-4 rounded-lg bg-darkPurple-900 text-gray-100 text-lg hover:bg-darkPurple-800 transition-colors"
-                  disabled={isProcessing}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handlePayment}
-                  className="flex-1 py-3 px-4 rounded-lg bg-yellow-500 text-black font-semibold text-lg hover:bg-yellow-400 transition-colors focus:outline-none focus:ring-2 focus:ring-yellow-400/70 disabled:opacity-50 disabled:cursor-not-allowed"
-                  disabled={isProcessing}
-                >
-                  {isProcessing ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <span className="animate-spin">⏳</span>
-                      {paymentMethod === 'cod' ? 'Placing Order...' : 'Processing...'}
-                    </span>
-                  ) : (
-                    paymentMethod === 'cod'
-                      ? `Place Order (₹${total.toLocaleString()})`
-                      : `Pay ₹${total.toLocaleString()}`
-                  )}
-                </button>
               </div>
+            )}
+
+            {paymentStatus === 'failed' && (
+              <div className="mt-4 p-4 bg-red-500/20 border border-red-500/50 rounded-lg">
+                <p className="text-red-300 text-sm">
+                  Payment failed. Please try again or use a different payment method.
+                </p>
+              </div>
+            )}
+
+            <div className="flex gap-4 mt-8">
+              <button
+                type="button"
+                onClick={onCancel}
+                className="flex-1 py-3 px-4 rounded-lg bg-darkPurple-900 text-gray-100 text-lg hover:bg-darkPurple-800 transition-colors"
+                disabled={isProcessing}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handlePayment}
+                className="flex-1 py-3 px-4 rounded-lg bg-yellow-500 text-black font-semibold text-lg hover:bg-yellow-400 transition-colors focus:outline-none focus:ring-2 focus:ring-yellow-400/70 disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={isProcessing}
+              >
+                {isProcessing ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <span className="animate-spin">⏳</span>
+                    {paymentMethod === 'cod' ? 'Placing Order...' : 'Processing...'}
+                  </span>
+                ) : (
+                  paymentMethod === 'cod'
+                    ? `Place Order (₹${total.toLocaleString()})`
+                    : `Pay ₹${total.toLocaleString()}`
+                )}
+              </button>
             </div>
           </div>
         </div>

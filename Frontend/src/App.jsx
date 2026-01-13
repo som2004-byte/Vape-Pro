@@ -297,7 +297,7 @@ export default function App() {
     setToast({
       type: 'success',
       message: 'Item added to cart!',
-      subTitle: `${product.name} ${existingItem ? '(quantity updated)' : ''}`,
+      subTitle: `${product.series || product.name || 'Item'} ${existingItem ? '(quantity updated)' : ''}`,
       actionLabel: 'View Cart',
       onAction: () => setCurrentPage('cart')
     })
@@ -311,7 +311,7 @@ export default function App() {
           headers: getAuthHeaders(user.token),
           body: JSON.stringify({
             productId: product.id,
-            name: product.name,
+            name: product.series || product.name || 'Item',
             price: product.price,
             image: product.image || product.cardImage || product.poster,
             flavor: product.flavor || '',
@@ -387,11 +387,11 @@ export default function App() {
       setToast({ type: 'error', message: 'Your cart is empty' })
       return
     }
-    if (!customerProfile || !customerProfile.address || !customerProfile.address.trim()) {
+    if (!customerProfile || !customerProfile.address || !customerProfile.address.trim() || !customerProfile.phoneNumber) {
       setToast({
         type: 'error',
-        message: 'Please provide a shipping address',
-        subTitle: 'Go to My Account to add your details'
+        message: 'Missing profile details',
+        subTitle: 'Please provide your shipping address and phone number in My Account'
       })
       setCurrentPage('account')
       setAccountTab('profile')
@@ -516,7 +516,7 @@ export default function App() {
 
   return (
     <div className="relative min-h-screen bg-gradient-to-b from-black via-darkPurple-950/20 to-black text-gray-100">
-      <div className="fixed inset-0 -z-10 opacity-80"><VapeSmokeEffect density={40} speed={0.4} opacity={0.35} /></div>
+      <div className="fixed inset-0 z-10 pointer-events-none opacity-80"><VapeSmokeEffect density={100} speed={0.7} opacity={0.6} /></div>
       <Navbar
         user={user}
         onLogout={handleLogout}
@@ -548,9 +548,9 @@ export default function App() {
         </div>
       )}
 
-      <main className="container mx-auto px-4 pt-32 pb-8">
+      <main className="w-full">
         {currentPage === 'home' && (
-          <>
+          <div className="container mx-auto px-4 pt-24 pb-8">
             {currentCategory === 'all' && Object.keys(activeFilters).length === 0 && (
               <LandingHero onNavigate={handleNavigate} onCategoryChange={setCurrentCategory} onFilterChange={handleFilterChange} />
             )}
@@ -565,7 +565,7 @@ export default function App() {
               </h2>
               <ProductGrid products={filteredProducts} onOpen={setSelected} category={currentCategory} activeFilters={activeFilters} onFilterChange={handleFilterChange} onAddToCart={handleAddToCart} />
             </section>
-          </>
+          </div>
         )}
 
         {currentPage === 'account' && (

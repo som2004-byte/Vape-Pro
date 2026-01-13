@@ -32,9 +32,10 @@ export default function AccountSection({
     setEmail(profile.email || '');
     setPhoneNumber(profile.phoneNumber || '');
     setAddress(profile.address || '');
-    setIsEmailVerified(!!profile.emailVerified);
-    setIsAddressVerified(!!profile.phoneVerified); // Use the phoneVerified flag from backend
-  }, [profile]);
+    // Ensure boolean properties are correctly interpreted
+    setIsEmailVerified(profile.emailVerified === true);
+    setIsAddressVerified(profile.phoneVerified === true);
+  }, [profile, editMode]); // specific dependency on editMode to refill when opening form
 
   // Keep internal tab in sync with parent (e.g. when navigating to My Account / Orders)
   useEffect(() => {
@@ -197,6 +198,80 @@ export default function AccountSection({
     }
   };
 
+  // Pune Center Coords (approx)
+  const PUNE_LAT = 18.5204;
+  const PUNE_LNG = 73.8567;
+  const MAX_DIST_KM = 25; // Approx radius for Pune metro area
+
+  const calculateDistance = (lat1, lon1, lat2, lon2) => {
+    const R = 6371; // Radius of the earth in km
+    const dLat = deg2rad(lat2 - lat1);
+    const dLon = deg2rad(lon2 - lon1);
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const d = R * c; // Distance in km
+    return d;
+  }
+
+  const deg2rad = (deg) => {
+    return deg * (Math.PI / 180)
+  }
+
+  const handleUseLocation = () => {
+    if (!navigator.geolocation) {
+      onNotify?.({ type: 'error', message: 'Geolocation is not supported by your browser' });
+      return;
+    }
+
+    onNotify?.({ type: 'info', message: 'Fetching your location...' });
+
+    navigator.geolocation.getCurrentPosition(async (position) => {
+      const { latitude, longitude } = position.coords;
+      const dist = calculateDistance(latitude, longitude, PUNE_LAT, PUNE_LNG);
+
+      if (dist > MAX_DIST_KM) {
+        onNotify?.({
+          type: 'error',
+          message: 'Location outside Pune',
+          subTitle: `You seem to be ${dist.toFixed(1)}km away from Pune center. Delivery is only available in Pune.`
+        });
+        return;
+      }
+
+      // Valid location - try reverse geocoding
+      try {
+        const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
+        const data = await response.json();
+
+        if (data && data.display_name) {
+          setAddress(data.display_name);
+          setIsAddressVerified(true);
+          onNotify?.({
+            type: 'success',
+            message: 'Location Verified!',
+            subTitle: 'Address auto-filled from your location'
+          });
+        } else {
+          // Fallback if reverse geocoding fails but coords are valid
+          setAddress(`Detected Location (Lat: ${latitude.toFixed(4)}, Lng: ${longitude.toFixed(4)}) - Please add details`);
+          setIsAddressVerified(true);
+          onNotify?.({ type: 'success', message: 'Location Verified within Pune!' });
+        }
+      } catch (error) {
+        console.error('Geocoding error:', error);
+        setAddress(`Verified Location (Lat: ${latitude.toFixed(4)}, Lng: ${longitude.toFixed(4)})`);
+        setIsAddressVerified(true);
+        onNotify?.({ type: 'success', message: 'Location Verified!' });
+      }
+    }, (error) => {
+      console.error('Geolocation error:', error);
+      onNotify?.({ type: 'error', message: 'Unable to retrieve your location', subTitle: 'Please ensure location permission is granted' });
+    });
+  };
+
   const generateEmailOtp = () => {
     const newOtp = Math.floor(100000 + Math.random() * 900000).toString();
     // Save to localStorage so verifyOtp can check it in dev mode
@@ -230,6 +305,18 @@ export default function AccountSection({
 
   const handleSubmit = (e) => {
     e.preventDefault();
+
+    // Phone number validation (Indian format: starts with 6-9, 10 digits, optional +91)
+    const phoneRegex = /^(\+91[\-\s]?)?[6789]\d{9}$/;
+    if (!phoneRegex.test(phoneNumber)) {
+      onNotify?.({
+        type: 'error',
+        message: 'Invalid Phone Number',
+        subTitle: 'Please enter a valid 10-digit Indian phone number',
+      });
+      return;
+    }
+
     if (!isAddressVerified) {
       onNotify?.({
         type: 'error',
@@ -270,16 +357,9 @@ export default function AccountSection({
       />
 
       {/* Global vape smoke - blended with video */}
-      <div className="absolute inset-0">
-        <VapeSmokeEffect density={55} speed={0.55} opacity={0.4} />
-      </div>
-
-      {/* Subtle overlay for readability - lighter to blend better */}
-      <div className="absolute inset-0 bg-gradient-to-br from-black/40 via-black/25 to-black/50" />
-
       {/* Content */}
-      <div className="relative min-h-screen flex items-center justify-center p-4 py-8">
-        <div className="bg-gradient-to-br from-darkPurple-950/90 to-black/90 backdrop-blur-sm p-8 rounded-lg shadow-lg max-w-2xl w-full border border-darkPurple-700/50 max-h-[90vh] overflow-y-auto">
+      <div className="relative min-h-screen flex items-center justify-center p-4 pt-24 pb-8">
+        <div className="relative z-20 bg-neutral-900/90 backdrop-blur-md p-6 md:p-8 rounded-2xl shadow-2xl max-w-2xl w-full border border-neutral-800 max-h-[90vh] overflow-y-auto">
           <h2 className="text-3xl font-bold text-center mb-4 bg-gradient-to-r from-yellowGradient-start via-yellowGradient-end to-yellowGradient-start bg-clip-text text-transparent">
             My Account
           </h2>
@@ -512,35 +592,41 @@ export default function AccountSection({
                 <label htmlFor="email" className="block text-sm font-medium text-darkPurple-300 mb-1">
                   Email Address
                 </label>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-col md:flex-row md:items-center gap-2">
                   <input
                     type="email"
                     id="email"
                     className="w-full px-4 py-2 rounded-lg bg-darkPurple-900/50 border border-darkPurple-700 focus:outline-none focus:ring-2 focus:ring-yellow-400/50 text-white"
                     placeholder="Your email address"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(e) => {
+                      const newEmail = e.target.value;
+                      setEmail(newEmail);
+                      // If email matches the original profile email, revert verification status to original
+                      // Otherwise, set to false requiring re-verification
+                      if (profile && profile.email === newEmail && profile.emailVerified) {
+                        setIsEmailVerified(true);
+                      } else {
+                        setIsEmailVerified(false);
+                      }
+                    }}
                     required
-                    disabled={isEmailVerified}
                   />
-                  <div className="flex flex-col gap-2">
+                  <div className="flex flex-col gap-2 shrink-0">
                     {!isEmailVerified ? (
                       <div className="flex items-center gap-2">
                         <button
                           type="button"
                           onClick={handleRequestOtp}
                           disabled={verifying || otpSent}
-                          className="px-4 py-2 rounded-lg bg-yellow-500 text-black font-semibold text-sm hover:bg-yellow-400 transition-colors focus:outline-none focus:ring-2 focus:ring-yellow-400/70 whitespace-nowrap disabled:opacity-50"
+                          className="flex-1 md:flex-none px-4 py-2 rounded-lg bg-yellow-500 text-black font-semibold text-sm hover:bg-yellow-400 transition-colors focus:outline-none focus:ring-2 focus:ring-yellow-400/70 whitespace-nowrap disabled:opacity-50"
                         >
                           {otpSent ? 'OTP Sent' : 'Get OTP'}
                         </button>
-                        {/* Dev fallback: Allow generating local OTP if on localhost or if explicitly needed */}
-                        {/* Dev fallback: Allow generating local OTP if on localhost or vercel */}
-                        {/* Dev fallback: Always allow Demo OTP for now to unblock users with email issues */}
                         <button
                           type="button"
                           onClick={generateEmailOtp}
-                          className="px-3 py-1 rounded bg-darkPurple-950 text-yellow-500 border border-yellow-500/30 text-[10px] font-bold uppercase tracking-wider hover:bg-yellow-500 hover:text-black transition-all"
+                          className="flex-1 md:flex-none px-3 py-2 rounded bg-darkPurple-950 text-yellow-500 border border-yellow-500/30 text-[10px] font-bold uppercase tracking-wider hover:bg-yellow-500 hover:text-black transition-all whitespace-nowrap"
                         >
                           Use Demo OTP
                         </button>
@@ -577,12 +663,16 @@ export default function AccountSection({
                   Phone Number
                 </label>
                 <input
-                  type="tel"
+                  type="text"
                   id="phoneNumber"
                   className="w-full px-4 py-2 rounded-lg bg-darkPurple-900/50 border border-darkPurple-700 focus:outline-none focus:ring-2 focus:ring-yellow-400/50 text-white"
-                  placeholder="e.g., +91 9876543210"
+                  placeholder="e.g., 9876543210"
                   value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  onChange={(e) => {
+                    // Allow only numbers and plus sign
+                    const val = e.target.value.replace(/[^\d+]/g, '');
+                    setPhoneNumber(val);
+                  }}
                   required
                 />
               </div>
@@ -590,30 +680,49 @@ export default function AccountSection({
                 <label htmlFor="address" className="block text-sm font-medium text-darkPurple-300 mb-1">
                   Address
                 </label>
-                <div className="flex items-center gap-2">
-                  <textarea
-                    id="address"
-                    rows="3"
-                    className="w-full px-4 py-2 rounded-lg bg-darkPurple-900/50 border border-darkPurple-700 focus:outline-none focus:ring-2 focus:ring-yellow-400/50 text-white"
-                    placeholder="Your complete address"
-                    value={address}
-                    onChange={(e) => setAddress(e.target.value)}
-                    required
-                    disabled={isAddressVerified}
-                  ></textarea>
+                <div className="flex flex-col md:flex-row md:items-start gap-2">
+                  <div className="relative w-full">
+                    <textarea
+                      id="address"
+                      rows="3"
+                      className="w-full px-4 py-2 rounded-lg bg-darkPurple-900/50 border border-darkPurple-700 focus:outline-none focus:ring-2 focus:ring-yellow-400/50 text-white"
+                      placeholder="Your complete address (Must be in Pune)"
+                      value={address}
+                      onChange={(e) => {
+                        setAddress(e.target.value);
+                        if (isAddressVerified) setIsAddressVerified(false);
+                      }}
+                      required
+                    ></textarea>
+                    {/* Geolocation Button */}
+                    {!isAddressVerified && (
+                      <button
+                        type="button"
+                        onClick={handleUseLocation}
+                        className="absolute right-2 bottom-2 p-1.5 text-yellow-400 hover:text-yellow-300 transition-colors bg-darkPurple-900/80 rounded-md border border-darkPurple-700/50"
+                        title="Use my current location"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
                   {!isAddressVerified && (
                     <button
                       type="button"
                       onClick={verifyAddress}
-                      className="px-4 py-2 rounded-lg bg-green-500 text-black font-semibold text-sm hover:bg-green-400 transition-colors focus:outline-none focus:ring-2 focus:ring-green-400/70 whitespace-nowrap"
+                      className="w-full md:w-auto px-4 py-2 rounded-lg bg-green-500 text-black font-semibold text-sm hover:bg-green-400 transition-colors focus:outline-none focus:ring-2 focus:ring-green-400/70 whitespace-nowrap h-fit"
                     >
                       Verify Address
                     </button>
                   )}
                   {isAddressVerified && (
-                    <span className="text-green-400 text-sm font-medium">Verified!</span>
+                    <span className="text-green-400 text-sm font-medium mt-2 md:mt-0">Verified!</span>
                   )}
                 </div>
+
               </div>
               <button
                 type="submit"
@@ -634,6 +743,6 @@ export default function AccountSection({
           )}
         </div>
       </div>
-    </div>
+    </div >
   );
 }

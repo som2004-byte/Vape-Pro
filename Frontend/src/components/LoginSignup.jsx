@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import VapeSmokeEffect from './VapeSmokeEffect'
 import API_BASE_URL from '../config'
-
+import { API_ENDPOINTS, apiCall, getAuthHeaders } from '../utils/apiConfig';
 
 // Bear expressions: IDLE, LOOK_LEFT, LOOK_RIGHT, HAPPY, SHOCK, COVER_EYES
 const BearCharacter = ({ expression, eyeAngle = null }) => {
@@ -165,6 +165,7 @@ const BearCharacter = ({ expression, eyeAngle = null }) => {
 
 export default function LoginSignup({ onLogin, onAdminLogin }) {
   const [isLogin, setIsLogin] = useState(true)
+  const [view, setView] = useState('auth') // 'auth' or 'forgot'
   const [isAdminMode, setIsAdminMode] = useState(false)
   const [expression, setExpression] = useState('IDLE')
   const [eyeAngle, setEyeAngle] = useState(null) // Angle in radians for 360-degree eye movement
@@ -175,6 +176,12 @@ export default function LoginSignup({ onLogin, onAdminLogin }) {
   const [showPassword, setShowPassword] = useState(false)
   const bearRef = useRef(null)
   const videoSrc = '/videos/login-bg.mp4' // put your video file at Frontend/public/videos/login-bg.mp4
+
+  // Reset states when switching views
+  useEffect(() => {
+    setError('')
+    setExpression('IDLE')
+  }, [view, isLogin])
 
   // Track mouse movement to make eyes follow cursor in 360 degrees
   useEffect(() => {
@@ -231,6 +238,96 @@ export default function LoginSignup({ onLogin, onAdminLogin }) {
 
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  // Password Reset State
+  const [resetStep, setResetStep] = useState(0); // 0: Input Email, 1: OTP, 2: New Password, 3: Success
+  const [resetToken, setResetToken] = useState(null);
+  const [resetOtp, setResetOtp] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [devOtpDisplay, setDevOtpDisplay] = useState(null); // For showing OTP in dev mode if email fails
+
+  const handleRequestResetOtp = async (e) => {
+    e.preventDefault()
+    if (!email) {
+      setError('Please enter your email address')
+      return
+    }
+
+    setIsLoading(true)
+    setError('')
+    setDevOtpDisplay(null)
+
+    try {
+      // API Call to request OTP
+      // Use "password_reset" or just default verification purpose
+      await apiCall(API_ENDPOINTS.USER.VERIFY_EMAIL, {
+        method: 'POST',
+        body: JSON.stringify({ email })
+      });
+
+      setResetStep(1);
+      setExpression('HAPPY');
+
+    } catch (err) {
+      console.error('OTP Request Error:', err);
+      if (err.status === 503 && err.dev_otp) {
+        // Dev mode fallback
+        setDevOtpDisplay(err.dev_otp);
+        setResetStep(1);
+        setExpression('SHOCK'); // Surprised it worked 'technically'
+      } else {
+        setError(err.message || 'Failed to send reset link. Please try again.');
+        setExpression('SAD');
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  const handleVerifyResetOtp = async (e) => {
+    e.preventDefault();
+    if (!resetOtp || resetOtp.length < 6) { setError('Please enter a valid OTP'); return; }
+
+    setIsLoading(true); setError('');
+
+    try {
+      const data = await apiCall(API_ENDPOINTS.USER.VERIFY_OTP, {
+        method: 'POST',
+        body: JSON.stringify({ email, otp: resetOtp })
+      });
+
+      if (data.token) {
+        setResetToken(data.token);
+        setResetStep(2); // Move to set password
+        setExpression('HAPPY');
+      } else {
+        throw new Error('Verification failed. No token received.');
+      }
+    } catch (err) {
+      setError(err.message || 'Invalid OTP');
+      setExpression('SAD');
+    } finally { setIsLoading(false); }
+  }
+
+  const handleResetPassword = async (e) => {
+    e.preventDefault();
+    if (newPassword.length < 6) { setError('Password must be at least 6 characters'); return; }
+
+    setIsLoading(true); setError('');
+
+    try {
+      await apiCall(API_ENDPOINTS.USER.UPDATE_PROFILE, {
+        method: 'PUT',
+        headers: getAuthHeaders(resetToken),
+        body: JSON.stringify({ password: newPassword })
+      });
+
+      setResetStep(3); // Success
+      setExpression('HAPPY');
+    } catch (err) {
+      setError(err.message || 'Failed to reset password');
+      setExpression('SAD');
+    } finally { setIsLoading(false); }
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -318,22 +415,6 @@ export default function LoginSignup({ onLogin, onAdminLogin }) {
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-gray-100">
-      {/* Admin/User Toggle */}
-      {/* Admin/User Toggle - Hidden for now */}
-      {/* 
-      <div className="absolute top-4 right-4 z-10">
-        <button
-          onClick={() => setIsAdminMode(!isAdminMode)}
-          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-            isAdminMode
-              ? 'bg-red-600 text-white hover:bg-red-700'
-              : 'bg-white text-gray-800 hover:bg-gray-200'
-          } shadow-md`}
-        >
-          {isAdminMode ? 'Switch to User Login' : 'Admin Login'}
-        </button>
-      </div>
-      */}
       {/* Background video */}
       <video
         className="absolute inset-0 w-full h-full object-cover"
@@ -382,186 +463,317 @@ export default function LoginSignup({ onLogin, onAdminLogin }) {
 
           {/* Login/Signup Form */}
           <div className="bg-black/50 backdrop-blur-lg rounded-2xl border border-darkPurple-900/50 shadow-2xl p-8">
-            {/* Toggle Buttons */}
-            <div className="flex gap-2 mb-6 bg-darkPurple-950/50 rounded-xl p-1">
-              <button
-                onClick={() => {
-                  setIsLogin(true);
-                  setUsername('');
-                  setPassword('');
-                  setEmail('');
-                }}
-                className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all ${isLogin
-                  ? 'bg-gradient-to-r from-darkPurple-600 to-darkPurple-800 text-white shadow-lg'
-                  : 'text-darkPurple-300 hover:text-white'
-                  }`}
-              >
-                Login
-              </button>
-              <button
-                onClick={() => {
-                  setIsLogin(false);
-                  setUsername('');
-                  setPassword('');
-                  setEmail('');
-                }}
-                className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all ${!isLogin
-                  ? 'bg-gradient-to-r from-darkPurple-600 to-darkPurple-800 text-white shadow-lg'
-                  : 'text-darkPurple-300 hover:text-white'
-                  }`}
-              >
-                Sign Up
-              </button>
-            </div>
+            {view === 'forgot' ? (
+              <div className="space-y-4">
+                <h3 className="text-2xl font-bold text-white text-center mb-2">Reset Password</h3>
+                <p className="text-gray-300 text-sm text-center mb-4">
+                  Enter your email address and we'll send you a link to reset your password.
+                </p>
 
-            <form onSubmit={(e) => {
-              e.preventDefault();
-              handleSubmit(e);
-            }} className="space-y-4">
-              {!isLogin && (
-                <div>
-                  <label className="block text-sm font-medium text-white mb-2">
-                    Username
-                  </label>
-                  <input
-                    type="text"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    onFocus={() => handleFocus('username')}
-                    onBlur={handleBlur}
-                    className="w-full px-4 py-3 bg-darkPurple-950/50 border border-darkPurple-800/50 rounded-xl text-white placeholder-darkPurple-400 focus:outline-none focus:ring-2 focus:ring-darkPurple-600 focus:border-transparent transition-all"
-                    placeholder="Enter your username"
-                  />
-                </div>
-              )}
+                {/* Step 0: Email Input */}
+                {resetStep === 0 && (
+                  <form onSubmit={handleRequestResetOtp} className="space-y-4">
+                    <p className="text-gray-300 text-sm text-center mb-4">
+                      Enter your email address and we'll send you an OTP to reset your password.
+                    </p>
+                    <div>
+                      <label className="block text-sm font-medium text-white mb-2">Email</label>
+                      <input
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        className="w-full px-4 py-3 bg-darkPurple-950/50 border border-darkPurple-800/50 rounded-xl text-white placeholder-darkPurple-400 focus:outline-none focus:ring-2 focus:ring-darkPurple-600 focus:border-transparent transition-all"
+                        placeholder="Enter your email"
+                        required
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={isLoading}
+                      className={`w-full py-3 px-4 bg-gradient-to-r from-darkPurple-600 to-darkPurple-800 text-white font-semibold rounded-xl shadow-lg shadow-darkPurple-900/50 hover:from-darkPurple-700 hover:to-darkPurple-900 transform hover:scale-[1.02] transition-all duration-200 ${isLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
+                    >
+                      {isLoading ? 'Sending...' : 'Send OTP'}
+                    </button>
+                    {error && <div className="text-red-300 text-sm text-center">{error}</div>}
+                    <button type="button" onClick={() => setView('auth')} className="w-full text-gray-400 hover:text-white transition text-sm">Back to Login</button>
+                  </form>
+                )}
 
-              <div>
-                <label className="block text-sm font-medium text-white mb-2">
-                  {isLogin ? 'Username' : 'Email'}
-                </label>
-                <input
-                  type={isLogin ? 'text' : 'email'}
-                  value={isLogin ? username : email}
-                  onChange={(e) =>
-                    isLogin ? setUsername(e.target.value) : setEmail(e.target.value)
-                  }
-                  onFocus={() => handleFocus(isLogin ? 'username' : 'email')}
-                  onBlur={handleBlur}
-                  className="w-full px-4 py-3 bg-darkPurple-950/50 border border-darkPurple-800/50 rounded-xl text-white placeholder-darkPurple-400 focus:outline-none focus:ring-2 focus:ring-darkPurple-600 focus:border-transparent transition-all"
-                  placeholder={isLogin ? 'Enter your username' : 'Enter your email'}
-                />
+                {/* Step 1: OTP Input */}
+                {resetStep === 1 && (
+                  <form onSubmit={handleVerifyResetOtp} className="space-y-4">
+                    <div className="text-gray-300 text-sm text-center mb-4">
+                      Enter the OTP sent to <span className="text-white font-medium">{email}</span>
+                      {devOtpDisplay && (
+                        <div className="mt-2 p-2 bg-yellow-500/20 border border-yellow-500/50 rounded text-yellow-300 font-mono text-xs">
+                          <span className="font-bold">DEV MODE:</span> Your OTP is {devOtpDisplay}
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-white mb-2">OTP Code</label>
+                      <input
+                        type="text"
+                        value={resetOtp}
+                        onChange={(e) => setResetOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                        className="w-full px-4 py-3 bg-darkPurple-950/50 border border-darkPurple-800/50 rounded-xl text-white placeholder-darkPurple-400 focus:outline-none focus:ring-2 focus:ring-darkPurple-600 focus:border-transparent transition-all tracking-widest text-center text-xl"
+                        placeholder="• • • • • •"
+                        required
+                        maxLength={6}
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={isLoading}
+                      className={`w-full py-3 px-4 bg-gradient-to-r from-darkPurple-600 to-darkPurple-800 text-white font-semibold rounded-xl shadow-lg shadow-darkPurple-900/50 hover:from-darkPurple-700 hover:to-darkPurple-900 transform hover:scale-[1.02] transition-all duration-200 ${isLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
+                    >
+                      {isLoading ? 'Verifying...' : 'Verify OTP'}
+                    </button>
+                    {error && <div className="text-red-300 text-sm text-center">{error}</div>}
+                    <button type="button" onClick={() => setResetStep(0)} className="w-full text-gray-400 hover:text-white transition text-sm">← Back</button>
+                  </form>
+                )}
+
+                {/* Step 2: New Password Input */}
+                {resetStep === 2 && (
+                  <form onSubmit={handleResetPassword} className="space-y-4">
+                    <p className="text-gray-300 text-sm text-center mb-4">
+                      Create a new password for your account.
+                    </p>
+                    <div>
+                      <label className="block text-sm font-medium text-white mb-2">New Password</label>
+                      <input
+                        type="password"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        className="w-full px-4 py-3 bg-darkPurple-950/50 border border-darkPurple-800/50 rounded-xl text-white placeholder-darkPurple-400 focus:outline-none focus:ring-2 focus:ring-darkPurple-600 focus:border-transparent transition-all"
+                        placeholder="Min 6 characters"
+                        required
+                        minLength={6}
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={isLoading}
+                      className={`w-full py-3 px-4 bg-gradient-to-r from-darkPurple-600 to-darkPurple-800 text-white font-semibold rounded-xl shadow-lg shadow-darkPurple-900/50 hover:from-darkPurple-700 hover:to-darkPurple-900 transform hover:scale-[1.02] transition-all duration-200 ${isLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
+                    >
+                      {isLoading ? 'Updating...' : 'Reset Password'}
+                    </button>
+                    {error && <div className="text-red-300 text-sm text-center">{error}</div>}
+                  </form>
+                )}
+
+                {/* Step 3: Success */}
+                {resetStep === 3 && (
+                  <div className="text-center space-y-4">
+                    <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-500/20 text-green-400 mb-2 animate-bounce">
+                      <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                    <h4 className="text-xl font-bold text-white">All Set!</h4>
+                    <p className="text-gray-300 text-sm">
+                      Your password has been reset successfully. You can now login with your new password.
+                    </p>
+                    <button
+                      onClick={() => {
+                        setView('auth')
+                        setResetStep(0)
+                        setResetOtp('')
+                        setNewPassword('')
+                      }}
+                      className="w-full py-3 px-4 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-xl shadow-lg transition-all transform hover:scale-[1.02]"
+                    >
+                      Back to Login
+                    </button>
+                  </div>
+                )}
               </div>
-
-              <div>
-                <label className="block text-sm font-medium text-white mb-2">
-                  Password
-                </label>
-                <div className="relative">
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    onFocus={() => handleFocus('password')}
-                    onBlur={handleBlur}
-                    className="w-full px-4 py-3 pr-12 bg-darkPurple-950/50 border border-darkPurple-800/50 rounded-xl text-white placeholder-darkPurple-400 focus:outline-none focus:ring-2 focus:ring-darkPurple-600 focus:border-transparent transition-all"
-                    placeholder="Enter your password"
-                  />
+            ) : (
+              <>
+                {/* Toggle Buttons */}
+                <div className="flex gap-2 mb-6 bg-darkPurple-950/50 rounded-xl p-1">
                   <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-darkPurple-300 hover:text-darkPurple-100 transition-colors focus:outline-none"
-                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    onClick={() => {
+                      setIsLogin(true);
+                      setUsername('');
+                      setPassword('');
+                      setEmail('');
+                    }}
+                    className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all ${isLogin
+                      ? 'bg-gradient-to-r from-darkPurple-600 to-darkPurple-800 text-white shadow-lg'
+                      : 'text-darkPurple-300 hover:text-white'
+                      }`}
                   >
-                    {showPassword ? (
-                      <svg
-                        className="w-5 h-5"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"
-                        />
-                      </svg>
-                    ) : (
-                      <svg
-                        className="w-5 h-5"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                        />
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                        />
-                      </svg>
-                    )}
+                    Login
+                  </button>
+                  <button
+                    onClick={() => {
+                      setIsLogin(false);
+                      setUsername('');
+                      setPassword('');
+                      setEmail('');
+                    }}
+                    className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all ${!isLogin
+                      ? 'bg-gradient-to-r from-darkPurple-600 to-darkPurple-800 text-white shadow-lg'
+                      : 'text-darkPurple-300 hover:text-white'
+                      }`}
+                  >
+                    Sign Up
                   </button>
                 </div>
-              </div>
 
-              {isLogin && (
-                <div className="flex items-center justify-between text-sm">
-                  <label className="flex items-center text-white">
+                <form onSubmit={(e) => {
+                  e.preventDefault();
+                  handleSubmit(e);
+                }} className="space-y-4">
+                  {!isLogin && (
+                    <div>
+                      <label className="block text-sm font-medium text-white mb-2">
+                        Username
+                      </label>
+                      <input
+                        type="text"
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
+                        onFocus={() => handleFocus('username')}
+                        onBlur={handleBlur}
+                        className="w-full px-4 py-3 bg-darkPurple-950/50 border border-darkPurple-800/50 rounded-xl text-white placeholder-darkPurple-400 focus:outline-none focus:ring-2 focus:ring-darkPurple-600 focus:border-transparent transition-all"
+                        placeholder="Enter your username"
+                      />
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="block text-sm font-medium text-white mb-2">
+                      {isLogin ? 'Username' : 'Email'}
+                    </label>
                     <input
-                      type="checkbox"
-                      className="mr-2 rounded border-darkPurple-600 bg-darkPurple-950/50"
+                      type={isLogin ? 'text' : 'email'}
+                      value={isLogin ? username : email}
+                      onChange={(e) =>
+                        isLogin ? setUsername(e.target.value) : setEmail(e.target.value)
+                      }
+                      onFocus={() => handleFocus(isLogin ? 'username' : 'email')}
+                      onBlur={handleBlur}
+                      className="w-full px-4 py-3 bg-darkPurple-950/50 border border-darkPurple-800/50 rounded-xl text-white placeholder-darkPurple-400 focus:outline-none focus:ring-2 focus:ring-darkPurple-600 focus:border-transparent transition-all"
+                      placeholder={isLogin ? 'Enter your username' : 'Enter your email'}
                     />
-                    Remember me
-                  </label>
-                  <a
-                    href="#"
-                    className="text-white hover:text-white transition"
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-white mb-2">
+                      Password
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        onFocus={() => handleFocus('password')}
+                        onBlur={handleBlur}
+                        className="w-full px-4 py-3 pr-12 bg-darkPurple-950/50 border border-darkPurple-800/50 rounded-xl text-white placeholder-darkPurple-400 focus:outline-none focus:ring-2 focus:ring-darkPurple-600 focus:border-transparent transition-all"
+                        placeholder="Enter your password"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-darkPurple-300 hover:text-darkPurple-100 transition-colors focus:outline-none"
+                        aria-label={showPassword ? 'Hide password' : 'Show password'}
+                      >
+                        {showPassword ? (
+                          <svg
+                            className="w-5 h-5"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"
+                            />
+                          </svg>
+                        ) : (
+                          <svg
+                            className="w-5 h-5"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                            />
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                            />
+                          </svg>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  {isLogin && (
+                    <div className="flex items-center justify-between text-sm">
+                      <label className="flex items-center text-white">
+                        <input
+                          type="checkbox"
+                          className="mr-2 rounded border-darkPurple-600 bg-darkPurple-950/50"
+                        />
+                        Remember me
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setView('forgot')}
+                        className="text-white hover:text-white transition"
+                      >
+                        Forgot password?
+                      </button>
+                    </div>
+                  )}
+
+                  <button
+                    type="submit"
+                    disabled={isLoading}
+                    className={`w-full py-3 px-4 bg-gradient-to-r from-darkPurple-600 to-darkPurple-800 text-white font-semibold rounded-xl shadow-lg shadow-darkPurple-900/50 hover:from-darkPurple-700 hover:to-darkPurple-900 transform hover:scale-[1.02] transition-all duration-200 ${isLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
                   >
-                    Forgot password?
-                  </a>
-                </div>
-              )}
+                    {isLoading ? (
+                      <span className="flex items-center justify-center">
+                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        {isLogin ? 'Logging in...' : 'Signing up...'}
+                      </span>
+                    ) : isLogin ? 'Login' : 'Sign Up'}
+                  </button>
 
-              <button
-                type="submit"
-                disabled={isLoading}
-                className={`w-full py-3 px-4 bg-gradient-to-r from-darkPurple-600 to-darkPurple-800 text-white font-semibold rounded-xl shadow-lg shadow-darkPurple-900/50 hover:from-darkPurple-700 hover:to-darkPurple-900 transform hover:scale-[1.02] transition-all duration-200 ${isLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
-              >
-                {isLoading ? (
-                  <span className="flex items-center justify-center">
-                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    {isLogin ? 'Logging in...' : 'Signing up...'}
-                  </span>
-                ) : isLogin ? 'Login' : 'Sign Up'}
-              </button>
+                  {error && (
+                    <div className="mt-4 p-3 bg-red-600/20 border border-red-600/50 text-red-200 rounded-lg text-sm">
+                      {error}
+                    </div>
+                  )}
+                </form>
 
-              {error && (
-                <div className="mt-4 p-3 bg-red-600/20 border border-red-600/50 text-red-200 rounded-lg text-sm">
-                  {error}
-                </div>
-              )}
-            </form>
-
-            {!isLogin && (
-              <p className="mt-6 text-center text-sm text-white">
-                Already have an account?{' '}
-                <button
-                  onClick={() => setIsLogin(true)}
-                  className="text-white hover:text-white font-medium transition"
-                >
-                  Login
-                </button>
-              </p>
+                {!isLogin && (
+                  <p className="mt-6 text-center text-sm text-white">
+                    Already have an account?{' '}
+                    <button
+                      onClick={() => setIsLogin(true)}
+                      className="text-white hover:text-white font-medium transition"
+                    >
+                      Login
+                    </button>
+                  </p>
+                )}
+              </>
             )}
           </div>
         </div>

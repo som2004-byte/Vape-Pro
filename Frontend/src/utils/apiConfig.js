@@ -1,6 +1,6 @@
 // API Configuration
 // Use the deployed Render backend
-const API_BASE_URL = 'https://vape-pro-2.onrender.com';
+const API_BASE_URL = 'http://localhost:3000';
 
 console.log(`[API] Using base URL: ${API_BASE_URL}`);
 
@@ -83,9 +83,10 @@ export const apiCall = async (url, options = {}) => {
 
         if (!response.ok) {
             let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+            let errorData = {};
 
             try {
-                const errorData = await response.json();
+                errorData = await response.json();
                 errorMessage = errorData.message || errorData.error || errorMessage;
             } catch (e) {
                 // If response is not JSON, use status text
@@ -94,6 +95,10 @@ export const apiCall = async (url, options = {}) => {
             const error = new Error(errorMessage);
             error.status = response.status;
             error.statusText = response.statusText;
+
+            // Attach extra data (like dev_otp) from backend response to the error object
+            Object.assign(error, errorData);
+
             throw error;
         }
 

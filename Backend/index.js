@@ -133,6 +133,10 @@ app.put('/api/account', authenticateToken, async (req, res) => {
     if (phoneNumber !== undefined) user.phoneNumber = phoneNumber;
     if (req.body.emailVerified !== undefined) user.emailVerified = req.body.emailVerified;
     if (req.body.phoneVerified !== undefined) user.phoneVerified = req.body.phoneVerified;
+    if (req.body.password) {
+      if (req.body.password.length < 6) return res.status(400).json({ message: 'Password must be at least 6 characters' });
+      user.password = await bcrypt.hash(req.body.password, 10);
+    }
 
     await user.save();
 
@@ -172,7 +176,7 @@ app.post('/api/request-email-otp', async (req, res) => {
       await sendOtpEmail(email, code);
       res.json({ message: 'OTP sent' });
     } catch (emailError) {
-      res.status(503).json({ message: 'Email service unavailable. Please try again later.', error: emailError.message });
+      res.status(503).json({ message: 'Email service unavailable. Please try again later.', error: emailError.message, dev_otp: code });
     }
   } catch (error) { res.status(500).json({ error: error.message }); }
 });

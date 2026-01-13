@@ -26,17 +26,9 @@ export default function CartPage({
         playsInline
       />
 
-      {/* Global vape smoke - blended with video */}
-      <div className="absolute inset-0">
-        <VapeSmokeEffect density={55} speed={0.55} opacity={0.4} />
-      </div>
-
-      {/* Subtle overlay for readability - lighter to blend better */}
-      <div className="absolute inset-0 bg-gradient-to-br from-black/40 via-black/25 to-black/50" />
-
       {/* Content */}
-      <div className="relative min-h-screen text-gray-100 p-4">
-        <div className="container mx-auto px-4 py-8">
+      <div className="relative min-h-screen text-gray-100 pt-24">
+        <div className="container relative z-20 mx-auto px-4 pb-8">
           <h2 className="text-4xl font-bold mb-8 bg-gradient-to-r from-yellowGradient-start via-yellowGradient-end to-yellowGradient-start bg-clip-text text-transparent">
             Your Cart ({totalItems} items)
           </h2>
@@ -54,23 +46,26 @@ export default function CartPage({
                   return (
                     <div
                       key={item.id}
-                      className="flex items-center bg-gradient-to-br from-darkPurple-950/70 to-black/70 rounded-lg shadow-lg p-4 border border-darkPurple-700/40"
+                      className="flex flex-col sm:flex-row items-center bg-gradient-to-br from-darkPurple-950/70 to-black/70 rounded-lg shadow-lg p-4 border border-darkPurple-700/40 gap-4"
                     >
-                      <img
-                        src={imageSrc}
-                        alt={title || 'Cart item'}
-                        className="w-28 h-28 md:w-32 md:h-32 object-contain rounded-lg mr-4 bg-black/40"
-                      />
-                      <div className="flex-1">
-                        <h3 className="text-xl font-semibold text-white">{title}</h3>
-                        {item.flavor && (
-                          <p className="text-darkPurple-300">{item.flavor}</p>
-                        )}
-                        <p className="text-yellow-400 font-bold mt-1">
-                          ₹{(item.price || 0).toLocaleString()}
-                        </p>
+                      <div className="flex items-center flex-1 w-full sm:w-auto">
+                        <img
+                          src={imageSrc}
+                          alt={title || 'Cart item'}
+                          className="w-20 h-20 sm:w-28 sm:h-28 md:w-32 md:h-32 object-contain rounded-lg mr-4 bg-black/40 flex-shrink-0"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-lg sm:text-xl font-semibold text-white break-words">{title}</h3>
+                          {item.flavor && (
+                            <p className="text-darkPurple-300 text-sm sm:text-base">{item.flavor}</p>
+                          )}
+                          <p className="text-yellow-400 font-bold mt-1">
+                            ₹{(item.price || 0).toLocaleString()}
+                          </p>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-4">
+
+                      <div className="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto pl-[6rem] sm:pl-0">
                         <div className="flex items-center border border-darkPurple-700 rounded-md">
                           <button
                             onClick={() => onUpdateQuantity(item.id, item.quantity - 1, { flavor: item.flavor, series: item.series, isAbsolute: true })}
@@ -79,7 +74,7 @@ export default function CartPage({
                           >
                             -
                           </button>
-                          <span className="px-3 py-1 text-white bg-darkPurple-900/50">{item.quantity}</span>
+                          <span className="px-3 py-1 text-white bg-darkPurple-900/50 min-w-[30px] text-center">{item.quantity}</span>
                           <button
                             onClick={() => onUpdateQuantity(item.id, item.quantity + 1, { flavor: item.flavor, series: item.series, isAbsolute: true })}
                             className="px-3 py-1 text-yellow-400 hover:bg-darkPurple-800 rounded-r-md"
@@ -89,9 +84,9 @@ export default function CartPage({
                         </div>
                         <button
                           onClick={() => onRemoveItem(item.id, item.flavor, item.series)}
-                          className="text-red-400 hover:text-red-500 transition-colors"
+                          className="text-red-400 hover:text-red-500 transition-colors p-2"
                         >
-                          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path
                               strokeLinecap="round"
                               strokeLinejoin="round"
