@@ -666,7 +666,7 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
       </div>
 
       {/* Global Tabs */}
-      {!selectedUser && !selectedRequirement && !selectedOrder && !selectedProduct && !isCreatingProduct && (
+      {!selectedUser && !selectedRequirement && !selectedOrder && !selectedProduct && (
         <div className="flex flex-wrap gap-3 md:gap-4 mb-8">
           {[
             { id: 'overview', label: 'Command', icon: 'M13 10V3L4 14h7v7l9-11h-7z' },
