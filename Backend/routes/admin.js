@@ -61,10 +61,10 @@ router.post(
   }
 );
 
-// Admin signup (DISABLED FOR SECURITY)
-/*
+// Create new admin (Admin Only)
 router.post(
-  '/signup',
+  '/create',
+  authorizeAdmin,
   [
     body('name').trim().notEmpty(),
     body('email').isEmail().normalizeEmail(),
@@ -98,16 +98,16 @@ router.post(
       await admin.save();
 
       res.status(201).json({
-        message: 'Admin account created successfully',
-        admin: { id: admin._id, email: admin.email, name: admin.name },
+        message: 'Admin created successfully',
+        admin: { id: admin._id, name: admin.name, email: admin.email }
       });
     } catch (error) {
-      console.error('Admin signup error:', error);
+      console.error('Create admin error:', error);
       res.status(500).json({ message: 'Server error', error: error.message });
     }
   }
 );
-*/
+
 
 
 // Get all users (admin only)

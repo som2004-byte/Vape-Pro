@@ -18,6 +18,12 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
 
   // Creation state
   const [isCreatingProduct, setIsCreatingProduct] = useState(false);
+  const [isCreatingAdmin, setIsCreatingAdmin] = useState(false);
+  const [newAdminForm, setNewAdminForm] = useState({
+    name: '',
+    email: '',
+    password: ''
+  });
   const [newProductForm, setNewProductForm] = useState({
     name: '',
     brand: '',
@@ -153,6 +159,34 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
     } catch (error) {
       console.error('Error updating product', error);
       setError('Failed to update product');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreateAdmin = async (e) => {
+    e.preventDefault();
+    try {
+      setLoading(true);
+      const response = await fetch(`${API_BASE_URL}/create`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${adminToken}`
+        },
+        body: JSON.stringify(newAdminForm)
+      });
+
+      if (response.ok) {
+        alert('New Admin Created Successfully');
+        setIsCreatingAdmin(false);
+        setNewAdminForm({ name: '', email: '', password: '' });
+      } else {
+        const data = await response.json();
+        setError(data.message || 'Failed to create admin');
+      }
+    } catch (err) {
+      setError(err.message);
     } finally {
       setLoading(false);
     }
@@ -1159,14 +1193,87 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
           </div>
         )}
 
+      {/* Create Admin Modal */}
+      {isCreatingAdmin && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="bg-gray-900 border border-gray-800 rounded-[32px] p-8 max-w-md w-full relative">
+            <button
+              onClick={() => setIsCreatingAdmin(false)}
+              className="absolute top-6 right-6 text-gray-500 hover:text-white"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+
+            <h3 className="text-2xl font-black italic uppercase mb-2">New Admin Node</h3>
+            <p className="text-sm text-gray-500 font-bold uppercase tracking-widest mb-8">Grant system access privileges</p>
+
+            <form onSubmit={handleCreateAdmin} className="space-y-6">
+              <div>
+                <label className="block text-[10px] font-black uppercase text-gray-500 tracking-widest mb-2">Admin Name</label>
+                <input
+                  required
+                  type="text"
+                  value={newAdminForm.name}
+                  onChange={e => setNewAdminForm({ ...newAdminForm, name: e.target.value })}
+                  className="w-full bg-black border border-gray-800 rounded-xl px-4 py-3 text-white font-bold focus:border-purple-500 focus:outline-none transition-colors"
+                  placeholder="e.g. System Admin"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-black uppercase text-gray-500 tracking-widest mb-2">Email Address</label>
+                <input
+                  required
+                  type="email"
+                  value={newAdminForm.email}
+                  onChange={e => setNewAdminForm({ ...newAdminForm, email: e.target.value })}
+                  className="w-full bg-black border border-gray-800 rounded-xl px-4 py-3 text-white font-bold focus:border-purple-500 focus:outline-none transition-colors"
+                  placeholder="admin@vapepro.com"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-black uppercase text-gray-500 tracking-widest mb-2">Secure Password</label>
+                <input
+                  required
+                  type="password"
+                  value={newAdminForm.password}
+                  onChange={e => setNewAdminForm({ ...newAdminForm, password: e.target.value })}
+                  className="w-full bg-black border border-gray-800 rounded-xl px-4 py-3 text-white font-bold focus:border-purple-500 focus:outline-none transition-colors"
+                  placeholder="••••••••"
+                  minLength={6}
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-4 rounded-xl bg-gradient-to-r from-purple-600 to-blue-600 text-white font-black uppercase tracking-widest hover:shadow-lg hover:shadow-purple-600/20 transition-all disabled:opacity-50"
+              >
+                {loading ? 'Processing...' : 'Initialize Admin'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Users Tab */}
       {activeTab === 'users' && !selectedUser && (
         <div className="bg-gray-900/50 border border-gray-800 rounded-[32px] overflow-hidden backdrop-blur-xl">
           <div className="p-6 md:p-8 border-b border-gray-800">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-              <div>
-                <h3 className="text-3xl font-black italic tracking-tighter uppercase">Registry Management</h3>
-                <p className="text-sm text-gray-500 font-medium">Control and monitor all verified platform operators</p>
+              <div className="flex flex-col gap-2">
+                <div>
+                  <h3 className="text-3xl font-black italic tracking-tighter uppercase">Registry Management</h3>
+                  <p className="text-sm text-gray-500 font-medium">Control and monitor all verified platform operators</p>
+                </div>
+                <button
+                  onClick={() => setIsCreatingAdmin(true)}
+                  className="px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg text-xs font-black uppercase tracking-widest hover:shadow-lg hover:shadow-purple-600/20 transition-all w-fit flex items-center gap-2"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                  New Admin Node
+                </button>
               </div>
               <div className="relative w-full md:w-96">
                 <input
