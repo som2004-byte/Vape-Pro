@@ -126,12 +126,11 @@ productSchema.methods.updateStock = async function (quantity, action = 'decremen
 };
 
 // Pre-save hook to generate SKU if not provided
-productSchema.pre('save', async function (next) {
+productSchema.pre('save', async function () {
   if (!this.sku) {
     const count = await this.constructor.countDocuments();
     this.sku = `PRD-${(count + 1).toString().padStart(5, '0')}`;
   }
-  next();
 });
 
 module.exports = mongoose.model('Product', productSchema);
