@@ -3,6 +3,7 @@ import API_BASE_URL_ROOT from '../config';
 import { PRODUCTS as USER_PRODUCTS } from '../data';
 
 export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavigateToStore }) {
+  const REACT_APP_API_BASE_URL = API_BASE_URL_ROOT;
   const logo = '/images/vapesmart-logo.png';
 
   // Navigation and view states
@@ -14,6 +15,18 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [stockUpdateValue, setStockUpdateValue] = useState('');
   const [priceUpdateValue, setPriceUpdateValue] = useState('');
+
+  // Creation state
+  const [isCreatingProduct, setIsCreatingProduct] = useState(false);
+  const [newProductForm, setNewProductForm] = useState({
+    name: '',
+    brand: '',
+    category: '',
+    price: '',
+    stock: '',
+    description: '',
+    flavor: ''
+  });
 
   // Data states
   const [users, setUsers] = useState([]);
@@ -107,38 +120,89 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
     fetchData('/users', setUsers);
     fetchData('/client-requirements', setClientRequirements);
     fetchData('/orders', setOrders);
-    fetchData('/products', setProducts);
     fetchStats();
+  };
+
+  // --- CRUD Operations (Frontend Only / LocalStorage) ---
+
+  const saveProductsToStorage = (updatedProducts) => {
+    localStorage.setItem('vapesmart_products', JSON.stringify(updatedProducts));
+    setProducts(updatedProducts);
   };
 
   const handleProductUpdate = async (productId, updates) => {
     try {
       setLoading(true);
-      const response = await fetch(`${API_BASE_URL}/products/${productId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${adminToken}`
-        },
-        body: JSON.stringify(updates)
-      });
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 500));
 
-      if (response.ok) {
-        const result = await response.json();
-        const updatedProduct = result.product || result; // Handle potential wrapper
+      const updatedProducts = products.map(p =>
+        (p._id === productId || p.id === productId) ? { ...p, ...updates } : p
+      );
 
-        // Update local state
-        setProducts(products.map(p => p._id === productId ? updatedProduct : p));
-        if (selectedProduct && selectedProduct._id === productId) {
-          setSelectedProduct(updatedProduct);
-        }
-        setStockUpdateValue('');
-        setPriceUpdateValue('');
-      } else {
-        console.error('Failed to update product');
+      saveProductsToStorage(updatedProducts);
+
+      const updatedProduct = updatedProducts.find(p => p._id === productId || p.id === productId);
+      if (selectedProduct && (selectedProduct._id === productId || selectedProduct.id === productId)) {
+        setSelectedProduct(updatedProduct);
       }
+
+      setStockUpdateValue('');
+      setPriceUpdateValue('');
+      // alert('Product updated successfully (Local Storage)');
     } catch (error) {
       console.error('Error updating product', error);
+      setError('Failed to update product');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreateProduct = async (e) => {
+    if (e) e.preventDefault();
+    try {
+      setLoading(true);
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      const newProduct = {
+        ...newProductForm,
+        id: `local-${Date.now()}`, // Generate a local ID
+        _id: `local-${Date.now()}`,
+        price: Number(newProductForm.price),
+        stock: Number(newProductForm.stock),
+        createdAt: new Date().toISOString()
+      };
+
+      const updatedProducts = [newProduct, ...products];
+      saveProductsToStorage(updatedProducts);
+
+      setIsCreatingProduct(false);
+      setNewProductForm({ name: '', brand: '', category: '', price: '', stock: '', description: '', flavor: '' });
+      // alert('Product created successfully (Local Storage)');
+    } catch (err) {
+      console.error('Create product error:', err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteProduct = async (productId) => {
+    if (!window.confirm('Are you sure you want to delete this product? This action cannot be undone.')) return;
+
+    try {
+      setLoading(true);
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      const updatedProducts = products.filter(p => p._id !== productId && p.id !== productId);
+      saveProductsToStorage(updatedProducts);
+
+      setSelectedProduct(null); // Close detail view
+    } catch (err) {
+      console.error('Delete product error:', err);
+      setError(err.message);
     } finally {
       setLoading(false);
     }
@@ -188,11 +252,70 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
     }
   };
 
-  // Initial data load and polling
-  useEffect(() => {
-    handleRefresh();
 
-    // Poll for new orders and stats every 10 seconds
+
+  // Initial data load and polling
+  // Initial data load
+  useEffect(() => {
+    const loadInitialData = async () => {
+      setLoading(true);
+      try {
+        // Load products from LocalStorage OR Default Data
+        const storedProducts = localStorage.getItem('vapesmart_products');
+        if (storedProducts) {
+          let parsedProducts = JSON.parse(storedProducts);
+          // Migration: Ensure images and names are present for demo products if missing
+          parsedProducts = parsedProducts.map(p => {
+            const original = USER_PRODUCTS.find(up => up.id === p.id || up.id === p._id);
+            let updates = {};
+
+            // Restore image if missing
+            if (!p.image && original) {
+              updates.image = original.poster || original.cardImage || '';
+            }
+
+            // Restore name if missing (USER_PRODUCTS doesn't have 'name', it has brand/series/flavor)
+            if (!p.name) {
+              if (original) {
+                updates.name = `${original.brand} ${original.series} - ${original.flavor}`;
+              } else {
+                updates.name = p.id || 'Unknown Product';
+              }
+            }
+
+            return { ...p, ...updates };
+          });
+          setProducts(parsedProducts);
+        } else {
+          // Initialize with USER_PRODUCTS if storage is empty
+          const initialProducts = USER_PRODUCTS.map(p => ({
+            ...p,
+            _id: p.id, // Ensure _id exists for consistency with our logic
+            name: `${p.brand} ${p.series} - ${p.flavor}`,
+            image: p.poster || p.cardImage || '' // Map image for display
+          }));
+          // Don't save to storage immediately to avoid overwriting if user wants to "reset" by clearing storage? 
+          // Actually, let's just set state.
+          setProducts(initialProducts);
+        }
+
+        // Fetch other backend data if available, but handle failure gracefully
+        if (adminToken) {
+          fetchData('/users', setUsers);
+          fetchData('/client-requirements', setClientRequirements);
+          fetchData('/orders', setOrders);
+          fetchStats();
+        }
+      } catch (e) {
+        console.error("Error loading initial data", e);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadInitialData();
+
+    // Poll for new orders only
     const intervalId = setInterval(() => {
       if (adminToken) {
         fetchData('/orders', setOrders);
@@ -221,19 +344,9 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
     )
   ) : [];
 
-  const usingApiProducts = Array.isArray(products) && products.length > 0;
+  const usingApiProducts = true; // Always true in this mode to enable editing
 
-  const supplyDepotProducts = usingApiProducts
-    ? products
-    : USER_PRODUCTS.map((p) => ({
-      _id: p.id,
-      name: `${p.brand} ${p.series} - ${p.flavor}`,
-      category: p.series || p.category || 'product',
-      stock: p.soldOut ? 0 : 25,
-      price: p.price || 0,
-      image: p.cardImage || p.poster || null,
-      sku: p.id,
-    }));
+  const supplyDepotProducts = products && products.length > 0 ? products : [];
 
   const filteredProducts = Array.isArray(supplyDepotProducts) ? supplyDepotProducts.filter(prod =>
     prod.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -281,7 +394,7 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
       setShowRevenueStats(false);
       setShowPendingStats(false);
     }
-  }, [activeTab, selectedUser, selectedOrder]);
+  }, [activeTab, selectedUser, selectedOrder, isCreatingProduct]);
 
   if (showRevenueStats) {
     return (
@@ -293,14 +406,14 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
               <h2 className="text-3xl font-black italic uppercase text-green-400 mb-2">Financial Intelligence</h2>
               <p className="text-gray-400 mb-8">Real-time revenue stream analysis</p>
 
-              <div className="grid grid-cols-2 gap-8 mb-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
                 <div>
                   <p className="text-[10px] font-black uppercase text-gray-500 tracking-widest mb-2">Total Revenue</p>
-                  <p className="text-5xl font-black text-white">₹{(stats.totalRevenue || 0).toLocaleString()}</p>
+                  <p className="text-4xl lg:text-5xl font-black text-white truncate">₹{(stats.totalRevenue || 0).toLocaleString()}</p>
                 </div>
                 <div>
                   <p className="text-[10px] font-black uppercase text-gray-500 tracking-widest mb-2">Avg. Order Value</p>
-                  <p className="text-5xl font-black text-green-400">₹{averageOrderValue}</p>
+                  <p className="text-4xl lg:text-5xl font-black text-green-400 truncate">₹{averageOrderValue}</p>
                 </div>
               </div>
 
@@ -427,6 +540,7 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
                     setSelectedOrder(null);
                     setSelectedRequirement(null);
                     setSelectedProduct(null);
+                    setIsCreatingProduct(false);
                   }}
                   className="px-4 py-2 bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 rounded-xl text-sm font-medium transition-all duration-200 border border-purple-500/30 hover:border-purple-400/50"
                 >
@@ -453,7 +567,7 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
       </div>
 
       {/* Global Tabs */}
-      {!selectedUser && !selectedRequirement && !selectedOrder && !selectedProduct && (
+      {!selectedUser && !selectedRequirement && !selectedOrder && !selectedProduct && !isCreatingProduct && (
         <div className="flex flex-wrap gap-3 md:gap-4 mb-8">
           {[
             { id: 'overview', label: 'Command', icon: 'M13 10V3L4 14h7v7l9-11h-7z' },
@@ -690,14 +804,33 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
       {activeTab === 'inventory' && !selectedProduct && (
         <div className="bg-gray-900/50 border border-gray-800 rounded-[32px] overflow-hidden backdrop-blur-xl">
           <div className="p-4 md:p-6 md:p-8 border-b border-gray-800 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-            <h3 className="text-xl md:text-3xl font-black italic tracking-tighter uppercase">Supply Depot</h3>
-            <input
-              type="text"
-              placeholder="Search Supplies..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full md:w-72 pl-4 pr-4 py-3 bg-black border border-gray-800 rounded-xl text-sm font-bold focus:outline-none focus:border-purple-500 transition-all"
-            />
+            <h3 className="text-xl md:text-3xl font-black italic tracking-tighter uppercase">Supply Depot (Frontend Storage)</h3>
+            <div className="flex items-center gap-3 w-full md:w-auto">
+              <button
+                onClick={() => {
+                  if (window.confirm('Reset all product data to original defaults? This clears local storage.')) {
+                    localStorage.removeItem('vapesmart_products');
+                    window.location.reload();
+                  }
+                }}
+                className="px-4 py-3 bg-red-600/20 text-red-400 border border-red-500/50 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-red-600 hover:text-white transition-all whitespace-nowrap"
+              >
+                Reset Data
+              </button>
+              <button
+                onClick={() => setIsCreatingProduct(true)}
+                className="px-4 py-3 bg-green-600 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-green-500 transition-all shadow-lg shadow-green-900/40 whitespace-nowrap flex items-center gap-2"
+              >
+                <span>+</span> Add Product
+              </button>
+              <input
+                type="text"
+                placeholder="Search Supplies..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full md:w-64 pl-4 pr-4 py-3 bg-black border border-gray-800 rounded-xl text-sm font-bold focus:outline-none focus:border-purple-500 transition-all"
+              />
+            </div>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -720,7 +853,16 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
                 ) : (
                   filteredProducts.map(prod => (
                     <tr key={prod._id} onClick={() => setSelectedProduct(prod)} className="group hover:bg-white/5 transition-all cursor-pointer">
-                      <td className="px-2 md:px-8 py-3 md:py-6 font-bold text-sm md:text-base text-white group-hover:text-purple-400 transition-colors">{prod.name}</td>
+                      <td className="px-2 md:px-8 py-3 md:py-6 font-bold text-sm md:text-base text-white group-hover:text-purple-400 transition-colors">
+                        <div className="flex items-center gap-3">
+                          {prod.image ? (
+                            <img src={prod.image} alt="" className="w-10 h-10 object-contain bg-black rounded-lg border border-gray-800" />
+                          ) : (
+                            <div className="w-10 h-10 bg-gray-800 rounded-lg animate-pulse" />
+                          )}
+                          <span>{prod.name}</span>
+                        </div>
+                      </td>
                       <td className="hidden md:table-cell px-8 py-6 text-sm text-gray-400 capitalize">{prod.category}</td>
                       <td className="px-2 md:px-8 py-3 md:py-6 whitespace-nowrap">
                         <span className={`font-mono font-bold text-xs md:text-sm ${prod.stock < 10 ? 'text-red-500' : 'text-green-400'}`}>
@@ -742,128 +884,254 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
             </table>
           </div>
         </div>
-      )}
+      )
+      }
+
+      {/* Create Product Form */}
+      {
+        isCreatingProduct && (
+          <div className="bg-gray-900/50 border border-gray-800 rounded-[40px] p-6 md:p-12 backdrop-blur-3xl animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="max-w-4xl mx-auto">
+              <h2 className="text-3xl font-black italic uppercase text-white mb-2">Initialize New Node</h2>
+              <p className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-10">Add a new product to the central registry</p>
+
+              <form onSubmit={handleCreateProduct} className="space-y-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div>
+                    <label className="block text-[10px] font-black uppercase text-gray-500 tracking-widest mb-3">Product Name</label>
+                    <input
+                      required
+                      type="text"
+                      value={newProductForm.name}
+                      onChange={e => setNewProductForm({ ...newProductForm, name: e.target.value })}
+                      placeholder="e.g. ELFBAR Ray 5000"
+                      className="w-full bg-black border border-gray-800 rounded-2xl px-6 py-4 text-white font-bold focus:border-purple-500 focus:outline-none transition-colors"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black uppercase text-gray-500 tracking-widest mb-3">Brand Identity</label>
+                    <input
+                      required
+                      type="text"
+                      value={newProductForm.brand}
+                      onChange={e => setNewProductForm({ ...newProductForm, brand: e.target.value })}
+                      placeholder="e.g. ELFBAR"
+                      className="w-full bg-black border border-gray-800 rounded-2xl px-6 py-4 text-white font-bold focus:border-purple-500 focus:outline-none transition-colors"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black uppercase text-gray-500 tracking-widest mb-3">Flavor Profile</label>
+                    <input
+                      type="text"
+                      value={newProductForm.flavor}
+                      onChange={e => setNewProductForm({ ...newProductForm, flavor: e.target.value })}
+                      placeholder="e.g. Blue Razz Ice"
+                      className="w-full bg-black border border-gray-800 rounded-2xl px-6 py-4 text-white font-bold focus:border-purple-500 focus:outline-none transition-colors"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black uppercase text-gray-500 tracking-widest mb-3">Category Classification</label>
+                    <select
+                      required
+                      value={newProductForm.category}
+                      onChange={e => setNewProductForm({ ...newProductForm, category: e.target.value })}
+                      className="w-full bg-black border border-gray-800 rounded-2xl px-6 py-4 text-white font-bold focus:border-purple-500 focus:outline-none transition-colors appearance-none"
+                    >
+                      <option value="">Select Category...</option>
+                      <option value="disposable">Disposable</option>
+                      <option value="pod-systems">Pod Systems</option>
+                      <option value="e-liquids">E-Liquids</option>
+                      <option value="accessories">Accessories</option>
+                      <option value="mods">Mods</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black uppercase text-gray-500 tracking-widest mb-3">Base Price ($)</label>
+                    <input
+                      required
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={newProductForm.price}
+                      onChange={e => setNewProductForm({ ...newProductForm, price: e.target.value })}
+                      placeholder="0.00"
+                      className="w-full bg-black border border-gray-800 rounded-2xl px-6 py-4 text-white font-bold focus:border-purple-500 focus:outline-none transition-colors"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black uppercase text-gray-500 tracking-widest mb-3">Initial Stock</label>
+                    <input
+                      required
+                      type="number"
+                      min="0"
+                      value={newProductForm.stock}
+                      onChange={e => setNewProductForm({ ...newProductForm, stock: e.target.value })}
+                      placeholder="0"
+                      className="w-full bg-black border border-gray-800 rounded-2xl px-6 py-4 text-white font-bold focus:border-purple-500 focus:outline-none transition-colors"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-black uppercase text-gray-500 tracking-widest mb-3">Technical Specifications</label>
+                  <textarea
+                    value={newProductForm.description}
+                    onChange={e => setNewProductForm({ ...newProductForm, description: e.target.value })}
+                    rows="4"
+                    placeholder="Detailed product description..."
+                    className="w-full bg-black border border-gray-800 rounded-2xl px-6 py-4 text-white font-medium focus:border-purple-500 focus:outline-none transition-colors resize-none"
+                  />
+                </div>
+
+                <div className="flex gap-4 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setIsCreatingProduct(false)}
+                    className="flex-1 py-4 rounded-2xl border border-gray-800 text-gray-400 font-black uppercase tracking-widest hover:bg-gray-800 transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="flex-[2] py-4 rounded-2xl bg-gradient-to-r from-purple-600 to-blue-600 text-white font-black uppercase tracking-widest hover:shadow-lg hover:shadow-purple-600/20 transition-all"
+                  >
+                    {loading ? 'Processing...' : 'Deploy to Registry'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )
+      }
 
       {/* Selected Product (Stock Management) View */}
-      {selectedProduct && (
-        <div className="bg-gray-900/50 border border-gray-800 rounded-[40px] p-6 md:p-12 backdrop-blur-3xl animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <div className="flex flex-col lg:flex-row gap-12">
-            {/* Product Info */}
-            <div className="lg:w-1/3">
-              <div className="w-full aspect-square bg-black border border-gray-800 rounded-[32px] flex items-center justify-center mb-8 relative overflow-hidden group">
-                {selectedProduct.image ? (
-                  <img src={selectedProduct.image} alt={selectedProduct.name} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
-                ) : (
-                  <div className="text-center">
-                    <svg className="w-20 h-20 text-gray-800 mb-4 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
-                    <p className="text-xs font-black uppercase text-gray-700 tracking-widest">No Visual Data</p>
-                  </div>
-                )}
-              </div>
-              <h2 className="text-3xl font-black italic uppercase leading-none mb-2">{selectedProduct.name}</h2>
-              <p className="text-sm font-bold text-gray-500 uppercase tracking-widest mb-6">{selectedProduct.category} // {selectedProduct.sku || 'NO_SKU'}</p>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-gray-800/30 p-4 rounded-2xl border border-gray-700/30">
-                  <p className="text-[10px] uppercase text-gray-500 font-black mb-1">Unit Value</p>
-                  <p className="text-xl font-mono text-green-400 font-bold">${selectedProduct.price}</p>
+      {
+        selectedProduct && (
+          <div className="bg-gray-900/50 border border-gray-800 rounded-[40px] p-6 md:p-12 backdrop-blur-3xl animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="flex flex-col lg:flex-row gap-12">
+              {/* Product Info */}
+              <div className="lg:w-1/3">
+                <div className="w-full aspect-square bg-black border border-gray-800 rounded-[32px] flex items-center justify-center mb-8 relative overflow-hidden group">
+                  {selectedProduct.image ? (
+                    <img src={selectedProduct.image} alt={selectedProduct.name} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
+                  ) : (
+                    <div className="text-center">
+                      <svg className="w-20 h-20 text-gray-800 mb-4 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
+                      <p className="text-xs font-black uppercase text-gray-700 tracking-widest">No Visual Data</p>
+                    </div>
+                  )}
                 </div>
-                <div className="bg-gray-800/30 p-4 rounded-2xl border border-gray-700/30">
-                  <p className="text-[10px] uppercase text-gray-500 font-black mb-1">Total Sold</p>
-                  <p className="text-xl font-mono text-blue-400 font-bold">--</p>
-                </div>
-              </div>
-            </div>
+                <h2 className="text-3xl font-black italic uppercase leading-none mb-2">{selectedProduct.name}</h2>
+                <p className="text-sm font-bold text-gray-500 uppercase tracking-widest mb-6">{selectedProduct.category} // {selectedProduct.sku || 'NO_SKU'}</p>
 
-            {/* Inventory & Price Control */}
-            <div className="lg:w-2/3 space-y-8">
-              <div className="bg-black/40 border border-gray-800 p-10 rounded-[40px]">
-                <div className="flex justify-between items-start mb-10">
-                  <div>
-                    <p className="text-[10px] font-black uppercase text-purple-400 tracking-[0.4em] mb-2">Inventory  &  Pricing</p>
-                    <h3 className="text-xl font-bold text-white">Manage Product Data</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-gray-800/30 p-4 rounded-2xl border border-gray-700/30">
+                    <p className="text-[10px] uppercase text-gray-500 font-black mb-1">Unit Value</p>
+                    <p className="text-xl font-mono text-green-400 font-bold">${selectedProduct.price}</p>
                   </div>
-                  <div className="text-right">
-                    <p className="text-[10px] font-bold uppercase text-gray-500 mb-1">Current Availability</p>
-                    <p className={`text-6xl font-black ${selectedProduct.stock < 10 ? 'text-red-500' : 'text-white'}`}>{selectedProduct.stock}</p>
+                  <div className="bg-gray-800/30 p-4 rounded-2xl border border-gray-700/30">
+                    <p className="text-[10px] uppercase text-gray-500 font-black mb-1">Total Sold</p>
+                    <p className="text-xl font-mono text-blue-400 font-bold">--</p>
                   </div>
-                </div>
-
-                {/* Edit Inputs */}
-                <div className="flex flex-col md:flex-row gap-4 mb-8">
-                  <div className="flex-1">
-                    <label className="text-[10px] font-bold uppercase text-gray-500 mb-2 block">New Stock Qty</label>
-                    <input
-                      type="number"
-                      placeholder="Qty..."
-                      value={stockUpdateValue}
-                      onChange={(e) => setStockUpdateValue(e.target.value)}
-                      className="w-full bg-gray-900 border border-gray-800 rounded-2xl px-6 py-4 text-xl font-bold focus:border-purple-500 focus:outline-none transition-colors"
-                    />
-                  </div>
-                  <div className="flex-1">
-                    <label className="text-[10px] font-bold uppercase text-gray-500 mb-2 block">New Price ($)</label>
-                    <input
-                      type="number"
-                      placeholder="Price..."
-                      value={priceUpdateValue}
-                      onChange={(e) => setPriceUpdateValue(e.target.value)}
-                      className="w-full bg-gray-900 border border-gray-800 rounded-2xl px-6 py-4 text-xl font-bold focus:border-purple-500 focus:outline-none transition-colors"
-                    />
-                  </div>
-                </div>
-
-                <button
-                  onClick={() => {
-                    const updates = {};
-                    if (stockUpdateValue !== '') updates.stock = Number(stockUpdateValue);
-                    if (priceUpdateValue !== '') updates.price = Number(priceUpdateValue);
-                    if (Object.keys(updates).length > 0) {
-                      handleProductUpdate(selectedProduct._id, updates);
-                    }
-                  }}
-                  disabled={(!stockUpdateValue && !priceUpdateValue) || !usingApiProducts}
-                  className="w-full bg-purple-600 hover:bg-purple-500 text-white px-8 py-4 rounded-2xl font-black uppercase tracking-widest disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-purple-600/20 mb-4"
-                >
-                  {usingApiProducts ? 'Update details' : 'Demo Mode - Updates Disabled'}
-                </button>
-                {!usingApiProducts && (
-                  <p className="text-red-400 text-xs font-bold text-center mb-8 uppercase tracking-widest">
-                    You are viewing demo data. Connect DB to enable updates.
-                  </p>
-                )}
-
-                {/* Quick Actions */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <button disabled={!usingApiProducts} onClick={() => handleProductUpdate(selectedProduct._id, { stock: selectedProduct.stock + 10 })} className="p-4 rounded-2xl bg-gray-900 border border-gray-800 hover:border-green-500/50 hover:bg-green-500/10 disabled:opacity-50 disabled:cursor-not-allowed transition-all group">
-                    <p className="text-green-500 font-black text-lg group-hover:scale-110 transition-transform">+10</p>
-                    <p className="text-[10px] font-bold uppercase text-gray-500">Quick Restock</p>
-                  </button>
-                  <button disabled={!usingApiProducts} onClick={() => handleProductUpdate(selectedProduct._id, { stock: selectedProduct.stock + 50 })} className="p-4 rounded-2xl bg-gray-900 border border-gray-800 hover:border-green-500/50 hover:bg-green-500/10 disabled:opacity-50 disabled:cursor-not-allowed transition-all group">
-                    <p className="text-green-500 font-black text-lg group-hover:scale-110 transition-transform">+50</p>
-                    <p className="text-[10px] font-bold uppercase text-gray-500">Bulk Restock</p>
-                  </button>
-                  <button disabled={!usingApiProducts} onClick={() => handleProductUpdate(selectedProduct._id, { stock: Math.max(0, selectedProduct.stock - 10) })} className="p-4 rounded-2xl bg-gray-900 border border-gray-800 hover:border-yellow-500/50 hover:bg-yellow-500/10 disabled:opacity-50 disabled:cursor-not-allowed transition-all group">
-                    <p className="text-yellow-500 font-black text-lg group-hover:scale-110 transition-transform">-10</p>
-                    <p className="text-[10px] font-bold uppercase text-gray-500">Reduce</p>
-                  </button>
-                  <button disabled={!usingApiProducts} onClick={() => handleProductUpdate(selectedProduct._id, { stock: 0 })} className="p-4 rounded-2xl bg-gray-900 border border-gray-800 hover:border-red-500/50 hover:bg-red-500/10 disabled:opacity-50 disabled:cursor-not-allowed transition-all group">
-                    <p className="text-red-500 font-black text-lg group-hover:scale-110 transition-transform">ZERO</p>
-                    <p className="text-[10px] font-bold uppercase text-gray-500">Deplete</p>
-                  </button>
                 </div>
               </div>
 
-              <div className="bg-red-900/10 border border-red-500/20 p-8 rounded-[32px]">
-                <h4 className="text-lg font-black uppercase text-red-400 italic mb-4">Emergency Protocol</h4>
-                <p className="text-sm text-gray-400 mb-6">If product line is discontinued or recalled, initiate immediate takedown from the verified registry.</p>
-                <button className="w-full py-4 rounded-xl border border-red-500/30 text-red-400 font-black uppercase tracking-widest text-xs hover:bg-red-500 hover:text-white transition-all">Deactivate Product Node</button>
+              {/* Inventory & Price Control */}
+              <div className="lg:w-2/3 space-y-8">
+                <div className="bg-black/40 border border-gray-800 p-10 rounded-[40px]">
+                  <div className="flex justify-between items-start mb-10">
+                    <div>
+                      <p className="text-[10px] font-black uppercase text-purple-400 tracking-[0.4em] mb-2">Inventory  &  Pricing</p>
+                      <h3 className="text-xl font-bold text-white">Manage Product Data</h3>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[10px] font-bold uppercase text-gray-500 mb-1">Current Availability</p>
+                      <p className={`text-6xl font-black ${selectedProduct.stock < 10 ? 'text-red-500' : 'text-white'}`}>{selectedProduct.stock}</p>
+                    </div>
+                  </div>
+
+                  {/* Edit Inputs */}
+                  <div className="flex flex-col md:flex-row gap-4 mb-8">
+                    <div className="flex-1">
+                      <label className="text-[10px] font-bold uppercase text-gray-500 mb-2 block">New Stock Qty</label>
+                      <input
+                        type="number"
+                        placeholder="Qty..."
+                        value={stockUpdateValue}
+                        onChange={(e) => setStockUpdateValue(e.target.value)}
+                        className="w-full bg-gray-900 border border-gray-800 rounded-2xl px-6 py-4 text-xl font-bold focus:border-purple-500 focus:outline-none transition-colors"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <label className="text-[10px] font-bold uppercase text-gray-500 mb-2 block">New Price ($)</label>
+                      <input
+                        type="number"
+                        placeholder="Price..."
+                        value={priceUpdateValue}
+                        onChange={(e) => setPriceUpdateValue(e.target.value)}
+                        className="w-full bg-gray-900 border border-gray-800 rounded-2xl px-6 py-4 text-xl font-bold focus:border-purple-500 focus:outline-none transition-colors"
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      const updates = {};
+                      if (stockUpdateValue !== '') updates.stock = Number(stockUpdateValue);
+                      if (priceUpdateValue !== '') updates.price = Number(priceUpdateValue);
+                      if (Object.keys(updates).length > 0) {
+                        handleProductUpdate(selectedProduct._id, updates);
+                      }
+                    }}
+                    disabled={(!stockUpdateValue && !priceUpdateValue) || !usingApiProducts}
+                    className="w-full bg-purple-600 hover:bg-purple-500 text-white px-8 py-4 rounded-2xl font-black uppercase tracking-widest disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-purple-600/20 mb-4"
+                  >
+                    {usingApiProducts ? 'Update details' : 'Demo Mode - Updates Disabled'}
+                  </button>
+                  {!usingApiProducts && (
+                    <p className="text-red-400 text-xs font-bold text-center mb-8 uppercase tracking-widest">
+                      You are viewing demo data. Connect DB to enable updates.
+                    </p>
+                  )}
+
+                  {/* Quick Actions */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <button disabled={!usingApiProducts} onClick={() => handleProductUpdate(selectedProduct._id, { stock: selectedProduct.stock + 10 })} className="p-4 rounded-2xl bg-gray-900 border border-gray-800 hover:border-green-500/50 hover:bg-green-500/10 disabled:opacity-50 disabled:cursor-not-allowed transition-all group">
+                      <p className="text-green-500 font-black text-lg group-hover:scale-110 transition-transform">+10</p>
+                      <p className="text-[10px] font-bold uppercase text-gray-500">Quick Restock</p>
+                    </button>
+                    <button disabled={!usingApiProducts} onClick={() => handleProductUpdate(selectedProduct._id, { stock: selectedProduct.stock + 50 })} className="p-4 rounded-2xl bg-gray-900 border border-gray-800 hover:border-green-500/50 hover:bg-green-500/10 disabled:opacity-50 disabled:cursor-not-allowed transition-all group">
+                      <p className="text-green-500 font-black text-lg group-hover:scale-110 transition-transform">+50</p>
+                      <p className="text-[10px] font-bold uppercase text-gray-500">Bulk Restock</p>
+                    </button>
+                    <button disabled={!usingApiProducts} onClick={() => handleProductUpdate(selectedProduct._id, { stock: Math.max(0, selectedProduct.stock - 10) })} className="p-4 rounded-2xl bg-gray-900 border border-gray-800 hover:border-yellow-500/50 hover:bg-yellow-500/10 disabled:opacity-50 disabled:cursor-not-allowed transition-all group">
+                      <p className="text-yellow-500 font-black text-lg group-hover:scale-110 transition-transform">-10</p>
+                      <p className="text-[10px] font-bold uppercase text-gray-500">Reduce</p>
+                    </button>
+                    <button disabled={!usingApiProducts} onClick={() => handleProductUpdate(selectedProduct._id, { stock: 0 })} className="p-4 rounded-2xl bg-gray-900 border border-gray-800 hover:border-red-500/50 hover:bg-red-500/10 disabled:opacity-50 disabled:cursor-not-allowed transition-all group">
+                      <p className="text-red-500 font-black text-lg group-hover:scale-110 transition-transform">ZERO</p>
+                      <p className="text-[10px] font-bold uppercase text-gray-500">Deplete</p>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="bg-red-900/10 border border-red-500/20 p-8 rounded-[32px]">
+                  <h4 className="text-lg font-black uppercase text-red-400 italic mb-4">Emergency Protocol</h4>
+                  <p className="text-sm text-gray-400 mb-6">If product line is discontinued or recalled, initiate immediate takedown from the verified registry.</p>
+                  <button
+                    onClick={() => handleDeleteProduct(selectedProduct._id)}
+                    className="w-full py-4 rounded-xl border border-red-500/30 text-red-400 font-black uppercase tracking-widest text-xs hover:bg-red-500 hover:text-white transition-all"
+                  >
+                    Deactivate Product Node
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
+      {/* Users Tab */}
       {activeTab === 'users' && !selectedUser && (
         <div className="bg-gray-900/50 border border-gray-800 rounded-[32px] overflow-hidden backdrop-blur-xl">
           <div className="p-6 md:p-8 border-b border-gray-800">

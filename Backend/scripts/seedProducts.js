@@ -80,12 +80,12 @@ const products = [
 
 const seedDB = async () => {
     try {
-        if (!process.env.MONGO_URI) {
-            console.error('Error: MONGO_URI is not defined in .env file');
+        if (!process.env.MONGODB_URI) {
+            console.error('Error: MONGODB_URI is not defined in .env file');
             process.exit(1);
         }
 
-        await mongoose.connect(process.env.MONGO_URI);
+        await mongoose.connect(process.env.MONGODB_URI);
         console.log('MongoDB Connected');
 
         // Clear existing products
