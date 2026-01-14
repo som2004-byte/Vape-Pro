@@ -36,6 +36,7 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
 
   // Data states
   const [users, setUsers] = useState([]);
+  const [admins, setAdmins] = useState([]);
   const [clientRequirements, setClientRequirements] = useState([]);
   const [orders, setOrders] = useState([]);
   const [products, setProducts] = useState([]);
@@ -76,6 +77,8 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
           setter(data.products || (Array.isArray(data) ? data : []));
         } else if (endpoint.includes('/users')) {
           setter(data.users || (Array.isArray(data) ? data : []));
+        } else if (endpoint.includes('/admins')) {
+          setter(data || []);
         } else if (endpoint.includes('/client-requirements')) {
           setter(data.requirements || (Array.isArray(data) ? data : []));
         } else {
@@ -139,6 +142,48 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
   const handleProductUpdate = async (productId, updates) => {
     try {
       setLoading(true);
+
+      const isMongoId = (id) => /^[0-9a-fA-F]{24}$/.test(id);
+
+      if (!isMongoId(productId)) {
+        // This is a Demo Product (local ID). To sync changes across devices, 
+        // we must promote it to a real Database product.
+        const productToPromote = products.find(p => p.id === productId || p._id === productId);
+        if (!productToPromote) return;
+
+        const payload = {
+          ...productToPromote,
+          ...updates,
+          price: Number(updates.price || productToPromote.price),
+          stock: Number(updates.stock || productToPromote.stock)
+        };
+        delete payload._id;
+        delete payload.id;
+
+        const response = await fetch(`${API_BASE_URL}/products`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${adminToken}`
+          },
+          body: JSON.stringify(payload)
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const newProduct = data.product || data;
+          // Replace the local demo product with the new DB product in state
+          setProducts(products.map(p =>
+            (p.id === productId || p._id === productId) ? newProduct : p
+          ));
+          if (selectedProduct && (selectedProduct.id === productId || selectedProduct._id === productId)) {
+            setSelectedProduct(newProduct);
+          }
+          setStockUpdateValue('');
+          setPriceUpdateValue('');
+          return;
+        }
+      }
 
       const response = await fetch(`${API_BASE_URL}/products/${productId}`, {
         method: 'PUT',
@@ -327,6 +372,7 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
         // Fetch backend data
         if (adminToken) {
           await fetchData('/users', setUsers);
+          await fetchData('/admins', setAdmins);
           await fetchData('/client-requirements', setClientRequirements);
           await fetchData('/orders', setOrders);
           await fetchData('/products', setProducts); // Fetch products from Backend API
@@ -1291,6 +1337,27 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
             </div>
           </div>
 
+          {/* Admin Hierarchy Section */}
+          <div className="mt-8">
+            <h4 className="text-xl font-black italic uppercase text-gray-500 mb-4 tracking-widest">System Admins ({admins.length})</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {admins.map((admin) => (
+                <div key={admin._id} className="bg-black/40 border border-gray-800 rounded-2xl p-6 flex items-center gap-4">
+                  <div className="w-12 h-12 bg-gradient-to-tr from-purple-600 to-blue-600 rounded-xl flex items-center justify-center text-lg font-black italic text-white shadow-lg shadow-purple-900/40">
+                    {admin.name?.charAt(0) || 'A'}
+                  </div>
+                  <div>
+                    <p className="font-bold text-white uppercase">{admin.name}</p>
+                    <p className="text-xs text-gray-500 font-medium">{admin.email}</p>
+                    <span className="inline-block mt-2 px-2 py-0.5 rounded bg-purple-900/30 border border-purple-500/30 text-[10px] font-black uppercase text-purple-400">
+                      Super Admin
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
@@ -1342,167 +1409,174 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
             </table>
           </div>
         </div>
-      )}
+      )
+      }
 
       {/* Selected User - (Existing) */}
-      {selectedUser && (
-        <div className="bg-gray-900/50 border border-gray-800 rounded-[40px] p-6 md:p-10 backdrop-blur-3xl animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
-            <div className="lg:col-span-4 flex flex-col items-center text-center">
-              <div className="w-48 h-48 bg-gradient-to-tr from-purple-600 to-blue-600 rounded-[48px] flex items-center justify-center text-6xl font-black italic shadow-2xl shadow-purple-500/40 mb-8 border-4 border-white/10">
-                {selectedUser.name?.charAt(0) || selectedUser.email?.charAt(0).toUpperCase()}
+      {
+        selectedUser && (
+          <div className="bg-gray-900/50 border border-gray-800 rounded-[40px] p-6 md:p-10 backdrop-blur-3xl animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
+              <div className="lg:col-span-4 flex flex-col items-center text-center">
+                <div className="w-48 h-48 bg-gradient-to-tr from-purple-600 to-blue-600 rounded-[48px] flex items-center justify-center text-6xl font-black italic shadow-2xl shadow-purple-500/40 mb-8 border-4 border-white/10">
+                  {selectedUser.name?.charAt(0) || selectedUser.email?.charAt(0).toUpperCase()}
+                </div>
+                <h2 className="text-4xl font-black uppercase italic tracking-tighter mb-2">{selectedUser.name || 'ANONYMOUS'}</h2>
+                <p className="text-xl text-purple-400 font-bold mb-8">{selectedUser.email}</p>
+                <div className="w-full flex gap-4">
+                  <button className="flex-1 py-4 rounded-2xl bg-white text-black font-black uppercase tracking-widest text-xs hover:bg-purple-600 hover:text-white transition-all">Verify Node</button>
+                  <button className="p-4 rounded-2xl bg-red-600/20 text-red-500 hover:bg-red-600 hover:text-white transition-all">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                  </button>
+                </div>
               </div>
-              <h2 className="text-4xl font-black uppercase italic tracking-tighter mb-2">{selectedUser.name || 'ANONYMOUS'}</h2>
-              <p className="text-xl text-purple-400 font-bold mb-8">{selectedUser.email}</p>
-              <div className="w-full flex gap-4">
-                <button className="flex-1 py-4 rounded-2xl bg-white text-black font-black uppercase tracking-widest text-xs hover:bg-purple-600 hover:text-white transition-all">Verify Node</button>
-                <button className="p-4 rounded-2xl bg-red-600/20 text-red-500 hover:bg-red-600 hover:text-white transition-all">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                </button>
-              </div>
-            </div>
 
-            <div className="lg:col-span-8">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 h-full content-center">
-                {[
-                  { label: 'Platform ID', value: selectedUser._id, mono: true, color: 'text-blue-400' },
-                  { label: 'Register Date', value: new Date(selectedUser.createdAt).toLocaleString(), color: 'text-gray-300' },
-                  { label: 'Mobile Vector', value: selectedUser.phoneNumber || 'NOT_LINKED', color: 'text-gray-300' },
-                  { label: 'Verification Status', value: selectedUser.isVerified ? 'ENCRYPTED_SECURE' : 'UNVERIFIED_PENDING', color: selectedUser.isVerified ? 'text-green-400' : 'text-yellow-400' },
-                  { label: 'Mailing Vector', value: selectedUser.address || 'VECTOR_UNDEFINED', full: true, color: 'text-gray-300' }
-                ].map((item, i) => (
-                  <div key={i} className={`bg-black/40 border border-gray-800 p-8 rounded-[32px] ${item.full ? 'md:col-span-2' : ''}`}>
-                    <p className="text-[10px] font-black uppercase text-gray-500 tracking-[0.3em] mb-4">{item.label}</p>
-                    <p className={`text-lg font-bold ${item.mono ? 'font-mono tracking-tighter' : ''} ${item.color}`}>{item.value}</p>
-                  </div>
-                ))}
+              <div className="lg:col-span-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 h-full content-center">
+                  {[
+                    { label: 'Platform ID', value: selectedUser._id, mono: true, color: 'text-blue-400' },
+                    { label: 'Register Date', value: new Date(selectedUser.createdAt).toLocaleString(), color: 'text-gray-300' },
+                    { label: 'Mobile Vector', value: selectedUser.phoneNumber || 'NOT_LINKED', color: 'text-gray-300' },
+                    { label: 'Verification Status', value: selectedUser.isVerified ? 'ENCRYPTED_SECURE' : 'UNVERIFIED_PENDING', color: selectedUser.isVerified ? 'text-green-400' : 'text-yellow-400' },
+                    { label: 'Mailing Vector', value: selectedUser.address || 'VECTOR_UNDEFINED', full: true, color: 'text-gray-300' }
+                  ].map((item, i) => (
+                    <div key={i} className={`bg-black/40 border border-gray-800 p-8 rounded-[32px] ${item.full ? 'md:col-span-2' : ''}`}>
+                      <p className="text-[10px] font-black uppercase text-gray-500 tracking-[0.3em] mb-4">{item.label}</p>
+                      <p className={`text-lg font-bold ${item.mono ? 'font-mono tracking-tighter' : ''} ${item.color}`}>{item.value}</p>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      }
 
       {/* Selected Requirement - (Existing) */}
-      {selectedRequirement && (
-        <div className="bg-gray-900/50 border border-gray-800 rounded-[40px] p-6 md:p-12 backdrop-blur-3xl animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <div className="max-w-4xl mx-auto">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8 mb-12">
-              <div className="flex items-center gap-8">
-                <div className="w-24 h-24 bg-purple-600/10 border border-purple-500/30 rounded-[32px] flex items-center justify-center">
-                  <svg className="w-10 h-10 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                </div>
-                <div>
-                  <span className={`px-4 py-1.5 text-xs font-black rounded-full uppercase tracking-widest border mb-4 inline-block ${statusColors[selectedRequirement.status] || 'border-gray-800 text-gray-500'}`}>
-                    {selectedRequirement.status}
-                  </span>
-                  <h2 className="text-5xl font-black italic tracking-tighter uppercase leading-none">{selectedRequirement.title}</h2>
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              <div className="lg:col-span-2 space-y-8">
-                <div className="bg-black/40 border border-gray-800 p-10 rounded-[40px]">
-                  <p className="text-[10px] font-black uppercase text-gray-500 tracking-[0.4em] mb-6">Subject Brief</p>
-                  <p className="text-xl font-medium leading-relaxed text-gray-200 italic">"{selectedRequirement.description}"</p>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="bg-gray-800/20 border border-gray-800 p-8 rounded-[32px]">
-                    <p className="text-[10px] font-black uppercase text-gray-500 mb-2">Registry Name</p>
-                    <p className="text-xl font-black text-white">{selectedRequirement.contactName}</p>
+      {
+        selectedRequirement && (
+          <div className="bg-gray-900/50 border border-gray-800 rounded-[40px] p-6 md:p-12 backdrop-blur-3xl animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="max-w-4xl mx-auto">
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8 mb-12">
+                <div className="flex items-center gap-8">
+                  <div className="w-24 h-24 bg-purple-600/10 border border-purple-500/30 rounded-[32px] flex items-center justify-center">
+                    <svg className="w-10 h-10 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                   </div>
-                  <div className="bg-gray-800/20 border border-gray-800 p-8 rounded-[32px]">
-                    <p className="text-[10px] font-black uppercase text-gray-500 mb-2">Network Email</p>
-                    <p className="text-xl font-bold text-purple-400 lowercase">{selectedRequirement.contactEmail}</p>
+                  <div>
+                    <span className={`px-4 py-1.5 text-xs font-black rounded-full uppercase tracking-widest border mb-4 inline-block ${statusColors[selectedRequirement.status] || 'border-gray-800 text-gray-500'}`}>
+                      {selectedRequirement.status}
+                    </span>
+                    <h2 className="text-5xl font-black italic tracking-tighter uppercase leading-none">{selectedRequirement.title}</h2>
                   </div>
                 </div>
               </div>
 
-              <div className="space-y-8">
-                <div className="bg-purple-600/10 border border-purple-500/20 p-8 rounded-[40px]">
-                  <p className="text-[10px] font-black uppercase text-gray-500 mb-4">Priority Node</p>
-                  <div className="flex items-center gap-4 mb-8">
-                    <div className="w-3 h-3 rounded-full bg-purple-500 animate-pulse shadow-[0_0_15px_rgba(168,85,247,0.5)]" />
-                    <span className="text-xl font-black uppercase italic">High Level</span>
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div className="lg:col-span-2 space-y-8">
+                  <div className="bg-black/40 border border-gray-800 p-10 rounded-[40px]">
+                    <p className="text-[10px] font-black uppercase text-gray-500 tracking-[0.4em] mb-6">Subject Brief</p>
+                    <p className="text-xl font-medium leading-relaxed text-gray-200 italic">"{selectedRequirement.description}"</p>
                   </div>
-                  <p className="text-xs font-bold text-gray-400 mb-8 leading-relaxed">This ticket requires immediate platform intervention or client contact across the network protocols.</p>
-                  <button className="w-full py-4 rounded-2xl bg-purple-600 text-white font-black uppercase tracking-widest text-xs hover:bg-purple-500 transition-all shadow-xl shadow-purple-900/40 mb-3">Initiate Contact</button>
-                  <button className="w-full py-4 rounded-2xl bg-white/5 border border-white/10 text-white font-black uppercase tracking-widest text-xs hover:bg-white/10 transition-all">Close Ticket</button>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="bg-gray-800/20 border border-gray-800 p-8 rounded-[32px]">
+                      <p className="text-[10px] font-black uppercase text-gray-500 mb-2">Registry Name</p>
+                      <p className="text-xl font-black text-white">{selectedRequirement.contactName}</p>
+                    </div>
+                    <div className="bg-gray-800/20 border border-gray-800 p-8 rounded-[32px]">
+                      <p className="text-[10px] font-black uppercase text-gray-500 mb-2">Network Email</p>
+                      <p className="text-xl font-bold text-purple-400 lowercase">{selectedRequirement.contactEmail}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-8">
+                  <div className="bg-purple-600/10 border border-purple-500/20 p-8 rounded-[40px]">
+                    <p className="text-[10px] font-black uppercase text-gray-500 mb-4">Priority Node</p>
+                    <div className="flex items-center gap-4 mb-8">
+                      <div className="w-3 h-3 rounded-full bg-purple-500 animate-pulse shadow-[0_0_15px_rgba(168,85,247,0.5)]" />
+                      <span className="text-xl font-black uppercase italic">High Level</span>
+                    </div>
+                    <p className="text-xs font-bold text-gray-400 mb-8 leading-relaxed">This ticket requires immediate platform intervention or client contact across the network protocols.</p>
+                    <button className="w-full py-4 rounded-2xl bg-purple-600 text-white font-black uppercase tracking-widest text-xs hover:bg-purple-500 transition-all shadow-xl shadow-purple-900/40 mb-3">Initiate Contact</button>
+                    <button className="w-full py-4 rounded-2xl bg-white/5 border border-white/10 text-white font-black uppercase tracking-widest text-xs hover:bg-white/10 transition-all">Close Ticket</button>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      }
 
       {/* Requirements Tab - (Existing) */}
-      {activeTab === 'requirements' && !selectedRequirement && (
-        <div className="space-y-8">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-            <div>
-              <h3 className="text-3xl font-black italic tracking-tighter uppercase">Requirement Ledger</h3>
-              <p className="text-sm text-gray-500 font-medium">Processing high-priority client infrastructure tickets</p>
-            </div>
-            <div className="bg-gray-900 border border-gray-800 px-6 py-3 rounded-2xl flex items-center gap-4">
-              <span className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-cyan-400" />
-                <span className="text-xs font-black uppercase text-gray-400">{filteredRequirements.length} Active</span>
-              </span>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredRequirements.length === 0 ? (
-              <div className="col-span-full py-20 text-center border-2 border-dashed border-gray-800 rounded-[32px]">
-                <p className="text-gray-600 font-black italic text-xl">LEADGER_EMPTY: NO TICKETS FOUND</p>
+      {
+        activeTab === 'requirements' && !selectedRequirement && (
+          <div className="space-y-8">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+              <div>
+                <h3 className="text-3xl font-black italic tracking-tighter uppercase">Requirement Ledger</h3>
+                <p className="text-sm text-gray-500 font-medium">Processing high-priority client infrastructure tickets</p>
               </div>
-            ) : (
-              filteredRequirements.map(req => (
-                <div
-                  key={req._id}
-                  className="group bg-gray-900/50 border-2 border-gray-800 rounded-[32px] p-8 hover:border-purple-500/50 transition-all cursor-pointer relative overflow-hidden"
-                  onClick={() => setSelectedRequirement(req)}
-                >
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-purple-600/5 blur-[60px] group-hover:bg-purple-600/10 transition-all" />
+              <div className="bg-gray-900 border border-gray-800 px-6 py-3 rounded-2xl flex items-center gap-4">
+                <span className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-cyan-400" />
+                  <span className="text-xs font-black uppercase text-gray-400">{filteredRequirements.length} Active</span>
+                </span>
+              </div>
+            </div>
 
-                  <div className="flex items-start justify-between mb-8 relative z-10">
-                    <div className="w-14 h-14 bg-black border border-gray-800 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
-                      <svg className="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                      </svg>
-                    </div>
-                    <span className={`px-4 py-1.5 text-[10px] font-black rounded-full uppercase tracking-widest border ${statusColors[req.status] || 'border-gray-800 text-gray-500'}`}>
-                      {req.status}
-                    </span>
-                  </div>
-                  <h4 className="text-xl font-black italic uppercase mb-3 relative z-10 group-hover:text-purple-400 transition-colors">{req.title}</h4>
-                  <p className="text-sm text-gray-500 font-medium mb-8 line-clamp-3 leading-relaxed">{req.description}</p>
-
-                  <div className="space-y-3 mb-8 relative z-10">
-                    <div className="flex items-center gap-3 text-xs font-bold text-gray-400">
-                      <svg className="w-4 h-4 text-purple-500 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
-                      {req.contactName}
-                    </div>
-                    <div className="flex items-center gap-3 text-xs font-bold text-gray-500 truncate lowercase italic">
-                      <svg className="w-4 h-4 text-purple-500 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
-                      {req.contactEmail}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between pt-6 border-t border-gray-800 relative z-10">
-                    <span className="text-[10px] font-black uppercase text-gray-600 tracking-widest">{req.date}</span>
-                    <button className="px-5 py-2.5 rounded-xl bg-white text-black text-xs font-black uppercase tracking-widest group-hover:bg-purple-600 group-hover:text-white transition-all shadow-xl shadow-white/5 group-hover:shadow-purple-600/30">
-                      Process
-                    </button>
-                  </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredRequirements.length === 0 ? (
+                <div className="col-span-full py-20 text-center border-2 border-dashed border-gray-800 rounded-[32px]">
+                  <p className="text-gray-600 font-black italic text-xl">LEADGER_EMPTY: NO TICKETS FOUND</p>
                 </div>
-              ))
-            )}
-          </div>
-        </div>
-      )}
+              ) : (
+                filteredRequirements.map(req => (
+                  <div
+                    key={req._id}
+                    className="group bg-gray-900/50 border-2 border-gray-800 rounded-[32px] p-8 hover:border-purple-500/50 transition-all cursor-pointer relative overflow-hidden"
+                    onClick={() => setSelectedRequirement(req)}
+                  >
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-purple-600/5 blur-[60px] group-hover:bg-purple-600/10 transition-all" />
 
-    </div>
+                    <div className="flex items-start justify-between mb-8 relative z-10">
+                      <div className="w-14 h-14 bg-black border border-gray-800 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                        <svg className="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                      </div>
+                      <span className={`px-4 py-1.5 text-[10px] font-black rounded-full uppercase tracking-widest border ${statusColors[req.status] || 'border-gray-800 text-gray-500'}`}>
+                        {req.status}
+                      </span>
+                    </div>
+                    <h4 className="text-xl font-black italic uppercase mb-3 relative z-10 group-hover:text-purple-400 transition-colors">{req.title}</h4>
+                    <p className="text-sm text-gray-500 font-medium mb-8 line-clamp-3 leading-relaxed">{req.description}</p>
+
+                    <div className="space-y-3 mb-8 relative z-10">
+                      <div className="flex items-center gap-3 text-xs font-bold text-gray-400">
+                        <svg className="w-4 h-4 text-purple-500 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                        {req.contactName}
+                      </div>
+                      <div className="flex items-center gap-3 text-xs font-bold text-gray-500 truncate lowercase italic">
+                        <svg className="w-4 h-4 text-purple-500 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+                        {req.contactEmail}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-6 border-t border-gray-800 relative z-10">
+                      <span className="text-[10px] font-black uppercase text-gray-600 tracking-widest">{req.date}</span>
+                      <button className="px-5 py-2.5 rounded-xl bg-white text-black text-xs font-black uppercase tracking-widest group-hover:bg-purple-600 group-hover:text-white transition-all shadow-xl shadow-white/5 group-hover:shadow-purple-600/30">
+                        Process
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )
+      }
+
+    </div >
   );
 }
