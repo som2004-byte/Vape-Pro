@@ -3,12 +3,12 @@ import { Canvas } from '@react-three/fiber'
 import { OrbitControls, Environment, useGLTF } from '@react-three/drei'
 import { PRODUCTS } from '../data'
 
-function Model({ url }){
+function Model({ url }) {
   const { scene } = useGLTF(url)
   return <primitive object={scene} dispose={null} />
 }
 
-export default function Hero3D({ product, onNavigate, onCategoryChange, onFilterChange, onOpenProduct }){
+export default function Hero3D({ product, onNavigate, onCategoryChange, onFilterChange, onOpenProduct }) {
   // Build a curated "premium collection" carousel from best-selling products
   const premiumProducts = useMemo(
     () =>
@@ -130,7 +130,7 @@ export default function Hero3D({ product, onNavigate, onCategoryChange, onFilter
               <img
                 src={currentProduct?.poster}
                 alt={currentProduct?.name || currentProduct?.flavor || 'Premium collection product'}
-                className="relative object-contain max-h-[26rem] md:max-h-[30rem] w-auto transition-transform duration-500 group-hover:scale-110 drop-shadow-[0_25px_70px_rgba(0,0,0,0.95)] float-soft-slower"
+                className="relative object-contain max-h-[22rem] md:max-h-[25rem] w-auto transition-transform duration-500 group-hover:scale-110 drop-shadow-[0_25px_70px_rgba(0,0,0,0.95)] float-soft-slower"
                 style={{
                   filter: 'brightness(1.1) contrast(1.05)'
                 }}
@@ -199,7 +199,7 @@ export default function Hero3D({ product, onNavigate, onCategoryChange, onFilter
         {/* Product meta + dots */}
         <div className="mt-4 flex items-center justify-between gap-4">
           <div>
-            <p className="text-sm uppercase tracking-[0.2em] text-darkPurple-300">
+            <p className="text-sm uppercase tracking-[0.2em] text-darkPurple-300 mb-1">
               {currentProduct?.brand} {currentProduct?.series}
             </p>
             <p className="text-base text-gray-300">
@@ -213,11 +213,10 @@ export default function Hero3D({ product, onNavigate, onCategoryChange, onFilter
                   key={p.id}
                   type="button"
                   onClick={() => goToIndex(idx)}
-                  className={`h-2 rounded-full transition-all ${
-                    idx === currentIndex
-                      ? 'w-5 bg-yellowGradient-end'
-                      : 'w-2 bg-white/30 hover:bg-white/60'
-                  }`}
+                  className={`h-2 rounded-full transition-all ${idx === currentIndex
+                    ? 'w-5 bg-yellowGradient-end'
+                    : 'w-2 bg-white/30 hover:bg-white/60'
+                    }`}
                   aria-label={`Go to slide ${idx + 1}`}
                 />
               ))}
