@@ -321,7 +321,9 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
         const updatedOrder = await response.json();
 
         // Update local state
-        setOrders(orders.map(o => o._id === orderId ? { ...o, status: newStatus } : o));
+        setOrders(orders.map(o => o._id === orderId ? { ...o, status: newStatus } : o)); // Use current state status update
+        // We might not get full updated order object back exactly as we expect or populated, 
+        // but status update is key.
         if (selectedOrder && selectedOrder._id === orderId) {
           setSelectedOrder({ ...selectedOrder, status: newStatus });
         }
@@ -330,6 +332,79 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
       }
     } catch (error) {
       console.error('Error updating order status', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteOrder = async (orderId) => {
+    if (!window.confirm('Are you sure you want to delete this order? This action cannot be undone.')) return;
+
+    try {
+      setLoading(true);
+      const response = await fetch(`${API_BASE_URL}/orders/${orderId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${adminToken}` }
+      });
+
+      if (response.ok) {
+        setOrders(orders.filter(o => o._id !== orderId));
+        setSelectedOrder(null);
+        fetchStats();
+      } else {
+        const data = await response.json();
+        setError(data.message || 'Failed to delete order');
+      }
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteUser = async (userId) => {
+    if (!window.confirm('Are you sure you want to delete this user? This will also remove their associated data.')) return;
+
+    try {
+      setLoading(true);
+      const response = await fetch(`${API_BASE_URL}/users/${userId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${adminToken}` }
+      });
+
+      if (response.ok) {
+        setUsers(users.filter(u => u._id !== userId));
+        setSelectedUser(null);
+        fetchStats();
+      } else {
+        const data = await response.json();
+        setError(data.message || 'Failed to delete user');
+      }
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteAdmin = async (adminId) => {
+    if (!window.confirm('Are you sure you want to remove this administrator?')) return;
+
+    try {
+      setLoading(true);
+      const response = await fetch(`${API_BASE_URL}/admins/${adminId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${adminToken}` }
+      });
+
+      if (response.ok) {
+        setAdmins(admins.filter(a => a._id !== adminId));
+      } else {
+        const data = await response.json();
+        alert(data.message || 'Failed to delete admin');
+      }
+    } catch (err) {
+      setError(err.message);
     } finally {
       setLoading(false);
     }
@@ -776,7 +851,7 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
                             <td className="px-4 md:px-8 py-3 md:py-6 font-mono text-xs md:text-sm text-purple-400">#{order._id.slice(-6).toUpperCase()}</td>
                             <td className="px-4 md:px-8 py-3 md:py-6 text-xs md:text-sm text-gray-400">{new Date(order.createdAt || Date.now()).toLocaleDateString()}</td>
                             <td className="hidden md:table-cell px-8 py-6 text-sm font-bold text-white">{order.userId?.email || 'Guest'}</td>
-                            <td className="px-4 md:px-8 py-3 md:py-6 text-xs md:text-sm font-mono text-green-400">${(order.total || 0).toFixed(2)}</td>
+                            <td className="px-4 md:px-8 py-3 md:py-6 text-xs md:text-sm font-mono text-green-400">₹{(order.total || 0).toFixed(2)}</td>
                             <td className="px-4 md:px-8 py-3 md:py-6 text-right">
                               <span className={`inline-block px-2 md:px-3 py-1 rounded-full text-[8px] md:text-[10px] font-black uppercase tracking-widest border ${statusColors[order.status] || statusColors.pending}`}>
                                 {order.status || 'pending'}
@@ -846,17 +921,17 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
                           </div>
                           <div>
                             <p className="font-bold text-white">{name}</p>
-                            <p className="text-xs text-gray-400">Unit Cost: ${item.price}</p>
+                            <p className="text-xs text-gray-400">Unit Cost: ₹{item.price}</p>
                           </div>
                         </div>
-                        <p className="font-mono text-green-400 font-bold">${(item.price * item.quantity).toFixed(2)}</p>
+                        <p className="font-mono text-green-400 font-bold">₹{(item.price * item.quantity).toFixed(2)}</p>
                       </div>
                     );
                   })}
                 </div>
                 <div className="mt-6 pt-6 border-t border-gray-800 flex justify-between items-center">
                   <span className="text-sm font-black uppercase text-gray-500 tracking-widest">Total Value</span>
-                  <span className="text-3xl font-black text-green-400">${(selectedOrder.total || 0).toFixed(2)}</span>
+                  <span className="text-3xl font-black text-green-400">₹{(selectedOrder.total || 0).toFixed(2)}</span>
                 </div>
               </div>
 
@@ -920,6 +995,13 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
                   >
                     {selectedOrder.status === 'delivered' ? '✓ Currently Delivered' : 'Mark Delivered'}
                   </button>
+
+                  <button
+                    onClick={() => handleDeleteOrder(selectedOrder._id)}
+                    className="w-full py-4 rounded-xl font-black uppercase text-[10px] tracking-widest transition-all bg-red-600/20 text-red-400 hover:bg-red-600 hover:text-white shadow-lg border border-red-500/20"
+                  >
+                    Delete Order Record
+                  </button>
                 </div>
               </div>
             </div>
@@ -980,7 +1062,7 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
                           {prod.stock} Units
                         </span>
                       </td>
-                      <td className="px-2 md:px-8 py-3 md:py-6 font-mono text-xs md:text-sm text-gray-300 whitespace-nowrap">${prod.price}</td>
+                      <td className="px-2 md:px-8 py-3 md:py-6 font-mono text-xs md:text-sm text-gray-300 whitespace-nowrap">₹{prod.price}</td>
                       <td className="px-2 md:px-8 py-3 md:py-6 text-right whitespace-nowrap">
                         {prod.stock > 0 ? (
                           <span className="inline-block text-[8px] md:text-xs font-black text-green-500 uppercase tracking-widest bg-green-500/10 px-2 md:px-3 py-1 rounded-full border border-green-500/50 whitespace-nowrap">In Supply</span>
@@ -1023,7 +1105,7 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
                 <div className="grid grid-cols-2 gap-4">
                   <div className="bg-gray-800/30 p-4 rounded-2xl border border-gray-700/30">
                     <p className="text-[10px] uppercase text-gray-500 font-black mb-1">Unit Value</p>
-                    <p className="text-xl font-mono text-green-400 font-bold">${selectedProduct.price}</p>
+                    <p className="text-xl font-mono text-green-400 font-bold">₹{selectedProduct.price}</p>
                   </div>
                   <div className="bg-gray-800/30 p-4 rounded-2xl border border-gray-700/30">
                     <p className="text-[10px] uppercase text-gray-500 font-black mb-1">Total Sold</p>
@@ -1238,6 +1320,13 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
                     <span className="inline-block mt-2 px-2 py-0.5 rounded bg-purple-900/30 border border-purple-500/30 text-[10px] font-black uppercase text-purple-400">
                       Super Admin
                     </span>
+                    <button
+                      onClick={() => handleDeleteAdmin(admin._id)}
+                      className="ml-2 px-2 py-0.5 rounded bg-red-900/30 border border-red-500/30 text-[10px] font-black uppercase text-red-400 hover:bg-red-900/50 transition-colors"
+                      title="Remove Admin Access"
+                    >
+                      Delete
+                    </button>
                   </div>
                 </div>
               ))}
@@ -1311,8 +1400,11 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
                 <p className="text-xl text-purple-400 font-bold mb-8">{selectedUser.email}</p>
                 <div className="w-full flex gap-4">
                   <button className="flex-1 py-4 rounded-2xl bg-white text-black font-black uppercase tracking-widest text-xs hover:bg-purple-600 hover:text-white transition-all">Verify Node</button>
-                  <button className="p-4 rounded-2xl bg-red-600/20 text-red-500 hover:bg-red-600 hover:text-white transition-all">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                  <button
+                    onClick={() => handleDeleteUser(selectedUser._id)}
+                    className="p-4 rounded-2xl bg-red-600/20 text-red-500 hover:bg-red-600 hover:text-white transition-all"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                   </button>
                 </div>
               </div>

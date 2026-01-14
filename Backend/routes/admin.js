@@ -121,6 +121,27 @@ router.get('/admins', authorizeAdmin, async (req, res) => {
   }
 });
 
+// Delete admin (Admin Only)
+router.delete('/admins/:adminId', authorizeAdmin, async (req, res) => {
+  try {
+    const requestingAdminId = req.user.id;
+    const targetAdminId = req.params.adminId;
+
+    if (requestingAdminId === targetAdminId) {
+      return res.status(400).json({ message: 'You cannot delete your own admin account.' });
+    }
+
+    const admin = await Admin.findByIdAndDelete(targetAdminId);
+    if (!admin) {
+      return res.status(404).json({ message: 'Admin not found' });
+    }
+    res.json({ message: 'Admin deleted successfully' });
+  } catch (error) {
+    console.error('Delete admin error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
 // Get all users (admin only)
 router.get('/users', authorizeAdmin, async (req, res) => {
   try {
@@ -302,6 +323,20 @@ router.put(
     }
   }
 );
+
+// Delete order (admin only)
+router.delete('/orders/:orderId', authorizeAdmin, async (req, res) => {
+  try {
+    const order = await Order.findByIdAndDelete(req.params.orderId);
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+    res.json({ message: 'Order deleted successfully' });
+  } catch (error) {
+    console.error('Delete order error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
 
 
 // Get order details (admin only)
