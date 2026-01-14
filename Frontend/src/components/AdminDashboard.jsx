@@ -31,7 +31,8 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
     price: '',
     stock: '',
     description: '',
-    flavor: ''
+    flavor: '',
+    image: ''
   });
 
   // Data states
@@ -257,8 +258,13 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
       const payload = {
         ...newProductForm,
         price: Number(newProductForm.price),
-        stock: Number(newProductForm.stock)
+        stock: Number(newProductForm.stock),
+        images: newProductForm.image ? [newProductForm.image] : []
       };
+
+      // Remove temporary 'image' field from payload if backend is strict, 
+      // but Mongoose usually ignores extras unless strict schema. 
+      // Keeping it is safer for some backends, but 'images' is what Product model needs.
 
       const response = await fetch(`${API_BASE_URL}/products`, {
         method: 'POST',
@@ -271,13 +277,19 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
 
       if (response.ok) {
         const data = await response.json();
-        const createdProduct = data.product || data;
+        let createdProduct = data.product || data;
+
+        // Ensure local display has the image immediately
+        createdProduct = {
+          ...createdProduct,
+          image: newProductForm.image || ''
+        };
 
         // Refresh products list
         setProducts([createdProduct, ...products]);
 
         setIsCreatingProduct(false);
-        setNewProductForm({ name: '', brand: '', category: '', price: '', stock: '', description: '', flavor: '' });
+        setNewProductForm({ name: '', brand: '', category: '', price: '', stock: '', description: '', flavor: '', image: '' });
       } else {
         const err = await response.json();
         setError(err.message || 'Failed to create product');
@@ -375,7 +387,51 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
           await fetchData('/admins', setAdmins);
           await fetchData('/client-requirements', setClientRequirements);
           await fetchData('/orders', setOrders);
-          await fetchData('/products', setProducts); // Fetch products from Backend API
+          await fetchData('/products', (backendProducts) => {
+            const liveProducts = backendProducts || [];
+
+            // Merge Strategy:
+            // 1. Map Live DB products, adding images from matching Demo products if missing.
+            // 2. Add any Demo products that are NOT yet in the DB.
+
+            const processedLiveProducts = liveProducts.map(lp => {
+              // Try to find matching demo product by ID (if preserved) or lenient Name matching
+              const match = USER_PRODUCTS.find(up =>
+                up.id === lp.id ||
+                up.id === lp._id ||
+                (lp.name && up.flavor && lp.name.includes(up.flavor)) ||
+                (lp.name && up.series && lp.name.includes(up.series))
+              );
+
+              return {
+                ...lp,
+                // Restore image if missing in DB but present in Demo data
+                // Priority: lp.image (if exists) -> lp.images[0] (standard DB format) -> Demo Match
+                image: lp.image || (lp.images && lp.images.length > 0 ? lp.images[0] : '') || (match ? (match.poster || match.cardImage) : ''),
+                // Restore clean name if needed (optional)
+              };
+            });
+
+            // Find Demo products that are NOT in the live list (to show as "Demo" items)
+            const missingDemoProducts = USER_PRODUCTS.filter(up => {
+              // Check if this demo product is already represented in liveProducts
+              const isRepresented = liveProducts.some(lp =>
+                lp.id === up.id ||
+                lp._id === up.id ||
+                (lp.name && up.flavor && lp.name.includes(up.flavor))
+              );
+              return !isRepresented;
+            }).map(up => ({
+              ...up,
+              _id: up.id, // Use local ID
+              name: `${up.brand} ${up.series} - ${up.flavor}`,
+              image: up.poster || up.cardImage || '',
+              isDemo: true // Flag to identify these need "Promotion" on edit
+            }));
+
+            // Combine: Live Products first, then remaining Demo products
+            setProducts([...processedLiveProducts, ...missingDemoProducts]);
+          });
           fetchStats();
         } else {
           // Fallback for demo mode if no token
@@ -913,22 +969,11 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
       {activeTab === 'inventory' && !selectedProduct && (
         <div className="bg-gray-900/50 border border-gray-800 rounded-[32px] overflow-hidden backdrop-blur-xl">
           <div className="p-4 md:p-6 md:p-8 border-b border-gray-800 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-            <h3 className="text-xl md:text-3xl font-black italic tracking-tighter uppercase">Supply Depot (Frontend Storage)</h3>
-            <div className="flex items-center gap-3 w-full md:w-auto">
-              <button
-                onClick={() => {
-                  if (window.confirm('Reset all product data to original defaults? This clears local storage.')) {
-                    localStorage.removeItem('vapesmart_products');
-                    window.location.reload();
-                  }
-                }}
-                className="px-4 py-3 bg-red-600/20 text-red-400 border border-red-500/50 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-red-600 hover:text-white transition-all whitespace-nowrap"
-              >
-                Reset Data
-              </button>
+            <h3 className="text-xl md:text-3xl font-black italic tracking-tighter uppercase">Supply Depot (Live Registry)</h3>
+            <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3 w-full md:w-auto">
               <button
                 onClick={() => setIsCreatingProduct(true)}
-                className="px-4 py-3 bg-green-600 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-green-500 transition-all shadow-lg shadow-green-900/40 whitespace-nowrap flex items-center gap-2"
+                className="px-4 py-3 bg-green-600 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-green-500 transition-all shadow-lg shadow-green-900/40 whitespace-nowrap flex items-center justify-center gap-2"
               >
                 <span>+</span> Add Product
               </button>
@@ -1053,6 +1098,16 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
                       <option value="accessories">Accessories</option>
                       <option value="mods">Mods</option>
                     </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black uppercase text-gray-500 tracking-widest mb-3">Product Image URL</label>
+                    <input
+                      type="text"
+                      value={newProductForm.image}
+                      onChange={e => setNewProductForm({ ...newProductForm, image: e.target.value })}
+                      placeholder="https://example.com/image.png"
+                      className="w-full bg-black border border-gray-800 rounded-2xl px-6 py-4 text-white font-bold focus:border-purple-500 focus:outline-none transition-colors"
+                    />
                   </div>
                   <div>
                     <label className="block text-[10px] font-black uppercase text-gray-500 tracking-widest mb-3">Base Price ($)</label>
