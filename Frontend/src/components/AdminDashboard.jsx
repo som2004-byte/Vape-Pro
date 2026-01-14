@@ -712,31 +712,48 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
               <div className="bg-black/40 border border-gray-800 p-8 rounded-[32px]">
                 <h4 className="text-xl font-black italic uppercase mb-6">Cargo Manifest</h4>
                 <div className="space-y-4">
-                  {selectedOrder.items.map((item, idx) => (
-                    <div key={idx} className="flex items-center justify-between p-4 bg-gray-900/50 rounded-2xl border border-gray-800">
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-gray-800 rounded-lg flex items-center justify-center overflow-hidden border border-gray-700 relative">
-                          {(() => {
-                            const product = products.find(p => p._id === item.product || p.id === item.product);
-                            if (product && product.image) {
-                              return <img src={product.image} alt="" className="w-full h-full object-cover" />;
-                            }
-                            return <span className="font-bold text-gray-500 text-xs">x{item.quantity}</span>;
-                          })()}
+                  {selectedOrder.items.map((item, idx) => {
+                    // Smart resolve product
+                    const resolveProduct = () => {
+                      let p = products.find(p => p._id === item.product || p.id === item.product);
+                      if (p) return p;
+
+                      if (item.product && typeof item.product === 'object' && item.product._id) {
+                        p = products.find(local => local._id === item.product._id || local.id === item.product._id);
+                        if (p) return p;
+                        return item.product;
+                      }
+
+                      // Fallback: Match by Price
+                      p = products.find(local => Number(local.price) === Number(item.price));
+                      if (p) return p;
+
+                      return null;
+                    };
+
+                    const resolved = resolveProduct();
+                    const name = resolved?.name || resolved?.title || item.name || 'Unknown Product';
+                    const image = resolved?.image || resolved?.poster || resolved?.cardImage;
+
+                    return (
+                      <div key={idx} className="flex items-center justify-between p-4 bg-gray-900/50 rounded-2xl border border-gray-800">
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 bg-gray-800 rounded-lg flex items-center justify-center overflow-hidden border border-gray-700 relative">
+                            {image ? (
+                              <img src={image} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                              <span className="font-bold text-gray-500 text-xs">x{item.quantity}</span>
+                            )}
+                          </div>
+                          <div>
+                            <p className="font-bold text-white">{name}</p>
+                            <p className="text-xs text-gray-400">Unit Cost: ${item.price}</p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="font-bold text-white">
-                            {(() => {
-                              const product = products.find(p => p._id === item.product || p.id === item.product);
-                              return product ? product.name : (item.name || 'Unknown Product');
-                            })()}
-                          </p>
-                          <p className="text-xs text-gray-400">Unit Cost: ${item.price}</p>
-                        </div>
+                        <p className="font-mono text-green-400 font-bold">${(item.price * item.quantity).toFixed(2)}</p>
                       </div>
-                      <p className="font-mono text-green-400 font-bold">${(item.price * item.quantity).toFixed(2)}</p>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
                 <div className="mt-6 pt-6 border-t border-gray-800 flex justify-between items-center">
                   <span className="text-sm font-black uppercase text-gray-500 tracking-widest">Total Value</span>
