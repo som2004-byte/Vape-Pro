@@ -715,11 +715,22 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
                   {selectedOrder.items.map((item, idx) => (
                     <div key={idx} className="flex items-center justify-between p-4 bg-gray-900/50 rounded-2xl border border-gray-800">
                       <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-gray-800 rounded-lg flex items-center justify-center">
-                          <span className="font-bold text-gray-500">x{item.quantity}</span>
+                        <div className="w-12 h-12 bg-gray-800 rounded-lg flex items-center justify-center overflow-hidden border border-gray-700 relative">
+                          {(() => {
+                            const product = products.find(p => p._id === item.product || p.id === item.product);
+                            if (product && product.image) {
+                              return <img src={product.image} alt="" className="w-full h-full object-cover" />;
+                            }
+                            return <span className="font-bold text-gray-500 text-xs">x{item.quantity}</span>;
+                          })()}
                         </div>
                         <div>
-                          <p className="font-bold text-white">{item.name}</p>
+                          <p className="font-bold text-white">
+                            {(() => {
+                              const product = products.find(p => p._id === item.product || p.id === item.product);
+                              return product ? product.name : (item.name || 'Unknown Product');
+                            })()}
+                          </p>
                           <p className="text-xs text-gray-400">Unit Cost: ${item.price}</p>
                         </div>
                       </div>
