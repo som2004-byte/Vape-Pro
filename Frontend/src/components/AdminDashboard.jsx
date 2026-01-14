@@ -13,6 +13,7 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [stockUpdateValue, setStockUpdateValue] = useState('');
+  const [priceUpdateValue, setPriceUpdateValue] = useState('');
 
   // Data states
   const [users, setUsers] = useState([]);
@@ -110,31 +111,34 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
     fetchStats();
   };
 
-  const handleStockUpdate = async (productId, newStock) => {
+  const handleProductUpdate = async (productId, updates) => {
     try {
       setLoading(true);
-      const response = await fetch(`${API_BASE_URL}/products/${productId}/stock`, {
-        method: 'PATCH',
+      const response = await fetch(`${API_BASE_URL}/products/${productId}`, {
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${adminToken}`
         },
-        body: JSON.stringify({ stock: Number(newStock) })
+        body: JSON.stringify(updates)
       });
 
       if (response.ok) {
-        const updatedProduct = await response.json();
+        const result = await response.json();
+        const updatedProduct = result.product || result; // Handle potential wrapper
+
         // Update local state
         setProducts(products.map(p => p._id === productId ? updatedProduct : p));
         if (selectedProduct && selectedProduct._id === productId) {
           setSelectedProduct(updatedProduct);
         }
         setStockUpdateValue('');
+        setPriceUpdateValue('');
       } else {
-        console.error('Failed to update stock');
+        console.error('Failed to update product');
       }
     } catch (error) {
-      console.error('Error updating stock', error);
+      console.error('Error updating product', error);
     } finally {
       setLoading(false);
     }
@@ -715,7 +719,7 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
                   </tr>
                 ) : (
                   filteredProducts.map(prod => (
-                    <tr key={prod._id} onClick={() => (usingApiProducts ? setSelectedProduct(prod) : undefined)} className={`group hover:bg-white/5 transition-all ${usingApiProducts ? 'cursor-pointer' : ''}`}>
+                    <tr key={prod._id} onClick={() => setSelectedProduct(prod)} className="group hover:bg-white/5 transition-all cursor-pointer">
                       <td className="px-2 md:px-8 py-3 md:py-6 font-bold text-sm md:text-base text-white group-hover:text-purple-400 transition-colors">{prod.name}</td>
                       <td className="hidden md:table-cell px-8 py-6 text-sm text-gray-400 capitalize">{prod.category}</td>
                       <td className="px-2 md:px-8 py-3 md:py-6 whitespace-nowrap">
@@ -771,13 +775,13 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
               </div>
             </div>
 
-            {/* Inventory Control */}
+            {/* Inventory & Price Control */}
             <div className="lg:w-2/3 space-y-8">
               <div className="bg-black/40 border border-gray-800 p-10 rounded-[40px]">
                 <div className="flex justify-between items-start mb-10">
                   <div>
-                    <p className="text-[10px] font-black uppercase text-purple-400 tracking-[0.4em] mb-2">Inventory Control</p>
-                    <h3 className="text-xl font-bold text-white">Manage Stock Levels</h3>
+                    <p className="text-[10px] font-black uppercase text-purple-400 tracking-[0.4em] mb-2">Inventory  &  Pricing</p>
+                    <h3 className="text-xl font-bold text-white">Manage Product Data</h3>
                   </div>
                   <div className="text-right">
                     <p className="text-[10px] font-bold uppercase text-gray-500 mb-1">Current Availability</p>
@@ -785,37 +789,65 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
                   </div>
                 </div>
 
-                <div className="flex gap-4 mb-8">
-                  <input
-                    type="number"
-                    placeholder="Enter new quantity..."
-                    value={stockUpdateValue}
-                    onChange={(e) => setStockUpdateValue(e.target.value)}
-                    className="flex-1 bg-gray-900 border border-gray-800 rounded-2xl px-6 py-4 text-xl font-bold focus:border-purple-500 focus:outline-none transition-colors"
-                  />
-                  <button
-                    onClick={() => handleStockUpdate(selectedProduct._id, stockUpdateValue)}
-                    disabled={!stockUpdateValue}
-                    className="bg-purple-600 hover:bg-purple-500 text-white px-8 py-4 rounded-2xl font-black uppercase tracking-widest disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-purple-600/20"
-                  >
-                    Update Stock
-                  </button>
+                {/* Edit Inputs */}
+                <div className="flex flex-col md:flex-row gap-4 mb-8">
+                  <div className="flex-1">
+                    <label className="text-[10px] font-bold uppercase text-gray-500 mb-2 block">New Stock Qty</label>
+                    <input
+                      type="number"
+                      placeholder="Qty..."
+                      value={stockUpdateValue}
+                      onChange={(e) => setStockUpdateValue(e.target.value)}
+                      className="w-full bg-gray-900 border border-gray-800 rounded-2xl px-6 py-4 text-xl font-bold focus:border-purple-500 focus:outline-none transition-colors"
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <label className="text-[10px] font-bold uppercase text-gray-500 mb-2 block">New Price ($)</label>
+                    <input
+                      type="number"
+                      placeholder="Price..."
+                      value={priceUpdateValue}
+                      onChange={(e) => setPriceUpdateValue(e.target.value)}
+                      className="w-full bg-gray-900 border border-gray-800 rounded-2xl px-6 py-4 text-xl font-bold focus:border-purple-500 focus:outline-none transition-colors"
+                    />
+                  </div>
                 </div>
 
+                <button
+                  onClick={() => {
+                    const updates = {};
+                    if (stockUpdateValue !== '') updates.stock = Number(stockUpdateValue);
+                    if (priceUpdateValue !== '') updates.price = Number(priceUpdateValue);
+                    if (Object.keys(updates).length > 0) {
+                      handleProductUpdate(selectedProduct._id, updates);
+                    }
+                  }}
+                  disabled={(!stockUpdateValue && !priceUpdateValue) || !usingApiProducts}
+                  className="w-full bg-purple-600 hover:bg-purple-500 text-white px-8 py-4 rounded-2xl font-black uppercase tracking-widest disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-purple-600/20 mb-4"
+                >
+                  {usingApiProducts ? 'Update details' : 'Demo Mode - Updates Disabled'}
+                </button>
+                {!usingApiProducts && (
+                  <p className="text-red-400 text-xs font-bold text-center mb-8 uppercase tracking-widest">
+                    You are viewing demo data. Connect DB to enable updates.
+                  </p>
+                )}
+
+                {/* Quick Actions */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <button onClick={() => handleStockUpdate(selectedProduct._id, selectedProduct.stock + 10)} className="p-4 rounded-2xl bg-gray-900 border border-gray-800 hover:border-green-500/50 hover:bg-green-500/10 transition-all group">
+                  <button disabled={!usingApiProducts} onClick={() => handleProductUpdate(selectedProduct._id, { stock: selectedProduct.stock + 10 })} className="p-4 rounded-2xl bg-gray-900 border border-gray-800 hover:border-green-500/50 hover:bg-green-500/10 disabled:opacity-50 disabled:cursor-not-allowed transition-all group">
                     <p className="text-green-500 font-black text-lg group-hover:scale-110 transition-transform">+10</p>
-                    <p className="text-[10px] font-bold uppercase text-gray-500">Quick Add</p>
+                    <p className="text-[10px] font-bold uppercase text-gray-500">Quick Restock</p>
                   </button>
-                  <button onClick={() => handleStockUpdate(selectedProduct._id, selectedProduct.stock + 50)} className="p-4 rounded-2xl bg-gray-900 border border-gray-800 hover:border-green-500/50 hover:bg-green-500/10 transition-all group">
+                  <button disabled={!usingApiProducts} onClick={() => handleProductUpdate(selectedProduct._id, { stock: selectedProduct.stock + 50 })} className="p-4 rounded-2xl bg-gray-900 border border-gray-800 hover:border-green-500/50 hover:bg-green-500/10 disabled:opacity-50 disabled:cursor-not-allowed transition-all group">
                     <p className="text-green-500 font-black text-lg group-hover:scale-110 transition-transform">+50</p>
-                    <p className="text-[10px] font-bold uppercase text-gray-500">Bulk Add</p>
+                    <p className="text-[10px] font-bold uppercase text-gray-500">Bulk Restock</p>
                   </button>
-                  <button onClick={() => handleStockUpdate(selectedProduct._id, selectedProduct.stock - 10)} className="p-4 rounded-2xl bg-gray-900 border border-gray-800 hover:border-yellow-500/50 hover:bg-yellow-500/10 transition-all group">
+                  <button disabled={!usingApiProducts} onClick={() => handleProductUpdate(selectedProduct._id, { stock: Math.max(0, selectedProduct.stock - 10) })} className="p-4 rounded-2xl bg-gray-900 border border-gray-800 hover:border-yellow-500/50 hover:bg-yellow-500/10 disabled:opacity-50 disabled:cursor-not-allowed transition-all group">
                     <p className="text-yellow-500 font-black text-lg group-hover:scale-110 transition-transform">-10</p>
                     <p className="text-[10px] font-bold uppercase text-gray-500">Reduce</p>
                   </button>
-                  <button onClick={() => handleStockUpdate(selectedProduct._id, 0)} className="p-4 rounded-2xl bg-gray-900 border border-gray-800 hover:border-red-500/50 hover:bg-red-500/10 transition-all group">
+                  <button disabled={!usingApiProducts} onClick={() => handleProductUpdate(selectedProduct._id, { stock: 0 })} className="p-4 rounded-2xl bg-gray-900 border border-gray-800 hover:border-red-500/50 hover:bg-red-500/10 disabled:opacity-50 disabled:cursor-not-allowed transition-all group">
                     <p className="text-red-500 font-black text-lg group-hover:scale-110 transition-transform">ZERO</p>
                     <p className="text-[10px] font-bold uppercase text-gray-500">Deplete</p>
                   </button>

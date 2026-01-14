@@ -351,6 +351,7 @@ router.put(
   '/products/:productId',
   authorizeAdmin,
   [
+    param('productId').isMongoId().withMessage('Invalid Product ID'),
     body('name').optional().trim().notEmpty(),
     body('description').optional().trim(),
     body('price').optional().isFloat({ min: 0 }),

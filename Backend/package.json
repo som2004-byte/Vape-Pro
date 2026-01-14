@@ -4,8 +4,9 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "node index.js",
     "start": "node index.js",
+    "dev": "node index.js",
+    "seed": "node scripts/seedProducts.js",
     "build": "echo 'No build step required'",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
