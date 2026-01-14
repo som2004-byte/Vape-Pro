@@ -916,21 +916,21 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
                     const image = resolved?.image || resolved?.poster || resolved?.cardImage;
 
                     return (
-                      <div key={idx} className="flex items-center justify-between p-4 bg-gray-900/50 rounded-2xl border border-gray-800">
-                        <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 bg-gray-800 rounded-lg flex items-center justify-center overflow-hidden border border-gray-700 relative">
-                            {image ? (
-                              <img src={image} alt="" className="w-full h-full object-cover" />
+                      <div key={idx} className="flex items-center justify-between p-4 bg-gray-900/50 rounded-2xl border border-gray-800 gap-4">
+                        <div className="flex items-center gap-4 flex-1 min-w-0">
+                          <div className="w-12 h-12 bg-gray-800 rounded-lg flex items-center justify-center overflow-hidden border border-gray-700 flex-shrink-0 relative">
+                            {(image || (resolved?.images && resolved.images[0])) ? (
+                              <img src={image || resolved.images[0]} alt="" className="w-full h-full object-cover" />
                             ) : (
                               <span className="font-bold text-gray-500 text-xs">x{item.quantity}</span>
                             )}
                           </div>
-                          <div>
-                            <p className="font-bold text-white">{name}</p>
+                          <div className="min-w-0 flex-1">
+                            <p className="font-bold text-white line-clamp-2">{name}</p>
                             <p className="text-xs text-gray-400">Unit Cost: ₹{item.price}</p>
                           </div>
                         </div>
-                        <p className="font-mono text-green-400 font-bold">₹{(item.price * item.quantity).toFixed(2)}</p>
+                        <p className="font-mono text-green-400 font-bold flex-shrink-0 text-right">₹{(item.price * item.quantity).toFixed(2)}</p>
                       </div>
                     );
                   })}
