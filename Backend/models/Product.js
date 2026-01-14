@@ -18,7 +18,15 @@ const productSchema = new mongoose.Schema({
     min: [0, 'Price must be a positive number']
   },
   images: [{
-    type: String
+    type: String,
+    validate: {
+      validator: function (v) {
+        // Basic URL validation or path validation
+        // Accepting any string that looks like a path or URL
+        return typeof v === 'string' && v.length > 0;
+      },
+      message: props => `${props.value} is not a valid image path`
+    }
   }],
   category: {
     type: String,
@@ -128,10 +136,12 @@ productSchema.methods.updateStock = async function (quantity, action = 'decremen
 // Pre-save hook to generate SKU if not provided
 productSchema.pre('save', async function () {
   if (!this.sku) {
+    // Generate a unique SKU using timestamp and random string
     const timestamp = Date.now().toString(36).toUpperCase();
     const random = Math.random().toString(36).substring(2, 5).toUpperCase();
     this.sku = `PRD-${timestamp}-${random}`;
   }
+  // No next() call needed for async hooks in modern Mongoose
 });
 
 module.exports = mongoose.model('Product', productSchema);

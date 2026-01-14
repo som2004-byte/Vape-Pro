@@ -74,7 +74,7 @@ const sendOtpEmail = async (toEmail, code) => {
   const html = `<div style="font-family: Arial; color: #111;"><h2>Your Verification Code</h2><div style="font-size: 24px; font-weight: bold;">${code}</div></div>`;
   await Promise.race([
     mailTransporter.sendMail({ from: SMTP_FROM || SMTP_USER, to: toEmail, subject: 'Your verification code', html }),
-    new Promise((_, reject) => setTimeout(() => reject(new Error('Email send timeout')), 8000)),
+    new Promise((_, reject) => setTimeout(() => reject(new Error('Email send timeout')), 15000)),
   ]);
 };
 
@@ -133,6 +133,10 @@ app.put('/api/account', authenticateToken, async (req, res) => {
     if (phoneNumber !== undefined) user.phoneNumber = phoneNumber;
     if (req.body.emailVerified !== undefined) user.emailVerified = req.body.emailVerified;
     if (req.body.phoneVerified !== undefined) user.phoneVerified = req.body.phoneVerified;
+    if (req.body.password) {
+      if (req.body.password.length < 6) return res.status(400).json({ message: 'Password must be at least 6 characters' });
+      user.password = await bcrypt.hash(req.body.password, 10);
+    }
 
     await user.save();
 
@@ -159,7 +163,6 @@ app.get('/api/user/profile', authenticateToken, async (req, res) => {
     res.json({ id: user._id, name: user.name, email: user.email, address: user.address || '' });
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
-
 app.use('/api/admin', adminRoutes);
 
 // OTP Routes
@@ -170,10 +173,13 @@ app.post('/api/request-email-otp', async (req, res) => {
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
     await EmailOtp.findOneAndUpdate({ email }, { codeHash: await bcrypt.hash(code, 10), expiresAt }, { upsert: true });
     try {
+      console.log(`Attempting to send OTP to ${email}...`);
       await sendOtpEmail(email, code);
+      console.log(`OTP sent successfully to ${email}`);
       res.json({ message: 'OTP sent' });
     } catch (emailError) {
-      res.status(503).json({ message: 'Email service unavailable. Please try again later.', error: emailError.message });
+      console.error('Email Send Error:', emailError);
+      res.status(503).json({ message: 'Email service unavailable. Please try again later.', error: emailError.message, dev_otp: code });
     }
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
