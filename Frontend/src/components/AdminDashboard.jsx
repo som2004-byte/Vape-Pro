@@ -152,7 +152,7 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
           // Explicitly ensure required fields for Mongoose Schema
           name: productToPromote.name || originalDemoData.name || `Product ${productId}`,
           description: productToPromote.description || originalDemoData.features || `Premium vape product from ${productToPromote.brand || 'VapeSmart'}`,
-          category: productToPromote.category || originalDemoData.category || 'disposable',
+          category: (productToPromote.category || originalDemoData.category || 'disposable').toLowerCase(),
           brand: productToPromote.brand || originalDemoData.brand || 'Generic',
 
           price: Number(updates.price || productToPromote.price || originalDemoData.price || 0),

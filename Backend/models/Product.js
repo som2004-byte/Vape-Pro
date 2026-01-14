@@ -18,14 +18,7 @@ const productSchema = new mongoose.Schema({
     min: [0, 'Price must be a positive number']
   },
   images: [{
-    type: String,
-    validate: {
-      validator: function (v) {
-        // Basic URL validation for image URLs
-        return /^(\/|https?:\/\/).+\.(jpg|jpeg|png|webp|gif)$/i.test(v);
-      },
-      message: props => `${props.value} is not a valid image URL`
-    }
+    type: String
   }],
   category: {
     type: String,
