@@ -1095,8 +1095,12 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
               {/* Product Info */}
               <div className="lg:w-1/3">
                 <div className="w-full aspect-square bg-black border border-gray-800 rounded-[32px] flex items-center justify-center mb-8 relative overflow-hidden group">
-                  {selectedProduct.image ? (
-                    <img src={selectedProduct.image} alt={selectedProduct.name} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
+                  {(selectedProduct.image || (selectedProduct.images && selectedProduct.images[0])) ? (
+                    <img
+                      src={selectedProduct.image || selectedProduct.images[0]}
+                      alt={selectedProduct.name}
+                      className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity"
+                    />
                   ) : (
                     <div className="text-center">
                       <svg className="w-20 h-20 text-gray-800 mb-4 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>

@@ -109,6 +109,16 @@ router.post(
 );
 */
 
+// Get all admins (admin only)
+router.get('/admins', authorizeAdmin, async (req, res) => {
+  try {
+    const admins = await Admin.find({}).select('-password');
+    res.json(admins);
+  } catch (error) {
+    console.error('Get admins error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
 
 // Get all users (admin only)
 router.get('/users', authorizeAdmin, async (req, res) => {
