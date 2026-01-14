@@ -152,14 +152,35 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
         const productToPromote = products.find(p => p.id === productId || p._id === productId);
         if (!productToPromote) return;
 
+        // Find the ORIGINAL full demo object to ensure we have all fields 
+        const originalDemoData = USER_PRODUCTS.find(p => p.id === productId) || {};
+
         const payload = {
-          ...productToPromote,
-          ...updates,
-          price: Number(updates.price || productToPromote.price),
-          stock: Number(updates.stock || productToPromote.stock)
+          ...originalDemoData, // Use original data as base
+          ...productToPromote, // Override with current state
+          ...updates,          // Override with specific updates
+
+          // Explicitly ensure required fields for Mongoose Schema
+          name: productToPromote.name || originalDemoData.name || `Product ${productId}`,
+          description: productToPromote.description || originalDemoData.features || `Premium vape product from ${productToPromote.brand || 'VapeSmart'}`,
+          category: productToPromote.category || originalDemoData.category || 'disposable',
+          brand: productToPromote.brand || originalDemoData.brand || 'Generic',
+
+          price: Number(updates.price || productToPromote.price || originalDemoData.price || 0),
+          stock: Number(updates.stock || productToPromote.stock || 0)
         };
+        // Remove system fields and IDs
         delete payload._id;
         delete payload.id;
+        delete payload.createdAt;
+        delete payload.updatedAt;
+        delete payload.__v;
+        delete payload.isDemo; // Remove our local flag
+
+        // Ensure images format is correct
+        if (payload.image && !payload.images) {
+          payload.images = [payload.image];
+        }
 
         const response = await fetch(`${API_BASE_URL}/products`, {
           method: 'POST',
@@ -183,6 +204,10 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
           setStockUpdateValue('');
           setPriceUpdateValue('');
           return;
+        } else {
+          // If promotion failed, don't try to update the non-existent ID
+          const errData = await response.json();
+          throw new Error(errData.message || "Failed to promote demo product to database");
         }
       }
 
@@ -1041,129 +1066,131 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
       )
       }
 
-      {/* Create Product Form */}
+      {/* Create Product Form - Modal */}
       {
         isCreatingProduct && (
-          <div className="bg-gray-900/50 border border-gray-800 rounded-[40px] p-6 md:p-12 backdrop-blur-3xl animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="max-w-4xl mx-auto">
-              <h2 className="text-3xl font-black italic uppercase text-white mb-2">Initialize New Node</h2>
-              <p className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-10">Add a new product to the central registry</p>
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md overflow-y-auto">
+            <div className="bg-gray-900 border border-gray-800 rounded-[40px] p-6 md:p-12 w-full max-w-4xl relative animate-in fade-in zoom-in-95 duration-300 my-auto">
+              <div className="max-w-4xl mx-auto">
+                <h2 className="text-3xl font-black italic uppercase text-white mb-2">Initialize New Node</h2>
+                <p className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-10">Add a new product to the central registry</p>
 
-              <form onSubmit={handleCreateProduct} className="space-y-8">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <form onSubmit={handleCreateProduct} className="space-y-8">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div>
+                      <label className="block text-[10px] font-black uppercase text-gray-500 tracking-widest mb-3">Product Name</label>
+                      <input
+                        required
+                        type="text"
+                        value={newProductForm.name}
+                        onChange={e => setNewProductForm({ ...newProductForm, name: e.target.value })}
+                        placeholder="e.g. ELFBAR Ray 5000"
+                        className="w-full bg-black border border-gray-800 rounded-2xl px-6 py-4 text-white font-bold focus:border-purple-500 focus:outline-none transition-colors"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-black uppercase text-gray-500 tracking-widest mb-3">Brand Identity</label>
+                      <input
+                        required
+                        type="text"
+                        value={newProductForm.brand}
+                        onChange={e => setNewProductForm({ ...newProductForm, brand: e.target.value })}
+                        placeholder="e.g. ELFBAR"
+                        className="w-full bg-black border border-gray-800 rounded-2xl px-6 py-4 text-white font-bold focus:border-purple-500 focus:outline-none transition-colors"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-black uppercase text-gray-500 tracking-widest mb-3">Flavor Profile</label>
+                      <input
+                        type="text"
+                        value={newProductForm.flavor}
+                        onChange={e => setNewProductForm({ ...newProductForm, flavor: e.target.value })}
+                        placeholder="e.g. Blue Razz Ice"
+                        className="w-full bg-black border border-gray-800 rounded-2xl px-6 py-4 text-white font-bold focus:border-purple-500 focus:outline-none transition-colors"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-black uppercase text-gray-500 tracking-widest mb-3">Category Classification</label>
+                      <select
+                        required
+                        value={newProductForm.category}
+                        onChange={e => setNewProductForm({ ...newProductForm, category: e.target.value })}
+                        className="w-full bg-black border border-gray-800 rounded-2xl px-6 py-4 text-white font-bold focus:border-purple-500 focus:outline-none transition-colors appearance-none"
+                      >
+                        <option value="">Select Category...</option>
+                        <option value="disposable">Disposable</option>
+                        <option value="pod-systems">Pod Systems</option>
+                        <option value="e-liquids">E-Liquids</option>
+                        <option value="accessories">Accessories</option>
+                        <option value="mods">Mods</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-black uppercase text-gray-500 tracking-widest mb-3">Product Image URL</label>
+                      <input
+                        type="text"
+                        value={newProductForm.image}
+                        onChange={e => setNewProductForm({ ...newProductForm, image: e.target.value })}
+                        placeholder="https://example.com/image.png"
+                        className="w-full bg-black border border-gray-800 rounded-2xl px-6 py-4 text-white font-bold focus:border-purple-500 focus:outline-none transition-colors"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-black uppercase text-gray-500 tracking-widest mb-3">Base Price ($)</label>
+                      <input
+                        required
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={newProductForm.price}
+                        onChange={e => setNewProductForm({ ...newProductForm, price: e.target.value })}
+                        placeholder="0.00"
+                        className="w-full bg-black border border-gray-800 rounded-2xl px-6 py-4 text-white font-bold focus:border-purple-500 focus:outline-none transition-colors"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-black uppercase text-gray-500 tracking-widest mb-3">Initial Stock</label>
+                      <input
+                        required
+                        type="number"
+                        min="0"
+                        value={newProductForm.stock}
+                        onChange={e => setNewProductForm({ ...newProductForm, stock: e.target.value })}
+                        placeholder="0"
+                        className="w-full bg-black border border-gray-800 rounded-2xl px-6 py-4 text-white font-bold focus:border-purple-500 focus:outline-none transition-colors"
+                      />
+                    </div>
+                  </div>
+
                   <div>
-                    <label className="block text-[10px] font-black uppercase text-gray-500 tracking-widest mb-3">Product Name</label>
-                    <input
-                      required
-                      type="text"
-                      value={newProductForm.name}
-                      onChange={e => setNewProductForm({ ...newProductForm, name: e.target.value })}
-                      placeholder="e.g. ELFBAR Ray 5000"
-                      className="w-full bg-black border border-gray-800 rounded-2xl px-6 py-4 text-white font-bold focus:border-purple-500 focus:outline-none transition-colors"
+                    <label className="block text-[10px] font-black uppercase text-gray-500 tracking-widest mb-3">Technical Specifications</label>
+                    <textarea
+                      value={newProductForm.description}
+                      onChange={e => setNewProductForm({ ...newProductForm, description: e.target.value })}
+                      rows="4"
+                      placeholder="Detailed product description..."
+                      className="w-full bg-black border border-gray-800 rounded-2xl px-6 py-4 text-white font-medium focus:border-purple-500 focus:outline-none transition-colors resize-none"
                     />
                   </div>
-                  <div>
-                    <label className="block text-[10px] font-black uppercase text-gray-500 tracking-widest mb-3">Brand Identity</label>
-                    <input
-                      required
-                      type="text"
-                      value={newProductForm.brand}
-                      onChange={e => setNewProductForm({ ...newProductForm, brand: e.target.value })}
-                      placeholder="e.g. ELFBAR"
-                      className="w-full bg-black border border-gray-800 rounded-2xl px-6 py-4 text-white font-bold focus:border-purple-500 focus:outline-none transition-colors"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-black uppercase text-gray-500 tracking-widest mb-3">Flavor Profile</label>
-                    <input
-                      type="text"
-                      value={newProductForm.flavor}
-                      onChange={e => setNewProductForm({ ...newProductForm, flavor: e.target.value })}
-                      placeholder="e.g. Blue Razz Ice"
-                      className="w-full bg-black border border-gray-800 rounded-2xl px-6 py-4 text-white font-bold focus:border-purple-500 focus:outline-none transition-colors"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-black uppercase text-gray-500 tracking-widest mb-3">Category Classification</label>
-                    <select
-                      required
-                      value={newProductForm.category}
-                      onChange={e => setNewProductForm({ ...newProductForm, category: e.target.value })}
-                      className="w-full bg-black border border-gray-800 rounded-2xl px-6 py-4 text-white font-bold focus:border-purple-500 focus:outline-none transition-colors appearance-none"
+
+                  <div className="flex gap-4 pt-4">
+                    <button
+                      type="button"
+                      onClick={() => setIsCreatingProduct(false)}
+                      className="flex-1 py-4 rounded-2xl border border-gray-800 text-gray-400 font-black uppercase tracking-widest hover:bg-gray-800 transition-all"
                     >
-                      <option value="">Select Category...</option>
-                      <option value="disposable">Disposable</option>
-                      <option value="pod-systems">Pod Systems</option>
-                      <option value="e-liquids">E-Liquids</option>
-                      <option value="accessories">Accessories</option>
-                      <option value="mods">Mods</option>
-                    </select>
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="flex-[2] py-4 rounded-2xl bg-gradient-to-r from-purple-600 to-blue-600 text-white font-black uppercase tracking-widest hover:shadow-lg hover:shadow-purple-600/20 transition-all"
+                    >
+                      {loading ? 'Processing...' : 'Deploy to Registry'}
+                    </button>
                   </div>
-                  <div>
-                    <label className="block text-[10px] font-black uppercase text-gray-500 tracking-widest mb-3">Product Image URL</label>
-                    <input
-                      type="text"
-                      value={newProductForm.image}
-                      onChange={e => setNewProductForm({ ...newProductForm, image: e.target.value })}
-                      placeholder="https://example.com/image.png"
-                      className="w-full bg-black border border-gray-800 rounded-2xl px-6 py-4 text-white font-bold focus:border-purple-500 focus:outline-none transition-colors"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-black uppercase text-gray-500 tracking-widest mb-3">Base Price ($)</label>
-                    <input
-                      required
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={newProductForm.price}
-                      onChange={e => setNewProductForm({ ...newProductForm, price: e.target.value })}
-                      placeholder="0.00"
-                      className="w-full bg-black border border-gray-800 rounded-2xl px-6 py-4 text-white font-bold focus:border-purple-500 focus:outline-none transition-colors"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-black uppercase text-gray-500 tracking-widest mb-3">Initial Stock</label>
-                    <input
-                      required
-                      type="number"
-                      min="0"
-                      value={newProductForm.stock}
-                      onChange={e => setNewProductForm({ ...newProductForm, stock: e.target.value })}
-                      placeholder="0"
-                      className="w-full bg-black border border-gray-800 rounded-2xl px-6 py-4 text-white font-bold focus:border-purple-500 focus:outline-none transition-colors"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-black uppercase text-gray-500 tracking-widest mb-3">Technical Specifications</label>
-                  <textarea
-                    value={newProductForm.description}
-                    onChange={e => setNewProductForm({ ...newProductForm, description: e.target.value })}
-                    rows="4"
-                    placeholder="Detailed product description..."
-                    className="w-full bg-black border border-gray-800 rounded-2xl px-6 py-4 text-white font-medium focus:border-purple-500 focus:outline-none transition-colors resize-none"
-                  />
-                </div>
-
-                <div className="flex gap-4 pt-4">
-                  <button
-                    type="button"
-                    onClick={() => setIsCreatingProduct(false)}
-                    className="flex-1 py-4 rounded-2xl border border-gray-800 text-gray-400 font-black uppercase tracking-widest hover:bg-gray-800 transition-all"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="flex-[2] py-4 rounded-2xl bg-gradient-to-r from-purple-600 to-blue-600 text-white font-black uppercase tracking-widest hover:shadow-lg hover:shadow-purple-600/20 transition-all"
-                  >
-                    {loading ? 'Processing...' : 'Deploy to Registry'}
-                  </button>
-                </div>
-              </form>
+                </form>
+              </div>
             </div>
           </div>
         )
@@ -1501,6 +1528,97 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
                     </div>
                   ))}
                 </div>
+              </div>
+            </div>
+          </div>
+        )
+      }
+
+      {/* Create Product Modal */}
+      {
+        isCreatingProduct && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md overflow-y-auto">
+            <div className="bg-gray-900 border border-gray-800 rounded-[40px] p-6 md:p-12 w-full max-w-4xl relative animate-in fade-in zoom-in-95 duration-300 my-auto">
+              <div className="max-w-4xl mx-auto">
+                <h2 className="text-3xl font-black italic uppercase text-white mb-2">Initialize New Node</h2>
+                <p className="text-sm text-gray-500 font-medium mb-8">Deploy a new product node to the network.</p>
+
+                <button
+                  onClick={() => setIsCreatingProduct(false)}
+                  className="absolute top-6 right-6 text-gray-500 hover:text-white transition-colors"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+
+                <form onSubmit={handleCreateProduct} className="space-y-6">
+                  <div>
+                    <label className="block text-[10px] font-black uppercase text-gray-500 tracking-widest mb-2">Product Name</label>
+                    <input
+                      required
+                      type="text"
+                      value={newProductForm.name}
+                      onChange={e => setNewProductForm({ ...newProductForm, name: e.target.value })}
+                      className="w-full bg-black border border-gray-800 rounded-xl px-4 py-3 text-white font-bold focus:border-purple-500 focus:outline-none transition-colors"
+                      placeholder="e.g. VapePro Max"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-black uppercase text-gray-500 tracking-widest mb-2">Description</label>
+                    <textarea
+                      required
+                      value={newProductForm.description}
+                      onChange={e => setNewProductForm({ ...newProductForm, description: e.target.value })}
+                      className="w-full bg-black border border-gray-800 rounded-xl px-4 py-3 text-white font-bold focus:border-purple-500 focus:outline-none transition-colors h-32 resize-none"
+                      placeholder="A brief description of the product..."
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-[10px] font-black uppercase text-gray-500 tracking-widest mb-2">Price</label>
+                      <input
+                        required
+                        type="number"
+                        step="0.01"
+                        value={newProductForm.price}
+                        onChange={e => setNewProductForm({ ...newProductForm, price: parseFloat(e.target.value) })}
+                        className="w-full bg-black border border-gray-800 rounded-xl px-4 py-3 text-white font-bold focus:border-purple-500 focus:outline-none transition-colors"
+                        placeholder="e.g. 29.99"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-black uppercase text-gray-500 tracking-widest mb-2">Stock Quantity</label>
+                      <input
+                        required
+                        type="number"
+                        value={newProductForm.stock}
+                        onChange={e => setNewProductForm({ ...newProductForm, stock: parseInt(e.target.value) })}
+                        className="w-full bg-black border border-gray-800 rounded-xl px-4 py-3 text-white font-bold focus:border-purple-500 focus:outline-none transition-colors"
+                        placeholder="e.g. 100"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-black uppercase text-gray-500 tracking-widest mb-2">Image URL</label>
+                    <input
+                      type="url"
+                      value={newProductForm.imageUrl}
+                      onChange={e => setNewProductForm({ ...newProductForm, imageUrl: e.target.value })}
+                      className="w-full bg-black border border-gray-800 rounded-xl px-4 py-3 text-white font-bold focus:border-purple-500 focus:outline-none transition-colors"
+                      placeholder="https://example.com/product-image.jpg"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full py-4 rounded-xl bg-gradient-to-r from-purple-600 to-blue-600 text-white font-black uppercase tracking-widest hover:shadow-lg hover:shadow-purple-600/20 transition-all disabled:opacity-50"
+                  >
+                    {loading ? 'Processing...' : 'Deploy Product Node'}
+                  </button>
+                </form>
               </div>
             </div>
           </div>
