@@ -139,23 +139,35 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
   const handleProductUpdate = async (productId, updates) => {
     try {
       setLoading(true);
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 500));
 
-      const updatedProducts = products.map(p =>
-        (p._id === productId || p.id === productId) ? { ...p, ...updates } : p
-      );
+      const response = await fetch(`${API_BASE_URL}/products/${productId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${adminToken}`
+        },
+        body: JSON.stringify(updates)
+      });
 
-      saveProductsToStorage(updatedProducts);
+      if (response.ok) {
+        const data = await response.json();
+        const updatedProduct = data.product;
 
-      const updatedProduct = updatedProducts.find(p => p._id === productId || p.id === productId);
-      if (selectedProduct && (selectedProduct._id === productId || selectedProduct.id === productId)) {
-        setSelectedProduct(updatedProduct);
+        // Update local state with response from server
+        setProducts(products.map(p =>
+          (p._id === productId || p.id === productId) ? updatedProduct : p
+        ));
+
+        if (selectedProduct && (selectedProduct._id === productId || selectedProduct.id === productId)) {
+          setSelectedProduct(updatedProduct);
+        }
+
+        setStockUpdateValue('');
+        setPriceUpdateValue('');
+      } else {
+        const errorData = await response.json();
+        setError(errorData.message || 'Failed to update product');
       }
-
-      setStockUpdateValue('');
-      setPriceUpdateValue('');
-      // alert('Product updated successfully (Local Storage)');
     } catch (error) {
       console.error('Error updating product', error);
       setError('Failed to update product');
@@ -196,24 +208,35 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
     if (e) e.preventDefault();
     try {
       setLoading(true);
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 500));
 
-      const newProduct = {
+      const payload = {
         ...newProductForm,
-        id: `local-${Date.now()}`, // Generate a local ID
-        _id: `local-${Date.now()}`,
         price: Number(newProductForm.price),
-        stock: Number(newProductForm.stock),
-        createdAt: new Date().toISOString()
+        stock: Number(newProductForm.stock)
       };
 
-      const updatedProducts = [newProduct, ...products];
-      saveProductsToStorage(updatedProducts);
+      const response = await fetch(`${API_BASE_URL}/products`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${adminToken}`
+        },
+        body: JSON.stringify(payload)
+      });
 
-      setIsCreatingProduct(false);
-      setNewProductForm({ name: '', brand: '', category: '', price: '', stock: '', description: '', flavor: '' });
-      // alert('Product created successfully (Local Storage)');
+      if (response.ok) {
+        const data = await response.json();
+        const createdProduct = data.product || data;
+
+        // Refresh products list
+        setProducts([createdProduct, ...products]);
+
+        setIsCreatingProduct(false);
+        setNewProductForm({ name: '', brand: '', category: '', price: '', stock: '', description: '', flavor: '' });
+      } else {
+        const err = await response.json();
+        setError(err.message || 'Failed to create product');
+      }
     } catch (err) {
       console.error('Create product error:', err);
       setError(err.message);
@@ -227,13 +250,20 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
 
     try {
       setLoading(true);
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 500));
+      const response = await fetch(`${API_BASE_URL}/products/${productId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${adminToken}`
+        }
+      });
 
-      const updatedProducts = products.filter(p => p._id !== productId && p.id !== productId);
-      saveProductsToStorage(updatedProducts);
-
-      setSelectedProduct(null); // Close detail view
+      if (response.ok) {
+        setProducts(products.filter(p => p._id !== productId));
+        setSelectedProduct(null); // Close detail view
+      } else {
+        const err = await response.json();
+        setError(err.message || 'Failed to delete product');
+      }
     } catch (err) {
       console.error('Delete product error:', err);
       setError(err.message);
@@ -294,51 +324,22 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
     const loadInitialData = async () => {
       setLoading(true);
       try {
-        // Load products from LocalStorage OR Default Data
-        const storedProducts = localStorage.getItem('vapesmart_products');
-        if (storedProducts) {
-          let parsedProducts = JSON.parse(storedProducts);
-          // Migration: Ensure images and names are present for demo products if missing
-          parsedProducts = parsedProducts.map(p => {
-            const original = USER_PRODUCTS.find(up => up.id === p.id || up.id === p._id);
-            let updates = {};
-
-            // Restore image if missing
-            if (!p.image && original) {
-              updates.image = original.poster || original.cardImage || '';
-            }
-
-            // Restore name if missing (USER_PRODUCTS doesn't have 'name', it has brand/series/flavor)
-            if (!p.name) {
-              if (original) {
-                updates.name = `${original.brand} ${original.series} - ${original.flavor}`;
-              } else {
-                updates.name = p.id || 'Unknown Product';
-              }
-            }
-
-            return { ...p, ...updates };
-          });
-          setProducts(parsedProducts);
+        // Fetch backend data
+        if (adminToken) {
+          await fetchData('/users', setUsers);
+          await fetchData('/client-requirements', setClientRequirements);
+          await fetchData('/orders', setOrders);
+          await fetchData('/products', setProducts); // Fetch products from Backend API
+          fetchStats();
         } else {
-          // Initialize with USER_PRODUCTS if storage is empty
+          // Fallback for demo mode if no token
           const initialProducts = USER_PRODUCTS.map(p => ({
             ...p,
-            _id: p.id, // Ensure _id exists for consistency with our logic
+            _id: p.id,
             name: `${p.brand} ${p.series} - ${p.flavor}`,
-            image: p.poster || p.cardImage || '' // Map image for display
+            image: p.poster || p.cardImage || ''
           }));
-          // Don't save to storage immediately to avoid overwriting if user wants to "reset" by clearing storage? 
-          // Actually, let's just set state.
           setProducts(initialProducts);
-        }
-
-        // Fetch other backend data if available, but handle failure gracefully
-        if (adminToken) {
-          fetchData('/users', setUsers);
-          fetchData('/client-requirements', setClientRequirements);
-          fetchData('/orders', setOrders);
-          fetchStats();
         }
       } catch (e) {
         console.error("Error loading initial data", e);
