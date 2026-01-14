@@ -311,7 +311,6 @@ router.put(
       res.status(500).json({ message: 'Server error', error: error.message });
     }
   }
-  }
 );
 
 // Update order status (PATCH)
