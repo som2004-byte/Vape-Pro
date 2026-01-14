@@ -18,6 +18,7 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
 
   // Creation state
   const [isCreatingAdmin, setIsCreatingAdmin] = useState(false);
+  const [isCreatingProduct, setIsCreatingProduct] = useState(false);
   const [newAdminForm, setNewAdminForm] = useState({
     name: '',
     email: '',
