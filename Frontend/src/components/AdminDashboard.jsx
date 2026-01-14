@@ -17,22 +17,11 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
   const [priceUpdateValue, setPriceUpdateValue] = useState('');
 
   // Creation state
-  const [isCreatingProduct, setIsCreatingProduct] = useState(false);
   const [isCreatingAdmin, setIsCreatingAdmin] = useState(false);
   const [newAdminForm, setNewAdminForm] = useState({
     name: '',
     email: '',
     password: ''
-  });
-  const [newProductForm, setNewProductForm] = useState({
-    name: '',
-    brand: '',
-    category: '',
-    price: '',
-    stock: '',
-    description: '',
-    flavor: '',
-    image: ''
   });
 
   // Data states
@@ -275,58 +264,6 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
     }
   };
 
-  const handleCreateProduct = async (e) => {
-    if (e) e.preventDefault();
-    try {
-      setLoading(true);
-
-      const payload = {
-        ...newProductForm,
-        price: Number(newProductForm.price),
-        stock: Number(newProductForm.stock),
-        images: newProductForm.image ? [newProductForm.image] : []
-      };
-
-      // Remove temporary 'image' field from payload if backend is strict, 
-      // but Mongoose usually ignores extras unless strict schema. 
-      // Keeping it is safer for some backends, but 'images' is what Product model needs.
-
-      const response = await fetch(`${API_BASE_URL}/products`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${adminToken}`
-        },
-        body: JSON.stringify(payload)
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        let createdProduct = data.product || data;
-
-        // Ensure local display has the image immediately
-        createdProduct = {
-          ...createdProduct,
-          image: newProductForm.image || ''
-        };
-
-        // Refresh products list
-        setProducts([createdProduct, ...products]);
-
-        setIsCreatingProduct(false);
-        setNewProductForm({ name: '', brand: '', category: '', price: '', stock: '', description: '', flavor: '', image: '' });
-      } else {
-        const err = await response.json();
-        setError(err.message || 'Failed to create product');
-      }
-    } catch (err) {
-      console.error('Create product error:', err);
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleDeleteProduct = async (productId) => {
     if (!window.confirm('Are you sure you want to delete this product? This action cannot be undone.')) return;
 
@@ -556,7 +493,7 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
       setShowRevenueStats(false);
       setShowPendingStats(false);
     }
-  }, [activeTab, selectedUser, selectedOrder, isCreatingProduct]);
+  }, [activeTab, selectedUser, selectedOrder]);
 
   if (showRevenueStats) {
     return (
@@ -996,12 +933,7 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
           <div className="p-4 md:p-6 md:p-8 border-b border-gray-800 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <h3 className="text-xl md:text-3xl font-black italic tracking-tighter uppercase">Supply Depot (Live Registry)</h3>
             <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3 w-full md:w-auto">
-              <button
-                onClick={() => setIsCreatingProduct(true)}
-                className="px-4 py-3 bg-green-600 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-green-500 transition-all shadow-lg shadow-green-900/40 whitespace-nowrap flex items-center justify-center gap-2"
-              >
-                <span>+</span> Add Product
-              </button>
+
               <input
                 type="text"
                 placeholder="Search Supplies..."
@@ -1536,93 +1468,7 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
 
       {/* Create Product Modal */}
       {
-        isCreatingProduct && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md overflow-y-auto">
-            <div className="bg-gray-900 border border-gray-800 rounded-[40px] p-6 md:p-12 w-full max-w-4xl relative animate-in fade-in zoom-in-95 duration-300 my-auto">
-              <div className="max-w-4xl mx-auto">
-                <h2 className="text-3xl font-black italic uppercase text-white mb-2">Initialize New Node</h2>
-                <p className="text-sm text-gray-500 font-medium mb-8">Deploy a new product node to the network.</p>
 
-                <button
-                  onClick={() => setIsCreatingProduct(false)}
-                  className="absolute top-6 right-6 text-gray-500 hover:text-white transition-colors"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                </button>
-
-                <form onSubmit={handleCreateProduct} className="space-y-6">
-                  <div>
-                    <label className="block text-[10px] font-black uppercase text-gray-500 tracking-widest mb-2">Product Name</label>
-                    <input
-                      required
-                      type="text"
-                      value={newProductForm.name}
-                      onChange={e => setNewProductForm({ ...newProductForm, name: e.target.value })}
-                      className="w-full bg-black border border-gray-800 rounded-xl px-4 py-3 text-white font-bold focus:border-purple-500 focus:outline-none transition-colors"
-                      placeholder="e.g. VapePro Max"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] font-black uppercase text-gray-500 tracking-widest mb-2">Description</label>
-                    <textarea
-                      required
-                      value={newProductForm.description}
-                      onChange={e => setNewProductForm({ ...newProductForm, description: e.target.value })}
-                      className="w-full bg-black border border-gray-800 rounded-xl px-4 py-3 text-white font-bold focus:border-purple-500 focus:outline-none transition-colors h-32 resize-none"
-                      placeholder="A brief description of the product..."
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-[10px] font-black uppercase text-gray-500 tracking-widest mb-2">Price</label>
-                      <input
-                        required
-                        type="number"
-                        step="0.01"
-                        value={newProductForm.price}
-                        onChange={e => setNewProductForm({ ...newProductForm, price: parseFloat(e.target.value) })}
-                        className="w-full bg-black border border-gray-800 rounded-xl px-4 py-3 text-white font-bold focus:border-purple-500 focus:outline-none transition-colors"
-                        placeholder="e.g. 29.99"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-black uppercase text-gray-500 tracking-widest mb-2">Stock Quantity</label>
-                      <input
-                        required
-                        type="number"
-                        value={newProductForm.stock}
-                        onChange={e => setNewProductForm({ ...newProductForm, stock: parseInt(e.target.value) })}
-                        className="w-full bg-black border border-gray-800 rounded-xl px-4 py-3 text-white font-bold focus:border-purple-500 focus:outline-none transition-colors"
-                        placeholder="e.g. 100"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] font-black uppercase text-gray-500 tracking-widest mb-2">Image URL</label>
-                    <input
-                      type="url"
-                      value={newProductForm.imageUrl}
-                      onChange={e => setNewProductForm({ ...newProductForm, imageUrl: e.target.value })}
-                      className="w-full bg-black border border-gray-800 rounded-xl px-4 py-3 text-white font-bold focus:border-purple-500 focus:outline-none transition-colors"
-                      placeholder="https://example.com/product-image.jpg"
-                    />
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="w-full py-4 rounded-xl bg-gradient-to-r from-purple-600 to-blue-600 text-white font-black uppercase tracking-widest hover:shadow-lg hover:shadow-purple-600/20 transition-all disabled:opacity-50"
-                  >
-                    {loading ? 'Processing...' : 'Deploy Product Node'}
-                  </button>
-                </form>
-              </div>
-            </div>
-          </div>
-        )
       }
 
       {/* Selected Requirement - (Existing) */}
