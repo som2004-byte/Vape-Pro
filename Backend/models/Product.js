@@ -20,11 +20,12 @@ const productSchema = new mongoose.Schema({
   images: [{
     type: String,
     validate: {
-      validator: function(v) {
-        // Basic URL validation for image URLs
-        return /^https?:\/\/.+\.(jpg|jpeg|png|webp|gif)$/i.test(v);
+      validator: function (v) {
+        // Basic URL validation or path validation
+        // Accepting any string that looks like a path or URL
+        return typeof v === 'string' && v.length > 0;
       },
-      message: props => `${props.value} is not a valid image URL`
+      message: props => `${props.value} is not a valid image path`
     }
   }],
   category: {
@@ -96,7 +97,7 @@ const productSchema = new mongoose.Schema({
 });
 
 // Virtual for product URL
-productSchema.virtual('url').get(function() {
+productSchema.virtual('url').get(function () {
   return `/products/${this._id}`;
 });
 
@@ -110,14 +111,14 @@ productSchema.index({
 });
 
 // Static method to get featured products
-productSchema.statics.getFeatured = function(limit = 10) {
+productSchema.statics.getFeatured = function (limit = 10) {
   return this.find({ isFeatured: true, isActive: true })
     .limit(parseInt(limit))
     .sort({ createdAt: -1 });
 };
 
 // Instance method to update stock
-productSchema.methods.updateStock = async function(quantity, action = 'decrement') {
+productSchema.methods.updateStock = async function (quantity, action = 'decrement') {
   if (action === 'decrement') {
     if (this.stock < quantity) {
       throw new Error('Insufficient stock');
@@ -128,17 +129,19 @@ productSchema.methods.updateStock = async function(quantity, action = 'decrement
   } else {
     throw new Error('Invalid action. Use "increment" or "decrement".');
   }
-  
+
   return this.save();
 };
 
 // Pre-save hook to generate SKU if not provided
-productSchema.pre('save', async function(next) {
+productSchema.pre('save', async function () {
   if (!this.sku) {
-    const count = await this.constructor.countDocuments();
-    this.sku = `PRD-${(count + 1).toString().padStart(5, '0')}`;
+    // Generate a unique SKU using timestamp and random string
+    const timestamp = Date.now().toString(36).toUpperCase();
+    const random = Math.random().toString(36).substring(2, 5).toUpperCase();
+    this.sku = `PRD-${timestamp}-${random}`;
   }
-  next();
+  // No next() call needed for async hooks in modern Mongoose
 });
 
 module.exports = mongoose.model('Product', productSchema);

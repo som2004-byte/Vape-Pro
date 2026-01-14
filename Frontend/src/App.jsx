@@ -304,7 +304,11 @@ export default function App() {
 
     if (redirectToCart) setCurrentPage('cart')
 
-    if (isLoggedIn && user?.token) {
+    // Only sync with backend if logged in AND the product has a valid MongoDB ObjectId
+    // Demo products have string IDs (e.g. "elfbar-...") and will cause 500 errors if sent to backend
+    const isValidObjectId = (id) => /^[0-9a-fA-F]{24}$/.test(id);
+
+    if (isLoggedIn && user?.token && isValidObjectId(product.id)) {
       try {
         await apiCall(API_ENDPOINTS.CART.ADD, {
           method: 'POST',
@@ -343,7 +347,9 @@ export default function App() {
     setCartItems(newCart)
     localStorage.setItem('vapesmart_cart', JSON.stringify(newCart))
 
-    if (isLoggedIn && user?.token) {
+    const isValidObjectId = (id) => /^[0-9a-fA-F]{24}$/.test(id);
+
+    if (isLoggedIn && user?.token && isValidObjectId(productId)) {
       try {
         await apiCall(API_ENDPOINTS.CART.UPDATE, {
           method: 'PUT',
@@ -369,7 +375,9 @@ export default function App() {
     localStorage.setItem('vapesmart_cart', JSON.stringify(newCart))
     setToast({ type: 'info', message: 'Item removed from cart' })
 
-    if (isLoggedIn && user?.token) {
+    const isValidObjectId = (id) => /^[0-9a-fA-F]{24}$/.test(id);
+
+    if (isLoggedIn && user?.token && isValidObjectId(productId)) {
       try {
         await apiCall(API_ENDPOINTS.CART.REMOVE, {
           method: 'DELETE',

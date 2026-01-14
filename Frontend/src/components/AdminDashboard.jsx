@@ -158,6 +158,79 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
     }
   };
 
+  const handleDeleteOrder = async (orderId) => {
+    if (!window.confirm('Are you sure you want to delete this order?')) return;
+    try {
+      setLoading(true);
+      const response = await fetch(`${API_BASE_URL}/orders/${orderId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${adminToken}` }
+      });
+
+      if (response.ok) {
+        setOrders(orders.filter(o => o._id !== orderId));
+        setSelectedOrder(null);
+      } else {
+        console.error('Failed to delete order');
+        setError('Failed to delete order');
+      }
+    } catch (error) {
+      console.error('Error deleting order:', error);
+      setError(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteUser = async (userId) => {
+    if (!window.confirm('Are you sure you want to delete this user? This cannot be undone.')) return;
+    try {
+      setLoading(true);
+      const response = await fetch(`${API_BASE_URL}/users/${userId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${adminToken}` }
+      });
+
+      if (response.ok) {
+        setUsers(users.filter(u => u._id !== userId));
+        setSelectedUser(null);
+      } else {
+        console.error('Failed to delete user');
+        setError('Failed to delete user');
+      }
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      setError(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteAdmin = async (adminId) => {
+    if (!window.confirm('Are you sure you want to delete this admin?')) return;
+    try {
+      setLoading(true);
+      const response = await fetch(`${API_BASE_URL}/admins/${adminId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${adminToken}` }
+      });
+
+      if (response.ok) {
+        // Assuming admins are in the users list or a separate admins list
+        // Since there is no 'admins' state currently shown, we might just refresh users
+        handleRefresh();
+      } else {
+        const data = await response.json();
+        setError(data.message || 'Failed to delete admin');
+      }
+    } catch (error) {
+      console.error('Error deleting admin:', error);
+      setError(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Initial data load
   useEffect(() => {
     handleRefresh();
@@ -301,7 +374,7 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
         {[
           { label: 'Users', value: stats.totalUsers, icon: '👥', color: 'from-blue-600/20 to-blue-600/10', border: 'border-blue-500/30', textColor: 'text-blue-400' },
           { label: 'Orders', value: stats.totalOrders, icon: '📦', color: 'from-purple-600/20 to-purple-600/10', border: 'border-purple-500/30', textColor: 'text-purple-400' },
-          { label: 'Revenue', value: `$${(stats.totalRevenue || 0).toFixed(2)}`, icon: '💰', color: 'from-green-600/20 to-green-600/10', border: 'border-green-500/30', textColor: 'text-green-400' },
+          { label: 'Revenue', value: `₹${(stats.totalRevenue || 0).toFixed(2)}`, icon: '💰', color: 'from-green-600/20 to-green-600/10', border: 'border-green-500/30', textColor: 'text-green-400' },
           { label: 'Pending', value: stats.pendingOrders, icon: '⏳', color: 'from-yellow-600/20 to-yellow-600/10', border: 'border-yellow-500/30', textColor: 'text-yellow-400' },
         ].map((stat, index) => (
           <div
@@ -378,7 +451,7 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
                             <td className="px-4 md:px-8 py-3 md:py-6 font-mono text-xs md:text-sm text-purple-400">#{order._id.slice(-6).toUpperCase()}</td>
                             <td className="px-4 md:px-8 py-3 md:py-6 text-xs md:text-sm text-gray-400">{new Date(order.createdAt || Date.now()).toLocaleDateString()}</td>
                             <td className="hidden md:table-cell px-8 py-6 text-sm font-bold text-white">{order.userId?.email || 'Guest'}</td>
-                            <td className="px-4 md:px-8 py-3 md:py-6 text-xs md:text-sm font-mono text-green-400">${(order.total || 0).toFixed(2)}</td>
+                            <td className="px-4 md:px-8 py-3 md:py-6 text-xs md:text-sm font-mono text-green-400">₹{(order.total || 0).toFixed(2)}</td>
                             <td className="px-4 md:px-8 py-3 md:py-6 text-right">
                               <span className={`inline-block px-2 md:px-3 py-1 rounded-full text-[8px] md:text-[10px] font-black uppercase tracking-widest border ${statusColors[order.status] || statusColors.pending}`}>
                                 {order.status || 'pending'}
@@ -421,16 +494,16 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
                         </div>
                         <div>
                           <p className="font-bold text-white">{item.name}</p>
-                          <p className="text-xs text-gray-400">Unit Cost: ${item.price}</p>
+                          <p className="text-xs text-gray-400">Unit Cost: ₹{item.price}</p>
                         </div>
                       </div>
-                      <p className="font-mono text-green-400 font-bold">${(item.price * item.quantity).toFixed(2)}</p>
+                      <p className="font-mono text-green-400 font-bold">₹{(item.price * item.quantity).toFixed(2)}</p>
                     </div>
                   ))}
                 </div>
                 <div className="mt-6 pt-6 border-t border-gray-800 flex justify-between items-center">
                   <span className="text-sm font-black uppercase text-gray-500 tracking-widest">Total Value</span>
-                  <span className="text-3xl font-black text-green-400">${(selectedOrder.total || 0).toFixed(2)}</span>
+                  <span className="text-3xl font-black text-green-400">₹{(selectedOrder.total || 0).toFixed(2)}</span>
                 </div>
               </div>
 
@@ -459,6 +532,7 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
                   <button onClick={() => handleOrderStatusUpdate(selectedOrder._id, 'processing')} className="w-full py-4 rounded-xl bg-purple-600 text-white font-black uppercase text-[10px] tracking-widest hover:bg-purple-500 transition-all">Mark Processed</button>
                   <button onClick={() => handleOrderStatusUpdate(selectedOrder._id, 'shipped')} className="w-full py-4 rounded-xl bg-blue-600 text-white font-black uppercase text-[10px] tracking-widest hover:bg-blue-500 transition-all">Mark Shipped</button>
                   <button onClick={() => handleOrderStatusUpdate(selectedOrder._id, 'delivered')} className="w-full py-4 rounded-xl bg-green-600 text-white font-black uppercase text-[10px] tracking-widest hover:bg-green-500 transition-all">Mark Delivered</button>
+                  <button onClick={() => handleDeleteOrder(selectedOrder._id)} className="w-full py-4 rounded-xl bg-red-600/20 border border-red-500/30 text-red-400 font-black uppercase text-[10px] tracking-widest hover:bg-red-600 hover:text-white transition-all">Delete Record</button>
                 </div>
               </div>
             </div>
@@ -507,7 +581,7 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
                           {prod.stock} Units
                         </span>
                       </td>
-                      <td className="px-2 md:px-8 py-3 md:py-6 font-mono text-xs md:text-sm text-gray-300 whitespace-nowrap">${prod.price}</td>
+                      <td className="px-2 md:px-8 py-3 md:py-6 font-mono text-xs md:text-sm text-gray-300 whitespace-nowrap">₹{prod.price}</td>
                       <td className="px-2 md:px-8 py-3 md:py-6 text-right whitespace-nowrap">
                         {prod.stock > 0 ? (
                           <span className="inline-block text-[8px] md:text-xs font-black text-green-500 uppercase tracking-widest bg-green-500/10 px-2 md:px-3 py-1 rounded-full border border-green-500/50 whitespace-nowrap">In Supply</span>
@@ -546,7 +620,7 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-gray-800/30 p-4 rounded-2xl border border-gray-700/30">
                   <p className="text-[10px] uppercase text-gray-500 font-black mb-1">Unit Value</p>
-                  <p className="text-xl font-mono text-green-400 font-bold">${selectedProduct.price}</p>
+                  <p className="text-xl font-mono text-green-400 font-bold">₹{selectedProduct.price}</p>
                 </div>
                 <div className="bg-gray-800/30 p-4 rounded-2xl border border-gray-700/30">
                   <p className="text-[10px] uppercase text-gray-500 font-black mb-1">Total Sold</p>
@@ -704,7 +778,11 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
               <p className="text-xl text-purple-400 font-bold mb-8">{selectedUser.email}</p>
               <div className="w-full flex gap-4">
                 <button className="flex-1 py-4 rounded-2xl bg-white text-black font-black uppercase tracking-widest text-xs hover:bg-purple-600 hover:text-white transition-all">Verify Node</button>
-                <button className="p-4 rounded-2xl bg-red-600/20 text-red-500 hover:bg-red-600 hover:text-white transition-all">
+                <button 
+                  onClick={() => handleDeleteUser(selectedUser._id)}
+                  className="p-4 rounded-2xl bg-red-600/20 text-red-500 hover:bg-red-600 hover:text-white transition-all"
+                  title="Delete User"
+                >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                 </button>
               </div>

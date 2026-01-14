@@ -202,6 +202,27 @@ router.delete('/users/:userId', authorizeAdmin, async (req, res) => {
   }
 });
 
+// Delete admin (admin only)
+router.delete('/admins/:adminId', authorizeAdmin, async (req, res) => {
+  try {
+    // Prevent deleting self
+    if (req.user._id.toString() === req.params.adminId) {
+      return res.status(400).json({ message: 'Cannot delete your own admin account' });
+    }
+
+    const admin = await User.findByIdAndDelete(req.params.adminId);
+
+    if (!admin) {
+      return res.status(404).json({ message: 'Admin not found' });
+    }
+
+    res.json({ message: 'Admin deleted successfully' });
+  } catch (error) {
+    console.error('Delete admin error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
 // Get all orders (admin only)
 router.get('/orders', authorizeAdmin, async (req, res) => {
   try {
@@ -290,6 +311,46 @@ router.put(
       res.status(500).json({ message: 'Server error', error: error.message });
     }
   }
+  }
+);
+
+// Update order status (PATCH)
+router.patch(
+  '/orders/:orderId/status',
+  authorizeAdmin,
+  [
+    body('status').isIn([
+      'pending',
+      'processing',
+      'shipped',
+      'delivered',
+      'cancelled',
+    ]),
+  ],
+  async (req, res) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+      }
+
+      const { status } = req.body;
+      const order = await Order.findByIdAndUpdate(
+        req.params.orderId,
+        { status },
+        { new: true }
+      );
+
+      if (!order) {
+        return res.status(404).json({ message: 'Order not found' });
+      }
+
+      res.json(order);
+    } catch (error) {
+      console.error('Update order status error:', error);
+      res.status(500).json({ message: 'Server error', error: error.message });
+    }
+  }
 );
 
 
@@ -307,6 +368,22 @@ router.get('/orders/:orderId', authorizeAdmin, async (req, res) => {
     res.json(order);
   } catch (error) {
     console.error('Get order error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Delete order (admin only)
+router.delete('/orders/:orderId', authorizeAdmin, async (req, res) => {
+  try {
+    const order = await Order.findByIdAndDelete(req.params.orderId);
+
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+
+    res.json({ message: 'Order deleted successfully' });
+  } catch (error) {
+    console.error('Delete order error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
@@ -381,6 +458,39 @@ router.put(
       });
     } catch (error) {
       console.error('Update product error:', error);
+      res.status(500).json({ message: 'Server error', error: error.message });
+    }
+  }
+);
+
+// Update product stock (admin only) - Specific PATCH route
+router.patch(
+  '/products/:productId/stock',
+  authorizeAdmin,
+  [
+    body('stock').isInt({ min: 0 }).withMessage('Stock must be a non-negative integer'),
+  ],
+  async (req, res) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+      }
+
+      const { stock } = req.body;
+      const product = await Product.findByIdAndUpdate(
+        req.params.productId,
+        { stock },
+        { new: true, runValidators: true }
+      );
+
+      if (!product) {
+        return res.status(404).json({ message: 'Product not found' });
+      }
+
+      res.json(product);
+    } catch (error) {
+      console.error('Update stock error:', error);
       res.status(500).json({ message: 'Server error', error: error.message });
     }
   }
