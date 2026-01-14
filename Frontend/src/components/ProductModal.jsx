@@ -85,8 +85,15 @@ export default function ProductModal({ product, onClose, onAddToCart, onBuyNow }
 
               <div className="flex flex-col justify-between space-y-4">
                 <div className="space-y-4">
-                  <div className="text-3xl font-bold bg-gradient-to-r from-yellow-200 to-yellow-500 bg-clip-text text-transparent">
-                    ₹{product.price?.toLocaleString()}
+                  <div className="flex items-baseline gap-3">
+                    {product.originalPrice && product.originalPrice > product.price && (
+                      <div className="text-xl text-gray-400 line-through">
+                        ₹{product.originalPrice.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      </div>
+                    )}
+                    <div className="text-4xl font-bold bg-gradient-to-r from-yellow-200 to-yellow-500 bg-clip-text text-transparent">
+                      ₹{product.price?.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    </div>
                   </div>
 
                   <div className="space-y-3 bg-neutral-800/30 p-4 rounded-xl border border-neutral-800">

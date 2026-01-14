@@ -17,6 +17,10 @@ const productSchema = new mongoose.Schema({
     required: [true, 'Product price is required'],
     min: [0, 'Price must be a positive number']
   },
+  originalPrice: {
+    type: Number,
+    min: [0, 'Original price must be a positive number']
+  },
   images: [{
     type: String,
     validate: {

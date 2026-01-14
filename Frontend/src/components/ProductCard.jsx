@@ -102,15 +102,15 @@ export default function ProductCard({ product, onOpen, onAddToCart }) {
         </div>
 
         {/* Price */}
-        <div className="flex items-center justify-between pt-2">
-          <div className="text-2xl font-bold bg-gradient-to-r from-yellowGradient-start to-yellowGradient-end bg-clip-text text-transparent">
-            ₹{product.price?.toLocaleString() || 'N/A'}
-          </div>
+        <div className="flex items-baseline gap-2 pt-2">
           {product.originalPrice && product.originalPrice > product.price && (
             <div className="text-sm text-gray-500 line-through">
-              ₹{product.originalPrice.toLocaleString()}
+              ₹{product.originalPrice.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
             </div>
           )}
+          <div className="text-2xl font-bold bg-gradient-to-r from-yellowGradient-start to-yellowGradient-end bg-clip-text text-transparent">
+            ₹{product.price?.toLocaleString('en-IN', { minimumFractionDigits: 2 }) || '0.00'}
+          </div>
         </div>
 
         {/* Action Buttons */}
@@ -118,8 +118,8 @@ export default function ProductCard({ product, onOpen, onAddToCart }) {
           <button
             onClick={(e) => { e.stopPropagation(); onAddToCart(product) }}
             className={`w-full px-4 py-2.5 rounded-lg text-sm font-semibold transition-colors ${product.soldOut
-                ? 'bg-darkPurple-950/30 text-darkPurple-600 cursor-not-allowed border border-darkPurple-900/30'
-                : 'bg-gradient-to-r from-yellowGradient-start to-yellowGradient-end text-black hover:from-yellowGradient-end hover:to-yellowGradient-start border border-yellowGradient-end/50'
+              ? 'bg-darkPurple-950/30 text-darkPurple-600 cursor-not-allowed border border-darkPurple-900/30'
+              : 'bg-gradient-to-r from-yellowGradient-start to-yellowGradient-end text-black hover:from-yellowGradient-end hover:to-yellowGradient-start border border-yellowGradient-end/50'
               }`}
             disabled={product.soldOut}
           >
