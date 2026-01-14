@@ -128,8 +128,9 @@ productSchema.methods.updateStock = async function (quantity, action = 'decremen
 // Pre-save hook to generate SKU if not provided
 productSchema.pre('save', async function () {
   if (!this.sku) {
-    const count = await this.constructor.countDocuments();
-    this.sku = `PRD-${(count + 1).toString().padStart(5, '0')}`;
+    const timestamp = Date.now().toString(36).toUpperCase();
+    const random = Math.random().toString(36).substring(2, 5).toUpperCase();
+    this.sku = `PRD-${timestamp}-${random}`;
   }
 });
 

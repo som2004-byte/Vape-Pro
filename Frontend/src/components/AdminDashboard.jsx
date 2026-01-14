@@ -200,7 +200,8 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
         } else {
           // If promotion failed, don't try to update the non-existent ID
           const errData = await response.json();
-          throw new Error(errData.message || "Failed to promote demo product to database");
+          console.error("Promotion failed:", errData);
+          throw new Error(errData.error || errData.message || "Failed to promote demo product to database");
         }
       }
 
