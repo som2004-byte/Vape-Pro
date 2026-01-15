@@ -1,18 +1,18 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { API_ENDPOINTS, apiCall, getAuthHeaders } from './utils/apiConfig';
-import Navbar from './components/Navbar';
+import Navbar from './components/Navbar.jsx';
 import VapeSmokeEffect from './components/VapeSmokeEffect';
 import LandingHero from './components/LandingHero';
-import Hero3D from './components/Hero3D';
+import Hero3D from './components/Hero3D.jsx';
 import ProductGrid from './components/ProductGrid';
 import ProductModal from './components/ProductModal';
 import LoginSignup from './components/LoginSignup';
-import { PRODUCTS, MAIN_CATEGORIES } from './data';
+import { PRODUCTS, MAIN_CATEGORIES } from './data.js';
 import AccountSection from './components/AccountSection';
 import CartPage from './components/CartPage';
 import PaymentPage from './components/PaymentPage';
 import AdminLogin from './components/AdminLogin';
-import AdminDashboard from './components/AdminDashboard';
+import AdminDashboard from './components/AdminDashboard.jsx';
 
 const loadPersistedState = () => {
   try {

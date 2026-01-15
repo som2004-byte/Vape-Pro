@@ -1,5 +1,5 @@
 ﻿import React, { useState } from 'react'
-import { MAIN_CATEGORIES, BRANDS, PRICE_RANGES, PUFF_RANGES, getSubCategoriesByBrand } from '../data'
+import { MAIN_CATEGORIES, BRANDS, PRICE_RANGES, PUFF_RANGES, getSubCategoriesByBrand } from '../data.js'
 
 export default function Navbar({ user, onLogout, currentCategory = 'all', onCategoryChange, onFilterChange, activeFilters = {}, onNavigate, cartItemCount, searchQuery, onSearchChange }) {
   const [activeDropdown, setActiveDropdown] = useState(null)

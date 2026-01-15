@@ -1,7 +1,7 @@
 import React, { Suspense, useState, useMemo, useRef } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { OrbitControls, Environment, useGLTF } from '@react-three/drei'
-import { PRODUCTS } from '../data'
+import { PRODUCTS } from '../data.js'
 
 function Model({ url }) {
   const { scene } = useGLTF(url)

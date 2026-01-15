@@ -5,7 +5,7 @@ import LandingHero from './components/LandingHero';
 import ProductGrid from './components/ProductGrid';
 import ProductModal from './components/ProductModal';
 import LoginSignup from './components/LoginSignup';
-import { PRODUCTS, MAIN_CATEGORIES } from './data';
+import { PRODUCTS, MAIN_CATEGORIES } from './data.js';
 import AccountSection from './components/AccountSection';
 import CartPage from './components/CartPage';
 import PaymentPage from './components/PaymentPage';
@@ -19,7 +19,7 @@ const loadPersistedState = () => {
     const savedCart = localStorage.getItem('vapesmart_cart');
     const savedOrders = localStorage.getItem('vapesmart_orders');
     const savedProfile = localStorage.getItem('vapesmart_profile');
-    
+
     return {
       user: savedUser ? JSON.parse(savedUser) : null,
       isLoggedIn: savedLoginState === 'true',
@@ -89,12 +89,12 @@ export default function App() {
       const existingItem = prevItems.find(item => item.id === product.id);
       const newItems = existingItem
         ? prevItems.map(item =>
-            item.id === product.id
-              ? { ...item, quantity: (item.quantity || 1) + 1 }
-              : item
-          )
+          item.id === product.id
+            ? { ...item, quantity: (item.quantity || 1) + 1 }
+            : item
+        )
         : [...prevItems, { ...product, quantity: 1 }];
-      
+
       localStorage.setItem('vapesmart_cart', JSON.stringify(newItems));
       return newItems;
     });
@@ -104,7 +104,7 @@ export default function App() {
   // Handle updating cart item quantity
   const updateCartItemQuantity = (productId, newQuantity) => {
     if (newQuantity < 1) return;
-    
+
     setCartItems(prevItems => {
       const newItems = prevItems.map(item =>
         item.id === productId ? { ...item, quantity: newQuantity } : item
@@ -144,15 +144,15 @@ export default function App() {
   const filteredProducts = useMemo(() => {
     return PRODUCTS.filter(product => {
       const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          product.description.toLowerCase().includes(searchQuery.toLowerCase());
+        product.description.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesCategory = currentCategory === 'all' || product.category === currentCategory;
-      
+
       // Apply additional filters if any
       const matchesFilters = Object.entries(activeFilters).every(([key, value]) => {
         if (!value) return true;
         return product[key] === value;
       });
-      
+
       return matchesSearch && matchesCategory && matchesFilters;
     });
   }, [searchQuery, currentCategory, activeFilters]);
@@ -191,38 +191,38 @@ export default function App() {
         onNavigate={handleNavigate}
         onSearchChange={setSearchQuery}
       />
-      
+
       <main className="container mx-auto px-4 py-8">
         {currentPage === 'home' && (
           <>
             <LandingHero />
-            <ProductGrid 
-              products={filteredProducts} 
+            <ProductGrid
+              products={filteredProducts}
               onProductClick={setSelected}
               currentCategory={currentCategory}
             />
           </>
         )}
-        
+
         {currentPage === 'account' && (
-          <AccountSection 
-            user={user} 
+          <AccountSection
+            user={user}
             profile={customerProfile}
             onUpdateProfile={setCustomerProfile}
           />
         )}
-        
+
         {currentPage === 'cart' && (
-          <CartPage 
+          <CartPage
             cartItems={cartItems}
             onUpdateQuantity={updateCartItemQuantity}
             onRemoveItem={removeFromCart}
             onCheckout={() => setCurrentPage('checkout')}
           />
         )}
-        
+
         {currentPage === 'checkout' && (
-          <PaymentPage 
+          <PaymentPage
             cartItems={cartItems}
             onPaymentSuccess={() => {
               setCartItems([]);
@@ -243,10 +243,9 @@ export default function App() {
       )}
 
       {toast && (
-        <div className={`fixed bottom-4 right-4 px-4 py-2 rounded shadow-lg ${
-          toast.type === 'error' ? 'bg-red-600' : 
-          toast.type === 'success' ? 'bg-green-600' : 'bg-blue-600'
-        } text-white`}>
+        <div className={`fixed bottom-4 right-4 px-4 py-2 rounded shadow-lg ${toast.type === 'error' ? 'bg-red-600' :
+            toast.type === 'success' ? 'bg-green-600' : 'bg-blue-600'
+          } text-white`}>
           {toast.message}
         </div>
       )}

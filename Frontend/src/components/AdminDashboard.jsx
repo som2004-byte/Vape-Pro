@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import API_BASE_URL_ROOT from '../config';
-import { PRODUCTS as USER_PRODUCTS } from '../data';
+import { PRODUCTS as USER_PRODUCTS } from '../data.js';
 
 export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavigateToStore, onProductUpdate }) {
   const logo = '/images/vapesmart-logo.png';
