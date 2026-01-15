@@ -109,6 +109,53 @@ router.post(
 );
 */
 
+// Create new admin (admin only)
+router.post(
+  '/create',
+  authorizeAdmin,
+  [
+    body('name').trim().notEmpty(),
+    body('email').isEmail().normalizeEmail(),
+    body('password').isLength({ min: 6 }),
+  ],
+  async (req, res) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+      }
+
+      const { name, email, password } = req.body;
+
+      // Check if admin exists
+      const existingAdmin = await Admin.findOne({ email });
+      if (existingAdmin) {
+        return res.status(400).json({ message: 'Admin account already exists' });
+      }
+
+      // Hash password
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      // Create admin
+      const admin = new Admin({
+        name,
+        email,
+        password: hashedPassword,
+      });
+
+      await admin.save();
+
+      res.status(201).json({
+        message: 'Admin account created successfully',
+        admin: { id: admin._id, email: admin.email, name: admin.name },
+      });
+    } catch (error) {
+      console.error('Admin creation error:', error);
+      res.status(500).json({ message: 'Server error', error: error.message });
+    }
+  }
+);
+
 // Get all admins (admin only)
 router.get('/admins', authorizeAdmin, async (req, res) => {
   try {
@@ -216,11 +263,11 @@ router.delete('/users/:userId', authorizeAdmin, async (req, res) => {
 router.delete('/admins/:adminId', authorizeAdmin, async (req, res) => {
   try {
     // Prevent deleting self
-    if (req.user._id.toString() === req.params.adminId) {
+    if (req.admin._id.toString() === req.params.adminId) {
       return res.status(400).json({ message: 'Cannot delete your own admin account' });
     }
 
-    const admin = await User.findByIdAndDelete(req.params.adminId);
+    const admin = await Admin.findByIdAndDelete(req.params.adminId);
 
     if (!admin) {
       return res.status(404).json({ message: 'Admin not found' });
