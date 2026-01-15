@@ -11,72 +11,116 @@ const products = [
         description: "Series: Moonlight 40K. Flavor: Blackberry Ice. Type: Rechargeable Disposable. Puffs: 40000. Nicotine: 5%. Features: 3-Level Adjustable Power.",
         category: "disposable",
         flavor: "Blackberry Ice",
-        price: 2499,
-        originalPrice: 4500,
+        price: 2399,
+        originalPrice: 3000,
         stock: 25,
         isFeatured: true,
         images: ["/images/products/elfbar-moonlight-40k/blackberry-ice.png"],
-        specifications: {
-            series: "Moonlight 40K",
-            puffs: "40000",
-            nicotine: "5%",
-            type: "Rechargeable Disposable"
-        }
+        specifications: { series: "Moonlight 40K", puffs: "40000", nicotine: "5%", type: "Rechargeable Disposable" }
     },
+    // ========== ELFBAR Sweet King Series ==========
     {
-        sku: "elfbar-moonlight-40k-kiwi-passion-guava",
-        name: "ELFBAR Moonlight 40K - Kiwi Passion Fruit Guava",
+        sku: "elfbar-sweet-king-kiwi-passion-guava",
+        name: "ELFBAR Sweet King - Kiwi Passion Fruit Guava",
         brand: "ELFBAR",
-        description: "Series: Moonlight 40K. Flavor: Kiwi Passion Fruit Guava. Type: Rechargeable Disposable. Puffs: 40000. Nicotine: 5%. Features: 3-Level Adjustable Power.",
+        description: "Series: Sweet King. Flavor: Kiwi Passion Fruit Guava. Puffs: 15000. Nicotine: 5%. Features: 4 Levels Personalized Sweetness.",
         category: "disposable",
         flavor: "Kiwi Passion Fruit Guava",
-        price: 2499,
-        originalPrice: 4500,
+        price: 2299,
+        originalPrice: 3000,
         stock: 25,
-        isFeatured: false,
-        images: ["/images/products/elfbar-moonlight-40k/kiwi-passion-guava.png"],
-        specifications: {
-            series: "Moonlight 40K",
-            puffs: "40000",
-            nicotine: "5%",
-            type: "Rechargeable Disposable"
-        }
+        isFeatured: true,
+        images: ["/images/products/elfbar-sweet-king/kiwi-passion-guava.png"],
+        specifications: { series: "Sweet King", puffs: "15000", nicotine: "5%", type: "Rechargeable Disposable" }
     },
     // ========== ELFBAR Raya D3 Series ==========
     {
         sku: "elfbar-raya-d3-grape-ice",
         name: "ELFBAR Raya D3 - Grape Ice",
         brand: "ELFBAR",
-        description: "Series: Raya D3. Flavor: Grape Ice. Type: Disposable Pod Device. Puffs: 25000. Nicotine: 50mg/ml. Features: 1st Triple Mesh Coil | 3 Modes (Lite, Smooth, Turbo).",
+        description: "Series: Raya D3. Flavor: Grape Ice. Puffs: 25000. Nicotine: 50mg/ml.",
         category: "disposable",
         flavor: "Grape Ice",
-        price: 1599,
+        price: 1999,
+        originalPrice: 2600,
         stock: 25,
         isFeatured: true,
         images: ["/images/products/elfbar-raya-d3/grape-ice.png"],
-        specifications: {
-            series: "Raya D3",
-            puffs: "25000",
-            nicotine: "50mg/ml",
-            type: "Disposable Pod Device"
-        }
+        specifications: { series: "Raya D3", puffs: "25000", nicotine: "50mg/ml", type: "Disposable Pod Device" }
     },
-    // ========== UWELL Caliburn Series ==========
+    // ========== ELFBAR Raya D1 Series ==========
+    {
+        sku: "elfbar-raya-d1-blueberry",
+        name: "ELFBAR Raya D1 - Blueberry",
+        brand: "ELFBAR",
+        description: "Series: Raya D1. Flavor: Blueberry. Puffs: 13000.",
+        category: "disposable",
+        flavor: "Blueberry",
+        price: 1899,
+        originalPrice: 2500,
+        stock: 25,
+        isFeatured: false,
+        images: ["/images/products/elfbar-raya-d1/blueberry.png"],
+        specifications: { series: "Raya D1", puffs: "13000", nicotine: "50mg/ml", type: "Disposable Pod Device" }
+    },
+    // ========== YUOTO Thanos Series ==========
+    {
+        sku: "yuoto-thanos-double-apple",
+        name: "YUOTO Thanos - Double Apple",
+        brand: "YUOTO",
+        description: "Series: Thanos. Flavor: Double Apple. Puffs: 5000.",
+        category: "disposable",
+        flavor: "Double Apple",
+        price: 1299,
+        originalPrice: 2000,
+        stock: 25,
+        isFeatured: true,
+        images: ["/images/products/yuoto-thanos/double-apple.png"],
+        specifications: { series: "Thanos", puffs: "5000", nicotine: "5%", type: "Disposable" }
+    },
+    // ========== IGET Disposable Series ==========
+    {
+        sku: "iget-disposable-strawberry-ice",
+        name: "IGET Disposable - Strawberry Ice",
+        brand: "IGET",
+        description: "Series: Disposable. Flavor: Strawberry Ice. Puffs: 10000.",
+        category: "disposable",
+        flavor: "Strawberry Ice",
+        price: 1899,
+        originalPrice: 2400,
+        stock: 25,
+        isFeatured: true,
+        images: ["/images/products/iget-disposable/strawberry-ice.png"],
+        specifications: { series: "Disposable", puffs: "10000", nicotine: "5%", type: "Disposable Pod Device" }
+    },
+    // ========== ELFWORLD MX25000 Series ==========
+    {
+        sku: "elfworld-mx25000-grape-ice",
+        name: "ELFWORLD MX25000 - Grape Ice",
+        brand: "ELFWORLD",
+        description: "Series: MX25000. Flavor: Grape Ice. Puffs: 25000.",
+        category: "disposable",
+        flavor: "Grape Ice",
+        price: 1999,
+        originalPrice: 2600,
+        stock: 25,
+        isFeatured: true,
+        images: ["/images/products/elfworld-mx25000/grape-ice.png"],
+        specifications: { series: "MX25000", puffs: "25000", nicotine: "5%", type: "Disposable" }
+    },
+    // ========== UWELL Caliburn Series (PODKITS) ==========
     {
         sku: "uwell-caliburn-g4-pro-koko",
         name: "UWELL Caliburn G4 Pro KOKO",
         brand: "UWELL",
-        description: "Series: Caliburn G4 Pro KOKO. Type: Pod System. Nicotine: Variable. Features: 2000 mAh | 2.0 Inch Touch | G Pod Platform.",
-        category: "pod-systems",
-        price: 3499,
+        description: "Series: Caliburn G4 Pro KOKO. Type: Pod System.",
+        category: "podkits",
+        price: 5199,
+        originalPrice: 7000,
         stock: 10,
         isFeatured: true,
         images: ["/images/products/uwell-caliburn/g4-pro-koko.png"],
-        specifications: {
-            series: "Caliburn G4 Pro KOKO",
-            type: "Pod System",
-            battery: "2000 mAh"
-        }
+        specifications: { series: "Caliburn G4 Pro KOKO", type: "Pod System", battery: "2000 mAh" }
     }
 ];
 
@@ -90,11 +134,9 @@ const seedDB = async () => {
         await mongoose.connect(process.env.MONGODB_URI);
         console.log('MongoDB Connected');
 
-        // Clear existing products
         await Product.deleteMany({});
         console.log('Cleared existing products');
 
-        // Insert new products
         await Product.insertMany(products);
         console.log(`Seeded ${products.length} products successfully`);
 

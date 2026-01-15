@@ -102,14 +102,21 @@ export default function ProductCard({ product, onOpen, onAddToCart }) {
         </div>
 
         {/* Price */}
-        <div className="flex items-baseline gap-2 pt-2">
-          {product.originalPrice && product.originalPrice > product.price && (
-            <div className="text-sm text-gray-500 line-through">
-              ₹{product.originalPrice.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+        <div className="flex items-center gap-2 pt-2">
+          <div className="flex flex-col">
+            {product.originalPrice && product.originalPrice > product.price && (
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-500 line-through">
+                  ₹{product.originalPrice.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                </span>
+                <span className="text-xs font-black text-green-500 animate-pulse">
+                  {Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)}% OFF
+                </span>
+              </div>
+            )}
+            <div className="text-2xl font-bold bg-gradient-to-r from-yellowGradient-start to-yellowGradient-end bg-clip-text text-transparent">
+              ₹{product.price?.toLocaleString('en-IN', { minimumFractionDigits: 2 }) || '0.00'}
             </div>
-          )}
-          <div className="text-2xl font-bold bg-gradient-to-r from-yellowGradient-start to-yellowGradient-end bg-clip-text text-transparent">
-            ₹{product.price?.toLocaleString('en-IN', { minimumFractionDigits: 2 }) || '0.00'}
           </div>
         </div>
 

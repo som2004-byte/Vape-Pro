@@ -39,6 +39,7 @@ const productSchema = new mongoose.Schema({
       values: [
         'disposable',
         'pod-systems',
+        'podkits',
         'starter-kits',
         'mods',
         'tanks',
