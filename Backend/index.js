@@ -14,6 +14,7 @@ const { authenticateToken } = require('./middleware/auth');
 const adminRoutes = require('./routes/admin');
 const orderRoutes = require('./routes/order');
 const cartRoutes = require('./routes/cart');
+const productRoutes = require('./routes/product');
 
 const app = express();
 
@@ -113,6 +114,9 @@ app.use('/api/orders', orderRoutes);
 
 // Use cart routes
 app.use('/api/cart', cartRoutes);
+
+// Use product routes
+app.use('/api/products', productRoutes);
 
 app.get('/api/account', authenticateToken, async (req, res) => {
   try {

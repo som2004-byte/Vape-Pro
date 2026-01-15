@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import API_BASE_URL_ROOT from '../config';
 import { PRODUCTS as USER_PRODUCTS } from '../data';
 
-export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavigateToStore }) {
+export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavigateToStore, onProductUpdate }) {
   const logo = '/images/vapesmart-logo.png';
 
   // Navigation and view states
@@ -13,6 +13,8 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [stockUpdateValue, setStockUpdateValue] = useState('');
+  const [priceUpdateValue, setPriceUpdateValue] = useState('');
+  const [originalPriceUpdateValue, setOriginalPriceUpdateValue] = useState('');
 
   // Data states
   const [users, setUsers] = useState([]);
@@ -112,17 +114,49 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
 
       if (response.ok) {
         const updatedProduct = await response.json();
-        // Update local state
         setProducts(products.map(p => p._id === productId ? updatedProduct : p));
         if (selectedProduct && selectedProduct._id === productId) {
           setSelectedProduct(updatedProduct);
         }
         setStockUpdateValue('');
+        if (onProductUpdate) onProductUpdate();
       } else {
         console.error('Failed to update stock');
       }
     } catch (error) {
       console.error('Error updating stock', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleProductUpdate = async (productId, updateData) => {
+    try {
+      setLoading(true);
+      const response = await fetch(`${API_BASE_URL}/products/${productId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${adminToken}`
+        },
+        body: JSON.stringify(updateData)
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const updatedProduct = data.product;
+        setProducts(products.map(p => p._id === productId ? updatedProduct : p));
+        if (selectedProduct && selectedProduct._id === productId) {
+          setSelectedProduct(updatedProduct);
+        }
+        setPriceUpdateValue('');
+        setOriginalPriceUpdateValue('');
+        if (onProductUpdate) onProductUpdate();
+      } else {
+        console.error('Failed to update product');
+      }
+    } catch (error) {
+      console.error('Error updating product', error);
     } finally {
       setLoading(false);
     }
@@ -141,13 +175,11 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
       });
 
       if (response.ok) {
-        const updatedOrder = await response.json();
-
-        // Update local state
         setOrders(orders.map(o => o._id === orderId ? { ...o, status: newStatus } : o));
         if (selectedOrder && selectedOrder._id === orderId) {
           setSelectedOrder({ ...selectedOrder, status: newStatus });
         }
+        if (onProductUpdate) onProductUpdate();
       } else {
         console.error('Failed to update order status');
       }
@@ -170,6 +202,7 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
       if (response.ok) {
         setOrders(orders.filter(o => o._id !== orderId));
         setSelectedOrder(null);
+        if (onProductUpdate) onProductUpdate();
       } else {
         console.error('Failed to delete order');
         setError('Failed to delete order');
@@ -216,8 +249,6 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
       });
 
       if (response.ok) {
-        // Assuming admins are in the users list or a separate admins list
-        // Since there is no 'admins' state currently shown, we might just refresh users
         handleRefresh();
       } else {
         const data = await response.json();
@@ -643,20 +674,60 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
                   </div>
                 </div>
 
-                <div className="flex gap-4 mb-8">
-                  <input
-                    type="number"
-                    placeholder="Enter new quantity..."
-                    value={stockUpdateValue}
-                    onChange={(e) => setStockUpdateValue(e.target.value)}
-                    className="flex-1 bg-gray-900 border border-gray-800 rounded-2xl px-6 py-4 text-xl font-bold focus:border-purple-500 focus:outline-none transition-colors"
-                  />
+                <div className="flex flex-col gap-6 mb-8">
+                  <div className="flex gap-4">
+                    <div className="flex-1">
+                      <p className="text-[10px] font-bold uppercase text-gray-500 mb-1">Update Stock</p>
+                      <input
+                        type="number"
+                        placeholder="Quantity..."
+                        value={stockUpdateValue}
+                        onChange={(e) => setStockUpdateValue(e.target.value)}
+                        className="w-full bg-gray-900 border border-gray-800 rounded-2xl px-6 py-4 text-xl font-bold focus:border-purple-500 focus:outline-none transition-colors"
+                      />
+                    </div>
+                    <button
+                      onClick={() => handleStockUpdate(selectedProduct._id, stockUpdateValue)}
+                      disabled={!stockUpdateValue}
+                      className="self-end bg-purple-600 hover:bg-purple-500 text-white px-8 py-4 rounded-2xl font-black uppercase tracking-widest disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-purple-600/20"
+                    >
+                      Set Stock
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-[10px] font-bold uppercase text-gray-500 mb-1">Current Price (₹)</p>
+                      <input
+                        type="number"
+                        placeholder={selectedProduct.price}
+                        value={priceUpdateValue}
+                        onChange={(e) => setPriceUpdateValue(e.target.value)}
+                        className="w-full bg-gray-900 border border-gray-800 rounded-2xl px-6 py-4 text-xl font-bold focus:border-purple-500 focus:outline-none transition-colors"
+                      />
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold uppercase text-gray-500 mb-1">Original Price (₹)</p>
+                      <input
+                        type="number"
+                        placeholder={selectedProduct.originalPrice || '0'}
+                        value={originalPriceUpdateValue}
+                        onChange={(e) => setOriginalPriceUpdateValue(e.target.value)}
+                        className="w-full bg-gray-900 border border-gray-800 rounded-2xl px-6 py-4 text-xl font-bold focus:border-purple-500 focus:outline-none transition-colors"
+                      />
+                    </div>
+                  </div>
                   <button
-                    onClick={() => handleStockUpdate(selectedProduct._id, stockUpdateValue)}
-                    disabled={!stockUpdateValue}
-                    className="bg-purple-600 hover:bg-purple-500 text-white px-8 py-4 rounded-2xl font-black uppercase tracking-widest disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-purple-600/20"
+                    onClick={() => {
+                      const updates = {}
+                      if (priceUpdateValue) updates.price = Number(priceUpdateValue)
+                      if (originalPriceUpdateValue) updates.originalPrice = Number(originalPriceUpdateValue)
+                      if (Object.keys(updates).length > 0) handleProductUpdate(selectedProduct._id, updates)
+                    }}
+                    disabled={!priceUpdateValue && !originalPriceUpdateValue}
+                    className="w-full bg-blue-600 hover:bg-blue-500 text-white px-8 py-4 rounded-2xl font-black uppercase tracking-widest disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-blue-600/20"
                   >
-                    Update Stock
+                    Update Prices
                   </button>
                 </div>
 
@@ -778,7 +849,7 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
               <p className="text-xl text-purple-400 font-bold mb-8">{selectedUser.email}</p>
               <div className="w-full flex gap-4">
                 <button className="flex-1 py-4 rounded-2xl bg-white text-black font-black uppercase tracking-widest text-xs hover:bg-purple-600 hover:text-white transition-all">Verify Node</button>
-                <button 
+                <button
                   onClick={() => handleDeleteUser(selectedUser._id)}
                   className="p-4 rounded-2xl bg-red-600/20 text-red-500 hover:bg-red-600 hover:text-white transition-all"
                   title="Delete User"

@@ -69,6 +69,37 @@ export default function App() {
   const [orders, setOrders] = useState(persistedState.orders)
   const [pendingOrder, setPendingOrder] = useState(null)
   const [tempAdminBypass, setTempAdminBypass] = useState(false)
+  const [backendProducts, setBackendProducts] = useState(PRODUCTS)
+  const [isLoadingProducts, setIsLoadingProducts] = useState(false)
+
+  const fetchProducts = async () => {
+    try {
+      setIsLoadingProducts(true);
+      const data = await apiCall(API_ENDPOINTS.PRODUCTS.ALL);
+      if (Array.isArray(data)) {
+        setBackendProducts(data.map(p => ({
+          ...p,
+          id: p.sku || p._id,
+          cardImage: p.images?.[0] || '',
+          poster: p.images?.[0] || '',
+          series: p.specifications?.series || p.series || '',
+          puffs: p.specifications?.puffs ? parseInt(p.specifications.puffs) : (p.puffs || 0),
+          nicotine: p.specifications?.nicotine || p.nicotine || '',
+          type: p.specifications?.type || p.type || '',
+          features: p.specifications?.features || p.features || '',
+          soldOut: p.stock <= 0
+        })));
+      }
+    } catch (err) {
+      console.error('Failed to fetch products:', err);
+    } finally {
+      setIsLoadingProducts(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchProducts();
+  }, []);
 
   const fetchUserData = async (token) => {
     if (!token) return;
@@ -78,13 +109,13 @@ export default function App() {
       });
       if (cartData && cartData.items) {
         setCartItems(cartData.items.map(item => {
-          const localProduct = PRODUCTS.find(p => p.id === item.productId);
+          const product = backendProducts.find(p => p.id === item.productId || p._id === item.productId) || PRODUCTS.find(p => p.id === item.productId);
           return {
             ...item,
             id: item.productId,
-            image: item.image || localProduct?.cardImage || localProduct?.poster || '',
-            series: item.series || localProduct?.series || '',
-            name: item.name || localProduct?.name || ''
+            image: item.image || product?.cardImage || product?.poster || '',
+            series: item.series || product?.series || '',
+            name: item.name || product?.name || ''
           };
         }));
       }
@@ -476,8 +507,8 @@ export default function App() {
   }
 
   const filteredProducts = useMemo(() => {
-    let products = [...PRODUCTS]
-    if (currentCategory === 'most-selling') products = products.filter(p => p.isBestSelling)
+    let products = [...backendProducts]
+    if (currentCategory === 'most-selling') products = products.filter(p => p.isBestSelling || p.isFeatured)
     else if (currentCategory === 'podkits') products = products.filter(p => p.mainCategory === 'podkits')
     else if (currentCategory === 'disposable') products = products.filter(p => p.mainCategory === 'disposable')
     else if (currentCategory === 'nic-salts') products = products.filter(p => p.nicotine && p.nicotine.includes('mg'))
@@ -494,9 +525,9 @@ export default function App() {
       products = products.filter(p => [p.brand, p.series, p.name, p.flavor, p.type].some(f => f?.toLowerCase().includes(q)))
     }
     return products
-  }, [currentCategory, activeFilters, searchQuery])
+  }, [currentCategory, activeFilters, searchQuery, backendProducts])
 
-  const featuredProducts = useMemo(() => PRODUCTS.filter(p => p.isBestSelling).slice(0, 3), [])
+  const featuredProducts = useMemo(() => backendProducts.filter(p => p.isBestSelling || p.isFeatured).slice(0, 3), [backendProducts])
 
   useEffect(() => {
     if (!toast) return
@@ -509,7 +540,7 @@ export default function App() {
       <div className="relative min-h-screen bg-gradient-to-b from-black via-darkPurple-950/20 to-black text-gray-100">
         <div className="fixed inset-0 -z-10 opacity-80"><VapeSmokeEffect density={40} speed={0.4} opacity={0.35} /></div>
         <Navbar user={adminUser} onLogout={handleAdminLogout} isAdmin={true} onNavigate={handleNavigate} isAdminLoggedIn={true} adminUser={adminUser} />
-        <main className="pt-32"><AdminDashboard adminUser={adminUser || { username: 'Admin' }} adminToken={adminToken} onNavigateToStore={() => setCurrentPage('home')} /></main>
+        <main className="pt-32"><AdminDashboard adminUser={adminUser || { username: 'Admin' }} adminToken={adminToken} onNavigateToStore={() => setCurrentPage('home')} onProductUpdate={fetchProducts} /></main>
       </div>
     )
   }
