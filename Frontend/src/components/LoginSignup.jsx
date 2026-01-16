@@ -261,7 +261,10 @@ export default function LoginSignup({ onLogin, onAdminLogin }) {
       // Use "password_reset" or just default verification purpose
       await apiCall(API_ENDPOINTS.USER.VERIFY_EMAIL, {
         method: 'POST',
-        body: JSON.stringify({ email })
+        body: JSON.stringify({
+          email,
+          purpose: 'password_reset'
+        })
       });
 
       setResetStep(1);
