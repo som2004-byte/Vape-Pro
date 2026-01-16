@@ -30,9 +30,10 @@ export default function PaymentPage({
       return;
     }
 
-    const phoneRegex = /^(\+91[\-\s]?)?[6789]\d{9}$/;
-    if (!customerProfile || !customerProfile.phoneNumber || !phoneRegex.test(customerProfile.phoneNumber)) {
-      alert('Please provide a valid Indian phone number in your profile before placing the order.');
+    const phoneRegex = /^(\+91)?[6789]\d{9}$/;
+    const sanitizedPhone = (customerProfile.phoneNumber || '').replace(/[\s\-]/g, '');
+    if (!customerProfile || !sanitizedPhone || !phoneRegex.test(sanitizedPhone)) {
+      alert('Please provide a valid Indian mobile number in your profile before placing the order.');
       return;
     }
 

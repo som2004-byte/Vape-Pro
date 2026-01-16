@@ -58,6 +58,15 @@ export default function App() {
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(persistedState.isAdminLoggedIn)
   const [adminUser, setAdminUser] = useState(persistedState.adminUser)
   const [adminToken, setAdminToken] = useState(persistedState.adminToken)
+
+  // Sync token to localStorage for components that use it directly
+  useEffect(() => {
+    if (user && user.token) {
+      localStorage.setItem('token', user.token);
+    } else if (!isLoggedIn) {
+      localStorage.removeItem('token');
+    }
+  }, [user, isLoggedIn]);
   const [currentCategory, setCurrentCategory] = useState('all')
   const [activeFilters, setActiveFilters] = useState({})
   const [searchQuery, setSearchQuery] = useState('')

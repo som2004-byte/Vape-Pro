@@ -22,6 +22,7 @@ export default function AccountSection({
   const [isEmailVerified, setIsEmailVerified] = useState(false);
   const [emailOtp, setEmailOtp] = useState('');
   const [showEmailOtpInput, setShowEmailOtpInput] = useState(false);
+  const [devOtp, setDevOtp] = useState(null);
   const [editMode, setEditMode] = useState(!profile);
   const [currentTab, setCurrentTab] = useState(activeTab);
 
@@ -50,18 +51,19 @@ export default function AccountSection({
       setVerifying(true);
       setToastSent(false);
 
-      if (!email || !email.includes('@')) {
+      const trimmedEmail = email.trim().toLowerCase();
+      if (!trimmedEmail || !trimmedEmail.includes('@')) {
         throw new Error('Please enter a valid email address');
       }
 
-      console.log('Requesting OTP for:', email);
+      console.log('Requesting OTP for:', trimmedEmail);
 
       // Use the centralized apiCall and endpoint
       await apiCall(API_ENDPOINTS.USER.VERIFY_EMAIL, {
         method: 'POST',
         headers: getAuthHeaders(localStorage.getItem('token')),
         body: JSON.stringify({
-          email,
+          email: trimmedEmail,
           purpose: 'email_verification'
         }),
       });
@@ -72,7 +74,7 @@ export default function AccountSection({
       onNotify?.({
         type: 'success',
         message: 'OTP sent to your email',
-        subTitle: `Check your inbox (${email})`
+        subTitle: `Check your inbox (${trimmedEmail})`
       });
     } catch (err) {
       console.error('OTP Request Error:', err);
@@ -88,6 +90,7 @@ export default function AccountSection({
         // IMPROVEMENT: Backend saved the OTP but failed to email it.
         // We can show this OTP to the user so they can still verify against the backend.
         console.log('Using Dev OTP from backend response:', err.dev_otp);
+        setDevOtp(err.dev_otp);
         onNotify?.({
           type: 'info',
           message: 'Email Service Error (Bypassed)',
@@ -149,11 +152,12 @@ export default function AccountSection({
       }
 
       // Otherwise, call the backend
+      const trimmedEmail = email.trim().toLowerCase();
       await apiCall(API_ENDPOINTS.USER.VERIFY_OTP, {
         method: 'POST',
         headers: getAuthHeaders(localStorage.getItem('token')),
         body: JSON.stringify({
-          email,
+          email: trimmedEmail,
           otp: emailOtp,
           purpose: 'email_verification'
         }),
@@ -201,21 +205,28 @@ export default function AccountSection({
       return;
     }
 
-    // Check if address contains Pune (case-insensitive)
+    // Check if address contains Pune or PCMC areas (case-insensitive)
     const normalizedAddress = trimmedAddress.toLowerCase();
-    if (normalizedAddress.includes('pune')) {
+    const isPuneArea = normalizedAddress.includes('pune') ||
+      normalizedAddress.includes('pimpri') ||
+      normalizedAddress.includes('chinchwad') ||
+      normalizedAddress.includes('wakad') ||
+      normalizedAddress.includes('hinjewadi') ||
+      normalizedAddress.includes('baner');
+
+    if (isPuneArea) {
       setIsAddressVerified(true);
       onNotify?.({
         type: 'success',
         message: 'Address verified successfully',
-        subTitle: 'Address verified within Pune',
+        subTitle: 'Address verified within Pune/Pimpri-Chinchwad area',
       });
     } else {
       setIsAddressVerified(false);
       onNotify?.({
         type: 'error',
         message: 'Address verification failed',
-        subTitle: 'Address must be within Pune',
+        subTitle: 'Delivery is only available in Pune and Pimpri-Chinchwad.',
       });
     }
   };
@@ -308,33 +319,27 @@ export default function AccountSection({
     setShowEmailOtpInput(true);
   };
 
-  const verifyEmail = () => {
-    if (!emailOtp || emailOtp.length < 6) {
-      onNotify?.({
-        type: 'error',
-        message: 'Please enter the OTP sent to your email address',
-      });
-      return;
-    }
-    setIsEmailVerified(true);
-    onNotify?.({
-      type: 'success',
-      message: 'Email address verified successfully',
-    });
-    setShowEmailOtpInput(false);
-    setEmailOtp('');
-  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
 
+    const trimmedName = name.trim();
+    const trimmedEmail = email.trim().toLowerCase();
+    const trimmedPhone = phoneNumber.trim().replace(/[\s\-]/g, '');
+    const trimmedAddress = address.trim();
+
+    if (!trimmedName) {
+      onNotify?.({ type: 'error', message: 'Name is required' });
+      return;
+    }
+
     // Phone number validation (Indian format: starts with 6-9, 10 digits, optional +91)
-    const phoneRegex = /^(\+91[\-\s]?)?[6789]\d{9}$/;
-    if (!phoneRegex.test(phoneNumber)) {
+    const phoneRegex = /^(\+91)?[6789]\d{9}$/;
+    if (!phoneRegex.test(trimmedPhone)) {
       onNotify?.({
         type: 'error',
         message: 'Invalid Phone Number',
-        subTitle: 'Please enter a valid 10-digit Indian phone number',
+        subTitle: 'Please enter a valid 10-digit Indian mobile number',
       });
       return;
     }
@@ -342,24 +347,26 @@ export default function AccountSection({
     if (!isAddressVerified) {
       onNotify?.({
         type: 'error',
-        message: 'Please verify your address before saving details',
+        message: 'Address Verification Required',
+        subTitle: 'Please click "Verify Address" specifically before saving.',
       });
       return;
     }
     if (!isEmailVerified) {
       onNotify?.({
         type: 'error',
-        message: 'Please verify your email address before saving details',
+        message: 'Email Verification Required',
+        subTitle: 'Please verify your email with OTP before saving.',
       });
       return;
     }
     const saved = {
-      name,
-      email,
-      phoneNumber,
-      address,
+      name: trimmedName,
+      email: trimmedEmail,
+      phoneNumber: trimmedPhone,
+      address: trimmedAddress,
       emailVerified: isEmailVerified,
-      phoneVerified: isAddressVerified // Backend uses phoneVerified field for generic verification state
+      phoneVerified: isAddressVerified // Backend uses phoneVerified field for address verification state
     };
     console.log('Account Details Saved:', saved);
     onSaveProfile?.(saved);
@@ -624,6 +631,10 @@ export default function AccountSection({
                     onChange={(e) => {
                       const newEmail = e.target.value;
                       setEmail(newEmail);
+                      // Reset OTP state when email changes
+                      setOtpSent(false);
+                      setShowEmailOtpInput(false);
+                      setDevOtp(null);
                       // If email matches the original profile email, revert verification status to original
                       // Otherwise, set to false requiring re-verification
                       if (profile && profile.email === newEmail && profile.emailVerified) {
@@ -653,24 +664,31 @@ export default function AccountSection({
                   </div>
                 </div>
                 {showEmailOtpInput && !isEmailVerified && (
-                  <div className="flex items-center gap-2 mt-2">
-                    <input
-                      type="text"
-                      className="w-full px-4 py-2 rounded-lg bg-darkPurple-900/50 border border-darkPurple-700 focus:outline-none focus:ring-2 focus:ring-yellow-400/50 text-white"
-                      placeholder="Enter 6-digit OTP"
-                      value={emailOtp}
-                      onChange={(e) => setEmailOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                      required
-                      maxLength={6}
-                    />
-                    <button
-                      type="button"
-                      onClick={verifyOtp}
-                      disabled={verifying || emailOtp.length < 6}
-                      className="px-4 py-2 rounded-lg bg-blue-500 text-white font-semibold text-sm hover:bg-blue-400 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400/70 whitespace-nowrap disabled:opacity-50"
-                    >
-                      {verifying ? 'Verifying...' : 'Verify'}
-                    </button>
+                  <div className="mt-2 w-full">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        className="w-full px-4 py-2 rounded-lg bg-darkPurple-900/50 border border-darkPurple-700 focus:outline-none focus:ring-2 focus:ring-yellow-400/50 text-white"
+                        placeholder="Enter 6-digit OTP"
+                        value={emailOtp}
+                        onChange={(e) => setEmailOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                        required
+                        maxLength={6}
+                      />
+                      <button
+                        type="button"
+                        onClick={verifyOtp}
+                        disabled={verifying || emailOtp.length < 6}
+                        className="px-4 py-2 rounded-lg bg-blue-500 text-white font-semibold text-sm hover:bg-blue-400 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400/70 whitespace-nowrap disabled:opacity-50"
+                      >
+                        {verifying ? 'Verifying...' : 'Verify'}
+                      </button>
+                    </div>
+                    {devOtp && (
+                      <div className="mt-2 p-2 bg-yellow-500/20 border border-yellow-500/50 rounded text-yellow-300 font-mono text-xs text-center">
+                        <span className="font-bold">DEV MODE:</span> Your OTP is {devOtp} (Email service unavailable)
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
