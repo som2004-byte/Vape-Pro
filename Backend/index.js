@@ -188,10 +188,10 @@ app.use('/api/admin', adminRoutes);
 // OTP Routes
 app.post('/api/request-email-otp', async (req, res) => {
   try {
-    const { email } = req.body;
+    const email = req.body.email.toLowerCase().trim();
     const code = Math.floor(100000 + Math.random() * 900000).toString();
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
-    await EmailOtp.findOneAndUpdate({ email }, { codeHash: await bcrypt.hash(code, 10), expiresAt }, { upsert: true });
+    await EmailOtp.findOneAndUpdate({ email }, { codeHash: await bcrypt.hash(code, 10), expiresAt }, { upsert: true, new: true });
     try {
       console.log(`Attempting to send OTP to ${email}...`);
       await sendOtpEmail(email, code);
@@ -206,9 +206,27 @@ app.post('/api/request-email-otp', async (req, res) => {
 
 app.post('/api/verify-email-otp', async (req, res) => {
   try {
-    const { email, otp } = req.body;
+    const email = req.body.email.toLowerCase().trim();
+    const { otp } = req.body;
+    console.log(`Verifying OTP for ${email}...`);
+
     const record = await EmailOtp.findOne({ email });
-    if (!record || record.expiresAt < Date.now() || !(await bcrypt.compare(otp, record.codeHash))) return res.status(400).json({ message: 'Invalid/Expired OTP' });
+
+    if (!record) {
+      console.warn(`OTP Verification Failed: No record found for ${email}`);
+      return res.status(400).json({ message: 'Invalid/Expired OTP (No record)' });
+    }
+
+    if (record.expiresAt < Date.now()) {
+      console.warn(`OTP Verification Failed: OTP expired for ${email}`);
+      return res.status(400).json({ message: 'OTP has expired' });
+    }
+
+    const isValid = await bcrypt.compare(otp, record.codeHash);
+    if (!isValid) {
+      console.warn(`OTP Verification Failed: Hash mismatch for ${email}`);
+      return res.status(400).json({ message: 'Incorrect OTP' });
+    }
     await EmailOtp.deleteOne({ email });
     const user = await User.findOne({ email });
     if (user) {
