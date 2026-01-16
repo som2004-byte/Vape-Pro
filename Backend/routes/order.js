@@ -44,7 +44,7 @@ router.post(
 
       for (const item of itemsToProcess) {
         const productId = item.product || item.id || item._id || item.productId;
-        
+
         // Try to find product in database, but don't fail if not found
         let product = null;
         try {
@@ -112,13 +112,11 @@ router.post(
       cart.totalAfterDiscount = undefined;
       await cart.save();
 
-      // Send order confirmation email
-      try {
-        await sendOrderConfirmationEmail(user.email, createdOrder);
-      } catch (emailError) {
+      // Send order confirmation email (non-blocking)
+      sendOrderConfirmationEmail(user.email, createdOrder).catch(emailError => {
         console.error('Error sending order confirmation email:', emailError);
-        // Don't fail the request if email fails
-      }
+      });
+
 
       res.status(201).json({
         message: 'Order created successfully',
@@ -230,13 +228,11 @@ router.post(
       cart.totalAfterDiscount = undefined;
       await cart.save();
 
-      // Send order confirmation email
-      try {
-        await sendOrderConfirmationEmail(user.email, createdOrder);
-      } catch (emailError) {
+      // Send order confirmation email (non-blocking)
+      sendOrderConfirmationEmail(user.email, createdOrder).catch(emailError => {
         console.error('Error sending order confirmation email:', emailError);
-        // Don't fail the request if email fails
-      }
+      });
+
 
       res.status(201).json({
         message: 'Order created successfully',
