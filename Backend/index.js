@@ -5,6 +5,7 @@ const jwt = require('jsonwebtoken');
 const cors = require('cors');
 const mongoose = require('mongoose');
 const nodemailer = require('nodemailer');
+const https = require('https'); // For Telegram
 require('dotenv').config();
 
 const User = require('./models/User');
@@ -29,6 +30,10 @@ const SMTP_PASS = process.env.SMTP_PASS;
 const SMTP_FROM = process.env.SMTP_FROM;
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
+
+// Telegram Configuration
+const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 
 // Middleware
 app.use(express.json());
@@ -79,6 +84,25 @@ const sendOtpEmail = async (toEmail, code) => {
   ]);
 };
 
+// Telegram Helper
+const sendTelegramNotification = (message) => {
+  if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
+    console.log('Telegram not configured, skipping notification');
+    return;
+  }
+  const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
+  const data = JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text: message, parse_mode: 'Markdown' });
+  const req = https.request(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Content-Length': data.length }
+  }, (res) => {
+    res.on('data', () => { }); // Consume
+  });
+  req.on('error', (e) => console.error('Telegram Error:', e));
+  req.write(data);
+  req.end();
+};
+
 // --- ROUTES ---
 
 app.get('/api/im-alive', (req, res) => res.json({ message: 'Server is updated (v2) and routes are ready', timestamp: new Date() }));
@@ -92,6 +116,10 @@ app.post('/api/signup', async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
     const user = new User({ email, name, password: hashedPassword });
     await user.save();
+
+    // Notify Admin of new user
+    sendTelegramNotification(`👤 *New User Signed Up*\nName: ${name}\nEmail: \`${email}\``);
+
     const token = jwt.sign({ id: user._id, email: user.email }, JWT_SECRET, { expiresIn: '24h' });
     res.status(201).json({ token, user: { id: user._id, email: user.email, name: user.name } });
   } catch (error) { res.status(500).json({ error: error.message }); }
