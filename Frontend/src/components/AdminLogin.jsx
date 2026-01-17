@@ -60,17 +60,6 @@ export default function AdminLogin({ onAdminLogin }) {
             <span className="text-[10px] font-bold tracking-[0.2em] text-gray-500 uppercase">Platform Console</span>
           </div>
         </div>
-
-        <div className="hidden md:flex items-center gap-8">
-          <nav className="flex gap-6 text-[10px] font-bold tracking-[0.15em] text-gray-400 uppercase">
-            <a href="#" className="hover:text-white transition-colors">Home Console</a>
-            <span className="text-white">Admin Access</span>
-          </nav>
-          <div className="h-6 w-px bg-white/20"></div>
-          <button className="px-6 py-2 bg-gradient-to-r from-purple-600 to-pink-600 rounded-md text-[10px] font-black uppercase tracking-wider text-white hover:opacity-90 transition-opacity shadow-[0_0_15px_rgba(168,85,247,0.4)]">
-            Authorized Login
-          </button>
-        </div>
       </header>
 
       {/* Main Content Area */}
