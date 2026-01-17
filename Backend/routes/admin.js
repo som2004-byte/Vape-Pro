@@ -591,17 +591,10 @@ router.get('/products', authorizeAdmin, async (req, res) => {
       ];
     }
 
-    const products = await Product.find(query)
-      .sort({ createdAt: -1 })
-      .limit(limit * 1)
-      .skip((page - 1) * limit);
-
-    const count = await Product.countDocuments(query);
+    const products = await Product.find(query).sort({ createdAt: -1 });
 
     res.json({
-      totalPages: Math.ceil(count / limit),
-      currentPage: page,
-      totalProducts: count,
+      totalProducts: await Product.countDocuments(query),
       products,
     });
   } catch (error) {

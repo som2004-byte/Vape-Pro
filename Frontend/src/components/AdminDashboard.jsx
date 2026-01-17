@@ -115,7 +115,36 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
         if (endpoint.includes('/orders')) {
           setter(data.orders || (Array.isArray(data) ? data : []));
         } else if (endpoint.includes('/products')) {
-          setter(data.products || (Array.isArray(data) ? data : []));
+          const rawProducts = data.products || (Array.isArray(data) ? data : []);
+
+          const liveProducts = rawProducts;
+          const processedLiveProducts = liveProducts.map(lp => {
+            const match = USER_PRODUCTS.find(up =>
+              up.id === lp.id || up.id === lp._id || up.id === lp.sku ||
+              (lp.name && up.flavor && lp.name.includes(up.flavor)) ||
+              (lp.name && up.series && lp.name.includes(up.series))
+            );
+            return {
+              ...lp,
+              image: (lp.image && lp.image !== '') ? lp.image : (lp.images && lp.images.length > 0) ? lp.images[0] : (match ? (match.poster || match.cardImage) : ''),
+              stock: Number(lp.stock || 0)
+            };
+          });
+
+          const missingDemoProducts = USER_PRODUCTS.filter(up => {
+            const isRepresented = liveProducts.some(lp =>
+              lp.id === up.id || lp._id === up.id || lp.sku === up.id || (lp.name && up.flavor && lp.name.includes(up.flavor))
+            );
+            return !isRepresented;
+          }).map(up => ({
+            ...up,
+            _id: up.id,
+            name: `${up.brand} ${up.series} - ${up.flavor}`,
+            image: up.poster || up.cardImage || '',
+            isDemo: true
+          }));
+
+          setter([...processedLiveProducts, ...missingDemoProducts]);
         } else if (endpoint.includes('/users')) {
           setter(data.users || (Array.isArray(data) ? data : []));
         } else if (endpoint.includes('/admins')) {
@@ -170,6 +199,7 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
     fetchData('/users', setUsers);
     fetchData('/client-requirements', setClientRequirements);
     fetchData('/orders', setOrders);
+    fetchData('/products', setProducts); // NOW SUPPORTED CORRECTLY
     fetchStats();
   };
 
@@ -211,7 +241,8 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
           brand: productToPromote.brand || originalDemoData.brand || 'Generic',
 
           price: Number(updates.price || productToPromote.price || originalDemoData.price || 0),
-          stock: Number(updates.stock || productToPromote.stock || 0)
+          stock: Number(updates.stock || productToPromote.stock || 0),
+          sku: productId // Set SKU to the demo ID for persistent matching
         };
         // Remove system fields and IDs
         delete payload._id;
@@ -239,9 +270,17 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
           const data = await response.json();
           const newProduct = data.product || data;
           // Replace the local demo product with the new DB product in state
-          setProducts(products.map(p =>
-            (p.id === productId || p._id === productId) ? newProduct : p
-          ));
+          setProducts(products.map(p => {
+            if (p.id === productId || p._id === productId) {
+              return {
+                ...p,
+                ...newProduct,
+                image: newProduct.image || (newProduct.images && newProduct.images[0]) || p.image,
+                isDemo: false
+              };
+            }
+            return p;
+          }));
 
           setStockUpdateValue('');
           setPriceUpdateValue('');
@@ -270,9 +309,16 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
         const updatedProduct = data.product;
 
         // Update local state with response from server
-        setProducts(products.map(p =>
-          (p._id === productId || p.id === productId) ? updatedProduct : p
-        ));
+        setProducts(products.map(p => {
+          if (p._id === productId || p.id === productId) {
+            return {
+              ...p,
+              ...updatedProduct,
+              image: updatedProduct.image || (updatedProduct.images && updatedProduct.images[0]) || p.image
+            };
+          }
+          return p;
+        }));
 
         if (selectedProduct && (selectedProduct._id === productId || selectedProduct.id === productId)) {
           setSelectedProduct(updatedProduct);
@@ -482,51 +528,7 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
           await fetchData('/admins', setAdmins);
           await fetchData('/client-requirements', setClientRequirements);
           await fetchData('/orders', setOrders);
-          await fetchData('/products', (backendProducts) => {
-            const liveProducts = backendProducts || [];
-
-            // Merge Strategy:
-            // 1. Map Live DB products, adding images from matching Demo products if missing.
-            // 2. Add any Demo products that are NOT yet in the DB.
-
-            const processedLiveProducts = liveProducts.map(lp => {
-              // Try to find matching demo product by ID (if preserved) or lenient Name matching
-              const match = USER_PRODUCTS.find(up =>
-                up.id === lp.id ||
-                up.id === lp._id ||
-                (lp.name && up.flavor && lp.name.includes(up.flavor)) ||
-                (lp.name && up.series && lp.name.includes(up.series))
-              );
-
-              return {
-                ...lp,
-                // Restore image if missing in DB but present in Demo data
-                // Priority: lp.image (if exists) -> lp.images[0] (standard DB format) -> Demo Match
-                image: lp.image || (lp.images && lp.images.length > 0 ? lp.images[0] : '') || (match ? (match.poster || match.cardImage) : ''),
-                // Restore clean name if needed (optional)
-              };
-            });
-
-            // Find Demo products that are NOT in the live list (to show as "Demo" items)
-            const missingDemoProducts = USER_PRODUCTS.filter(up => {
-              // Check if this demo product is already represented in liveProducts
-              const isRepresented = liveProducts.some(lp =>
-                lp.id === up.id ||
-                lp._id === up.id ||
-                (lp.name && up.flavor && lp.name.includes(up.flavor))
-              );
-              return !isRepresented;
-            }).map(up => ({
-              ...up,
-              _id: up.id, // Use local ID
-              name: `${up.brand} ${up.series} - ${up.flavor}`,
-              image: up.poster || up.cardImage || '',
-              isDemo: true // Flag to identify these need "Promotion" on edit
-            }));
-
-            // Combine: Live Products first, then remaining Demo products
-            setProducts([...processedLiveProducts, ...missingDemoProducts]);
-          });
+          await fetchData('/products', setProducts);
           fetchStats();
         } else {
           // Fallback for demo mode if no token
@@ -534,7 +536,8 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
             ...p,
             _id: p.id,
             name: `${p.brand} ${p.series} - ${p.flavor}`,
-            image: p.poster || p.cardImage || ''
+            image: p.poster || p.cardImage || '',
+            isDemo: true
           }));
           setProducts(initialProducts);
         }

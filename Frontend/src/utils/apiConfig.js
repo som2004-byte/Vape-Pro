@@ -24,6 +24,12 @@ export const API_ENDPOINTS = {
         ORDERS: `${API_BASE_URL}/api/admin/orders`,
         CLIENT_REQUIREMENTS: `${API_BASE_URL}/api/admin/client-requirements`,
         UPDATE_ORDER: (orderId) => `${API_BASE_URL}/api/admin/orders/${orderId}`,
+        // Product Management
+        CREATE_PRODUCT: `${API_BASE_URL}/api/admin/products`,
+        UPDATE_PRODUCT: (id) => `${API_BASE_URL}/api/admin/products/${id}`,
+        UPDATE_PRODUCT_STOCK: (id) => `${API_BASE_URL}/api/admin/products/${id}/stock`,
+        DELETE_PRODUCT: (id) => `${API_BASE_URL}/api/admin/products/${id}`,
+        ALL_PRODUCTS: `${API_BASE_URL}/api/admin/products`,
     },
 
     // Product endpoints
