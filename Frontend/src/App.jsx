@@ -346,15 +346,18 @@ export default function App() {
 
     // Only sync with backend if logged in AND the product has a valid MongoDB ObjectId
     // Demo products have string IDs (e.g. "elfbar-...") and will cause 500 errors if sent to backend
+    // Only sync with backend if logged in AND the product has a valid MongoDB ObjectId
+    // Demo products have string IDs (e.g. "elfbar-...") and will cause 500 errors if sent to backend
     const isValidObjectId = (id) => /^[0-9a-fA-F]{24}$/.test(id);
+    const backendId = product._id || product.id;
 
-    if (isLoggedIn && user?.token && isValidObjectId(product.id)) {
+    if (isLoggedIn && user?.token && isValidObjectId(backendId)) {
       try {
         await apiCall(API_ENDPOINTS.CART.ADD, {
           method: 'POST',
           headers: getAuthHeaders(user.token),
           body: JSON.stringify({
-            productId: product.id,
+            productId: backendId,
             name: product.series || product.name || 'Item',
             price: product.price,
             image: product.image || product.cardImage || product.poster,
@@ -388,14 +391,15 @@ export default function App() {
     localStorage.setItem('vapesmart_cart', JSON.stringify(newCart))
 
     const isValidObjectId = (id) => /^[0-9a-fA-F]{24}$/.test(id);
+    const backendId = item._id || item.id;
 
-    if (isLoggedIn && user?.token && isValidObjectId(productId)) {
+    if (isLoggedIn && user?.token && isValidObjectId(backendId)) {
       try {
         await apiCall(API_ENDPOINTS.CART.UPDATE, {
           method: 'PUT',
           headers: getAuthHeaders(user.token),
           body: JSON.stringify({
-            productId,
+            productId: backendId,
             flavor: item.flavor || '',
             series: item.series || '',
             quantity: newQuantity
@@ -408,6 +412,11 @@ export default function App() {
   }
 
   const handleRemoveFromCart = async (productId, flavor = '', series = '') => {
+    // Find item to get its _id before removing
+    const item = cartItems.find(i =>
+      i.id === productId && (i.flavor || '') === flavor && (i.series || '') === series
+    );
+
     const newCart = cartItems.filter(item =>
       !(item.id === productId && (item.flavor || '') === flavor && (item.series || '') === series)
     )
@@ -416,13 +425,14 @@ export default function App() {
     setToast({ type: 'info', message: 'Item removed from cart' })
 
     const isValidObjectId = (id) => /^[0-9a-fA-F]{24}$/.test(id);
+    const backendId = item?._id || productId;
 
-    if (isLoggedIn && user?.token && isValidObjectId(productId)) {
+    if (isLoggedIn && user?.token && isValidObjectId(backendId)) {
       try {
         await apiCall(API_ENDPOINTS.CART.REMOVE, {
           method: 'DELETE',
           headers: getAuthHeaders(user.token),
-          body: JSON.stringify({ productId, flavor, series })
+          body: JSON.stringify({ productId: backendId, flavor, series })
         });
       } catch (err) {
         console.error('Failed to sync cart removal with backend:', err);
@@ -462,7 +472,11 @@ export default function App() {
           body: JSON.stringify({
             shippingAddress: pendingOrder.customerProfile.address || '',
             paymentMethod: paymentData.paymentMethod || 'card',
-            items: pendingOrder.items,
+            items: pendingOrder.items.map(item => ({
+              ...item,
+              product: item._id || item.id, // Prefer MongoDB ID, fallback to SKU/ID
+              productId: item._id || item.id
+            })),
           })
         });
 
