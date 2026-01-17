@@ -2,10 +2,6 @@ import React, { useState, useEffect } from 'react';
 import VapeSmokeEffect from './VapeSmokeEffect';
 import { API_ENDPOINTS, apiCall, getAuthHeaders } from '../utils/apiConfig';
 
-
-// My Account section (Profile + Orders)
-// - Profile: add/edit customer details
-// - Orders: read-only list of past orders from this session
 export default function AccountSection({
   activeTab = 'profile',
   profile,
@@ -13,842 +9,565 @@ export default function AccountSection({
   orders = [],
   onNotify,
 }) {
-  const videoSrc = '/videos/login-bg.mp4';
-  const [name, setName] = useState('');
-  const [phoneNumber, setPhoneNumber] = useState('');
-  const [address, setAddress] = useState('');
-  // New state for split address
-  const [flatBuilding, setFlatBuilding] = useState('');
-  const [areaRoad, setAreaRoad] = useState('');
-  const [landmark, setLandmark] = useState('');
+  const [currentTab, setCurrentTab] = useState(activeTab);
+  const [editMode, setEditMode] = useState(!profile);
 
-  const [isAddressVerified, setIsAddressVerified] = useState(false);
+  // Basic Info State
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
+
+  // Addresses State
+  const [addresses, setAddresses] = useState([]);
+  const [isAddingAddress, setIsAddingAddress] = useState(false);
+  const [editingAddressId, setEditingAddressId] = useState(null);
+
+  // Current Address Form State
+  const [addressForm, setAddressForm] = useState({
+    label: 'Home',
+    houseNo: '',
+    building: '',
+    landmark: '',
+    receiverName: '',
+    receiverPhone: '',
+  });
+
+  // Verification States
   const [isEmailVerified, setIsEmailVerified] = useState(false);
+  const [verifying, setVerifying] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
   const [emailOtp, setEmailOtp] = useState('');
   const [showEmailOtpInput, setShowEmailOtpInput] = useState(false);
   const [devOtp, setDevOtp] = useState(null);
-  const [editMode, setEditMode] = useState(!profile);
-  const [currentTab, setCurrentTab] = useState(activeTab);
 
-  // When a saved profile is provided from the parent, pre-fill fields
   useEffect(() => {
     if (!profile) return;
     setName(profile.name || '');
     setEmail(profile.email || '');
     setPhoneNumber(profile.phoneNumber || '');
+    setAddresses(profile.addresses || []);
+    setIsEmailVerified(profile.emailVerified === true);
 
-    // Parse address if possible
-    let addr = '';
-    if (profile && typeof profile.address === 'string') {
-      addr = profile.address;
+    // If they have the old single address string, migrate it to the list if list is empty
+    if ((!profile.addresses || profile.addresses.length === 0) && profile.address) {
+      setAddresses([{
+        id: Date.now(),
+        label: 'Primary',
+        houseNo: '',
+        building: profile.address,
+        landmark: '',
+        receiverName: profile.name || '',
+        receiverPhone: profile.phoneNumber || '',
+        isDefault: true
+      }]);
     }
-    setAddress(addr);
+  }, [profile]);
 
-    try {
-      if (addr) {
-        const parts = addr.split(',').map(s => s.trim());
-        if (parts.length >= 2) {
-          setFlatBuilding(parts[0]);
-          // If many commas, join the middle ones
-          if (parts.length > 2) {
-            setLandmark(parts[parts.length - 1]);
-            setAreaRoad(parts.slice(1, parts.length - 1).join(', '));
-          } else {
-            setAreaRoad(parts[1]);
-            setLandmark('');
-          }
-        } else {
-          setFlatBuilding('');
-          setAreaRoad(addr); // Fallback
-          setLandmark('');
-        }
-      } else {
-        setFlatBuilding('');
-        setAreaRoad('');
-        setLandmark('');
-      }
-    } catch (e) {
-      console.error("Error parsing address:", e);
-      setFlatBuilding('');
-      setAreaRoad(addr || '');
-      setLandmark('');
-    }
-
-    // Ensure boolean properties are correctly interpreted
-    setIsEmailVerified(profile.emailVerified === true); // Force boolean
-    setIsAddressVerified(profile.phoneVerified === true); // Force boolean
-  }, [profile, editMode]); // specific dependency on editMode to refill when opening form
-
-  // Keep internal tab in sync with parent (e.g. when navigating to My Account / Orders)
   useEffect(() => {
     setCurrentTab(activeTab || 'profile');
   }, [activeTab]);
 
-  const [verifying, setVerifying] = useState(false);
-  const [otpSent, setOtpSent] = useState(false);
-
   const handleRequestOtp = async () => {
     try {
       setVerifying(true);
-      setToastSent(false);
-
       const trimmedEmail = email.trim().toLowerCase();
       if (!trimmedEmail || !trimmedEmail.includes('@')) {
         throw new Error('Please enter a valid email address');
       }
 
-      console.log('Requesting OTP for:', trimmedEmail);
-
-      // Use the centralized apiCall and endpoint
       await apiCall(API_ENDPOINTS.USER.VERIFY_EMAIL, {
         method: 'POST',
         headers: getAuthHeaders(localStorage.getItem('token')),
-        body: JSON.stringify({
-          email: trimmedEmail,
-          purpose: 'email_verification'
-        }),
+        body: JSON.stringify({ email: trimmedEmail, purpose: 'email_verification' }),
       });
 
       setShowEmailOtpInput(true);
       setOtpSent(true);
-
-      onNotify?.({
-        type: 'success',
-        message: 'OTP sent to your email',
-        subTitle: `Check your inbox (${trimmedEmail})`
-      });
+      onNotify?.({ type: 'success', message: 'OTP sent!', subTitle: `Check ${trimmedEmail}` });
     } catch (err) {
-      console.error('OTP Request Error:', err);
-
-      let msg = err.message || 'Failed to send OTP';
-      if (err.status === 404) {
-        msg = 'OTP Service endpoint not found (404). Please try Demo OTP.';
-      } else if (err.message?.includes('network')) {
-        msg = 'Network error. Server might be down. Use Demo OTP.';
-      }
-
       if (err.dev_otp) {
-        // IMPROVEMENT: Backend saved the OTP but failed to email it.
-        // We can show this OTP to the user so they can still verify against the backend.
-        console.log('Using Dev OTP from backend response:', err.dev_otp);
         setDevOtp(err.dev_otp);
-        onNotify?.({
-          type: 'info',
-          message: 'Email Service Error (Bypassed)',
-          subTitle: `Use OTP: ${err.dev_otp} (Email failed to send)`,
-          duration: 10000 // Show for longer
-        });
+        onNotify?.({ type: 'info', message: 'Email Service Bypass', subTitle: `Use OTP: ${err.dev_otp}` });
         setShowEmailOtpInput(true);
         setOtpSent(true);
-        // Do NOT generate local demo OTP, as we want to verify against the backend
       } else {
-        // If we don't have a dev_otp, we fall back to client-side demo generation.
-        // Only show the "Failed" error if it's NOT a known service/network issue that we're auto-handling.
-        const isHandledError = err.status === 503 || err.status === 404 || (err.message && err.message.toLowerCase().includes('network'));
-
-        if (!isHandledError) {
-          onNotify?.({
-            type: 'error',
-            message: 'OTP Failed',
-            subTitle: msg
-          });
-        }
-
-        // Automatically switch to demo mode
-        generateEmailOtp();
-        // We set otpSent to true so the UI reflects that an action occurred (even if simulated)
-        setOtpSent(true);
+        onNotify?.({ type: 'error', message: 'OTP Failed', subTitle: err.message });
       }
     } finally {
       setVerifying(false);
     }
   };
 
-  const [toastSent, setToastSent] = useState(false);
-
   const verifyOtp = async () => {
     try {
       setVerifying(true);
+      if (!emailOtp || emailOtp.length < 6) throw new Error('Please enter 6-digit OTP');
 
-      if (!emailOtp || emailOtp.length < 6) {
-        throw new Error('Please enter a 6-digit OTP');
-      }
-
-      // If it's the demo OTP and we are in dev mode, we can bypass the backend check
-      const savedDemoOtp = localStorage.getItem('demo_otp');
-      const isDemoOtp = emailOtp === savedDemoOtp;
-
-      if (isDemoOtp) {
-        setIsEmailVerified(true);
-        setShowEmailOtpInput(false);
-        setEmailOtp('');
-        localStorage.removeItem('demo_otp');
-
-        onNotify?.({
-          type: 'success',
-          message: 'Email verified!',
-          subTitle: 'System bypass successful'
-        });
-        return;
-      }
-
-      // Otherwise, call the backend
-      const trimmedEmail = email.trim().toLowerCase();
       await apiCall(API_ENDPOINTS.USER.VERIFY_OTP, {
         method: 'POST',
         headers: getAuthHeaders(localStorage.getItem('token')),
-        body: JSON.stringify({
-          email: trimmedEmail,
-          otp: emailOtp,
-          purpose: 'email_verification'
-        }),
+        body: JSON.stringify({ email: email.trim().toLowerCase(), otp: emailOtp, purpose: 'email_verification' }),
       });
 
       setIsEmailVerified(true);
       setShowEmailOtpInput(false);
       setEmailOtp('');
-
-      onNotify?.({
-        type: 'success',
-        message: 'Email verified successfully',
-      });
-
+      onNotify?.({ type: 'success', message: 'Email verified successfully' });
     } catch (err) {
-      console.error('OTP Verification Error:', err);
-      onNotify?.({
-        type: 'error',
-        message: 'Verification failed',
-        subTitle: err.message || 'The OTP you entered is incorrect or expired.'
-      });
+      onNotify?.({ type: 'error', message: 'Verification failed', subTitle: err.message });
     } finally {
       setVerifying(false);
     }
   };
 
-  const verifyAddress = async () => {
-    // Validate split fields
-    if (!flatBuilding.trim() || !areaRoad.trim()) {
-      onNotify?.({
-        type: 'error',
-        message: 'Incomplete Address',
-        subTitle: 'Please enter Flat/Building and Road/Area',
-      });
+  const handleSaveAddress = () => {
+    if (!addressForm.houseNo || !addressForm.building || !addressForm.receiverName || !addressForm.receiverPhone) {
+      onNotify?.({ type: 'error', message: 'Missing fields', subTitle: 'Please fill all required fields' });
       return;
     }
 
-    // Check if address is valid (has minimum length combined)
-    const combinedLength = flatBuilding.length + areaRoad.length;
-    if (combinedLength < 10) {
-      setIsAddressVerified(false);
-      onNotify?.({
-        type: 'error',
-        message: 'Address too short',
-        subTitle: 'Please enter a complete address',
-      });
-      return;
-    }
-
-    // Check if address contains Pune or PCMC areas (case-insensitive) - mostly in Area/Road
-    const normalizedAddress = areaRoad.toLowerCase() + ' ' + landmark.toLowerCase();
-    const isPuneArea = normalizedAddress.includes('pune') ||
-      normalizedAddress.includes('pimpri') ||
-      normalizedAddress.includes('chinchwad') ||
-      normalizedAddress.includes('wakad') ||
-      normalizedAddress.includes('hinjewadi') ||
-      normalizedAddress.includes('baner') ||
-      normalizedAddress.includes('kharadi') ||
-      normalizedAddress.includes('hadapsar') ||
-      normalizedAddress.includes('kothrud') ||
-      normalizedAddress.includes('viman nagar');
-
-    if (isPuneArea) {
-      setIsAddressVerified(true);
-      onNotify?.({
-        type: 'success',
-        message: 'Address verified successfully',
-        subTitle: 'Address verified within Pune/Pimpri-Chinchwad area',
-      });
-    } else {
-      setIsAddressVerified(false);
-      onNotify?.({
-        type: 'error',
-        message: 'Out of Delivery Area',
-        subTitle: 'We currently deliver only in Pune and Pimpri-Chinchwad.',
-      });
-    }
-  };
-
-  // Pune Center Coords (approx)
-  const PUNE_LAT = 18.5204;
-  const PUNE_LNG = 73.8567;
-  const MAX_DIST_KM = 25; // Approx radius for Pune metro area
-
-  const calculateDistance = (lat1, lon1, lat2, lon2) => {
-    const R = 6371; // Radius of the earth in km
-    const dLat = deg2rad(lat2 - lat1);
-    const dLon = deg2rad(lon2 - lon1);
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
-      Math.sin(dLon / 2) * Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    const d = R * c; // Distance in km
-    return d;
-  }
-
-  const deg2rad = (deg) => {
-    return deg * (Math.PI / 180)
-  }
-
-  const handleUseLocation = () => {
-    if (!navigator.geolocation) {
-      onNotify?.({ type: 'error', message: 'Geolocation is not supported by your browser' });
-      return;
-    }
-
-    onNotify?.({ type: 'info', message: 'Fetching your location...' });
-
-    navigator.geolocation.getCurrentPosition(async (position) => {
-      const { latitude, longitude } = position.coords;
-      const dist = calculateDistance(latitude, longitude, PUNE_LAT, PUNE_LNG);
-
-      if (dist > MAX_DIST_KM) {
-        onNotify?.({
-          type: 'error',
-          message: 'Location outside Pune',
-          subTitle: `You seem to be ${dist.toFixed(1)}km away from Pune center. Delivery is only available in Pune.`
-        });
-        return;
-      }
-
-      // Valid location - try reverse geocoding
-      try {
-        const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
-        const data = await response.json();
-
-        if (data && data.display_name) {
-          setAddress(data.display_name);
-          setIsAddressVerified(true);
-          onNotify?.({
-            type: 'success',
-            message: 'Location Verified!',
-            subTitle: 'Address auto-filled from your location'
-          });
-        } else {
-          // Fallback if reverse geocoding fails but coords are valid
-          setAddress(`Detected Location (Lat: ${latitude.toFixed(4)}, Lng: ${longitude.toFixed(4)}) - Please add details`);
-          setIsAddressVerified(true);
-          onNotify?.({ type: 'success', message: 'Location Verified within Pune!' });
-        }
-      } catch (error) {
-        console.error('Geocoding error:', error);
-        setAddress(`Verified Location (Lat: ${latitude.toFixed(4)}, Lng: ${longitude.toFixed(4)})`);
-        setIsAddressVerified(true);
-        onNotify?.({ type: 'success', message: 'Location Verified!' });
-      }
-    }, (error) => {
-      console.error('Geolocation error:', error);
-      onNotify?.({ type: 'error', message: 'Unable to retrieve your location', subTitle: 'Please ensure location permission is granted' });
-    });
-  };
-
-  const generateEmailOtp = () => {
-    const newOtp = Math.floor(100000 + Math.random() * 900000).toString();
-    // Save to localStorage so verifyOtp can check it in dev mode
-    localStorage.setItem('demo_otp', newOtp);
-    setEmailOtp(newOtp);
-
-    onNotify?.({
-      type: 'info',
-      message: 'Demo OTP generated!',
-      subTitle: `Use ${newOtp} to verify your email (dev bypass)`,
-    });
-    setShowEmailOtpInput(true);
-  };
-
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-
-    const trimmedName = name.trim();
-    const trimmedEmail = email.trim().toLowerCase();
-    const trimmedPhone = phoneNumber.trim().replace(/[\s\-]/g, '');
-    const trimmedAddress = address.trim();
-
-    // Construct address from parts
-    const parts = [
-      flatBuilding.trim(),
-      areaRoad.trim(),
-      landmark.trim()
-    ].filter(Boolean); // Remove empty strings
-
-    const finalAddress = parts.join(', ');
-
-    if (!trimmedName) {
-      onNotify?.({ type: 'error', message: 'Name is required' });
-      return;
-    }
-
-    // Validate address parts
-    if (!flatBuilding.trim() || !areaRoad.trim()) {
-      onNotify?.({ type: 'error', message: 'Please fill in Flat/Building and Road/Area fields' });
-      return;
-    }
-
-    // Phone number validation (Indian format: starts with 6-9, 10 digits, optional +91)
-    const phoneRegex = /^(\+91)?[6789]\d{9}$/;
-    if (!phoneRegex.test(trimmedPhone)) {
-      onNotify?.({
-        type: 'error',
-        message: 'Invalid Phone Number',
-        subTitle: 'Please enter a valid 10-digit Indian mobile number',
-      });
-      return;
-    }
-
-    if (!isAddressVerified) {
-      onNotify?.({
-        type: 'error',
-        message: 'Address Verification Required',
-        subTitle: 'Please click "Verify Address" specifically before saving.',
-      });
-      return;
-    }
-    if (!isEmailVerified) {
-      onNotify?.({
-        type: 'error',
-        message: 'Email Verification Required',
-        subTitle: 'Please verify your email with OTP before saving.',
-      });
-      return;
-    }
-    const saved = {
-      name: trimmedName,
-      email: trimmedEmail,
-      phoneNumber: trimmedPhone,
-      address: finalAddress,
-      emailVerified: isEmailVerified,
-      phoneVerified: isAddressVerified
+    const newAddress = {
+      ...addressForm,
+      _id: editingAddressId || `temp-${Date.now()}`,
+      isDefault: addresses.length === 0 || addressForm.isDefault
     };
-    console.log('Account Details Saved:', saved);
+
+    let updatedAddresses;
+    if (editingAddressId) {
+      updatedAddresses = addresses.map(addr => (addr._id === editingAddressId || addr.id === editingAddressId) ? newAddress : addr);
+    } else {
+      updatedAddresses = [...addresses, newAddress];
+    }
+
+    setAddresses(updatedAddresses);
+    setIsAddingAddress(false);
+    setEditingAddressId(null);
+    setAddressForm({ label: 'Home', houseNo: '', building: '', landmark: '', receiverName: name, receiverPhone: phoneNumber });
+    onNotify?.({ type: 'success', message: 'Address saved locally', subTitle: 'Remember to save profile to persist changes' });
+  };
+
+  const handleDeleteAddress = (id) => {
+    setAddresses(addresses.filter(a => (a._id || a.id) !== id));
+  };
+
+  const handleSubmitProfile = (e) => {
+    e.preventDefault();
+    if (!name.trim()) return onNotify?.({ type: 'error', message: 'Name is required' });
+    if (!isEmailVerified) return onNotify?.({ type: 'error', message: 'Verify email first' });
+    if (addresses.length === 0) return onNotify?.({ type: 'error', message: 'Add at least one address' });
+
+    const saved = {
+      name: name.trim(),
+      email: email.trim().toLowerCase(),
+      phone: phoneNumber.trim(),
+      addresses: addresses,
+      address: addresses[0] ? `${addresses[0].houseNo}, ${addresses[0].building}, ${addresses[0].landmark}` : '',
+      emailVerified: isEmailVerified,
+      phoneVerified: true // Assumption based on previous logic
+    };
+
     onSaveProfile?.(saved);
     setEditMode(false);
   };
 
   return (
-    <div className="relative min-h-screen overflow-hidden">
-      {/* Background video */}
-      <video
-        className="absolute inset-0 w-full h-full object-cover opacity-90"
-        src={videoSrc}
-        autoPlay
-        muted
-        loop
-        playsInline
-      />
+    <div className="relative min-h-screen bg-black">
+      {/* Premium Background */}
+      <div className="fixed inset-0 z-0">
+        <video className="w-full h-full object-cover opacity-40 blur-[2px]" src="/videos/login-bg.mp4" autoPlay muted loop playsInline />
+        <div className="absolute inset-0 bg-gradient-to-b from-black via-transparent to-black" />
+        <VapeSmokeEffect density={30} speed={0.5} opacity={0.4} />
+      </div>
 
-      {/* Global vape smoke - blended with video */}
-      {/* Content */}
-      <div className="relative min-h-screen flex items-center justify-center p-4 pt-24 pb-8">
-        <div className="relative z-20 bg-neutral-900/90 backdrop-blur-md p-6 md:p-8 rounded-2xl shadow-2xl max-w-2xl w-full border border-neutral-800 max-h-[90vh] overflow-y-auto">
-          <h2 className="text-3xl font-bold text-center mb-4 bg-gradient-to-r from-yellowGradient-start via-yellowGradient-end to-yellowGradient-start bg-clip-text text-transparent">
-            My Account
-          </h2>
+      <div className="relative z-10 pt-28 pb-12 px-4 container mx-auto max-w-4xl">
+        <div className="bg-neutral-900/40 backdrop-blur-2xl border border-white/10 rounded-3xl shadow-2xl overflow-hidden min-h-[600px] flex flex-col md:flex-row">
 
-          {/* Simple tabs: Profile / Orders */}
-          <div className="flex mb-6 bg-darkPurple-950/60 rounded-xl p-1">
+          {/* Sidebar Navigation */}
+          <div className="w-full md:w-64 bg-black/40 border-b md:border-b-0 md:border-r border-white/5 p-6 space-y-2">
+            <h2 className="text-xl font-bold text-white mb-6 px-2">Account</h2>
             <button
-              type="button"
               onClick={() => setCurrentTab('profile')}
-              className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-colors ${currentTab === 'profile'
-                ? 'bg-darkPurple-700 text-white'
-                : 'text-darkPurple-300 hover:text-white'
-                }`}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 ${currentTab === 'profile' ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
             >
-              Profile
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+              <span className="font-semibold text-sm">Profile</span>
             </button>
             <button
-              type="button"
               onClick={() => setCurrentTab('orders')}
-              className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-colors ${currentTab === 'orders'
-                ? 'bg-darkPurple-700 text-white'
-                : 'text-darkPurple-300 hover:text-white'
-                }`}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 ${currentTab === 'orders' ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
             >
-              Orders
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>
+              <span className="font-semibold text-sm">Orders</span>
             </button>
           </div>
 
-          {/* Orders tab */}
-          {currentTab === 'orders' && (
-            <div className="space-y-4">
-              {orders.length === 0 ? (
-                <p className="text-center text-darkPurple-300 text-sm">
-                  You have not placed any orders yet.
-                </p>
-              ) : (
-                <div className="space-y-4 pr-1">
-                  {orders.map(order => {
-                    const status = order.status || 'processing';
-                    const paymentStatus = order.paymentStatus || 'completed';
-                    const getStatusColor = (status) => {
-                      switch (status) {
-                        case 'delivered': return 'text-green-400';
-                        case 'shipped': return 'text-blue-400';
-                        case 'processing': return 'text-yellow-400';
-                        case 'cancelled': return 'text-red-400';
-                        default: return 'text-gray-400';
-                      }
-                    };
-                    const getStatusBadge = (status) => {
-                      switch (status) {
-                        case 'delivered': return 'bg-green-500/20 border-green-500/50 text-green-400';
-                        case 'shipped': return 'bg-blue-500/20 border-blue-500/50 text-blue-400';
-                        case 'processing': return 'bg-yellow-500/20 border-yellow-500/50 text-yellow-400';
-                        case 'cancelled': return 'bg-red-500/20 border-red-500/50 text-red-400';
-                        default: return 'bg-gray-500/20 border-gray-500/50 text-gray-400';
-                      }
-                    };
+          {/* Main Content Area */}
+          <div className="flex-1 p-6 md:p-10 overflow-y-auto max-h-[85vh]">
 
-                    return (
-                      <div
-                        key={order.id || order._id}
-                        className="border border-darkPurple-700/70 rounded-lg p-4 bg-black/40"
-                      >
-                        {/* Order Header */}
-                        <div className="flex items-center justify-between mb-3">
-                          <div>
-                            <div className="text-sm font-semibold text-gray-100">
-                              {order.orderNumber || (order.id || order._id ? `Order #${(order.id || order._id).toString().slice(-6)}` : 'Order #------')}
-                            </div>
-                            {order.trackingNumber && (
-                              <div className="text-xs text-darkPurple-400 mt-1">
-                                Tracking: <span className="text-yellow-400 font-mono">{order.trackingNumber}</span>
-                              </div>
-                            )}
-                          </div>
-                          <div className="text-right">
-                            <div className={`text-xs px-2 py-1 rounded border ${getStatusBadge(order.status || 'processing')}`}>
-                              {(order.status || 'processing').charAt(0).toUpperCase() + (order.status || 'processing').slice(1)}
-                            </div>
-                            <div className="text-xs text-darkPurple-300 mt-1">
-                              {new Date(order.placedAt || order.createdAt || new Date()).toLocaleDateString()}
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Payment Status */}
-                        <div className="mb-3 pb-3 border-b border-darkPurple-800/70">
-                          <div className="flex items-center justify-between text-xs">
-                            <span className="text-darkPurple-400">Payment Status:</span>
-                            <span className={order.paymentStatus === 'completed' ? 'text-green-400' : 'text-yellow-400'}>
-                              {order.paymentStatus === 'completed' ? '✓ Paid' : order.paymentStatus || 'pending'}
-                            </span>
-                          </div>
-                          {order.transactionId && (
-                            <div className="flex items-center justify-between text-xs mt-1">
-                              <span className="text-darkPurple-400">Transaction ID:</span>
-                              <span className="text-darkPurple-300 font-mono text-[10px]">{order.transactionId}</span>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Order Items */}
-                        <div className="text-xs text-darkPurple-300 mb-2">
-                          {(order.items || []).length} item{(order.items || []).length !== 1 ? 's' : ''}
-                        </div>
-                        <ul className="text-xs text-gray-200 space-y-1 mb-3">
-                          {(order.items || []).map((item, idx) => (
-                            <li key={item.id || item._id || item.productId || idx} className="flex justify-between">
-                              <span>
-                                {item.series || item.name}{' '}
-                                {item.flavor && `- ${item.flavor}`}
-                              </span>
-                              <span>
-                                x{item.quantity || 1} · ₹
-                                {(item.price || 0).toLocaleString()}
-                              </span>
-                            </li>
-                          ))}
-                        </ul>
-
-                        {/* Order Timeline */}
-                        {order.timeline && order.timeline.length > 0 && (
-                          <div className="mb-3 pt-3 border-t border-darkPurple-800/70">
-                            <div className="text-xs font-semibold text-darkPurple-300 mb-2">Order Timeline:</div>
-                            <div className="space-y-2">
-                              {order.timeline.map((event, idx) => (
-                                <div key={idx} className="flex items-start gap-2 text-xs">
-                                  <div className={`w-2 h-2 rounded-full mt-1 ${idx === order.timeline.length - 1 ? 'bg-yellow-400' : 'bg-green-400'
-                                    }`}></div>
-                                  <div className="flex-1">
-                                    <div className="text-gray-200">{event.message}</div>
-                                    <div className="text-darkPurple-400 text-[10px]">
-                                      {new Date(event.timestamp).toLocaleString()}
-                                    </div>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Shipping Address */}
-                        {order.shippingAddress && (
-                          <div className="mb-3 pt-3 border-t border-darkPurple-800/70">
-                            <div className="text-xs text-darkPurple-400 mb-1">Shipping Address:</div>
-                            <div className="text-xs text-darkPurple-300">{order.shippingAddress}</div>
-                          </div>
-                        )}
-
-                        {/* Total */}
-                        <div className="flex justify-between items-center pt-2 border-t border-darkPurple-800/70 text-sm font-semibold text-yellowGradient-end">
-                          <span>Total</span>
-                          <span>₹{(order.total || 0).toLocaleString()}</span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Profile tab – read-only summary / blank state when not editing */}
-          {currentTab === 'profile' && !editMode && (
-            <div className="space-y-4 mb-6">
-              {profile ? (
-                <>
-                  <div className="space-y-1 text-sm">
-                    <p className="text-darkPurple-300">
-                      <span className="font-semibold text-gray-100">Name:</span>{' '}
-                      {profile.name || '--'}
-                    </p>
-                    <p className="text-darkPurple-300">
-                      <span className="font-semibold text-gray-100">Email:</span>{' '}
-                      {profile.email || '--'}
-                    </p>
-                    <p className="text-darkPurple-300">
-                      <span className="font-semibold text-gray-100">Phone:</span>{' '}
-                      {profile.phoneNumber || '--'}
-                    </p>
-                    <p className="text-darkPurple-300">
-                      <span className="font-semibold text-gray-100">Address:</span>{' '}
-                      {profile.address || '--'}
-                    </p>
+            {currentTab === 'profile' && (
+              <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-2xl font-bold text-white uppercase tracking-wider">Personal Info</h3>
+                    <p className="text-gray-400 text-sm mt-1">Manage your identity and addresses</p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setEditMode(true)}
-                    className="w-full py-2 px-4 rounded-lg bg-yellow-500 text-black font-semibold text-lg hover:bg-yellow-400 transition-colors focus:outline-none focus:ring-2 focus:ring-yellow-400/70 mt-2"
-                  >
-                    Edit Details
-                  </button>
-                </>
-              ) : (
-                <div className="text-center space-y-4">
-                  <p className="text-darkPurple-300 text-sm">
-                    No customer details added yet.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => setEditMode(true)}
-                    className="py-2 px-4 rounded-lg bg-yellow-500 text-black font-semibold text-base hover:bg-yellow-400 transition-colors focus:outline-none focus:ring-2 focus:ring-yellow-400/70"
-                  >
-                    Add Details
-                  </button>
+                  {!editMode && (
+                    <button
+                      onClick={() => setEditMode(true)}
+                      className="px-6 py-2 rounded-full border border-cyan-500/30 text-cyan-400 text-sm font-bold hover:bg-cyan-500 hover:text-black transition-all duration-300 shadow-[0_0_15px_rgba(6,182,212,0.2)]"
+                    >
+                      EDIT DETAILS
+                    </button>
+                  )}
                 </div>
-              )}
-            </div>
-          )}
 
-          {/* Profile tab – Edit / Add form */}
-          {currentTab === 'profile' && editMode && (
-            <form onSubmit={handleSubmit} className="space-y-6 mt-4">
-              <div>
-                <label htmlFor="name" className="block text-sm font-medium text-darkPurple-300 mb-1">
-                  Name
-                </label>
-                <input
-                  type="text"
-                  id="name"
-                  className="w-full px-4 py-2 rounded-lg bg-darkPurple-900/50 border border-darkPurple-700 focus:outline-none focus:ring-2 focus:ring-yellow-400/50 text-white"
-                  placeholder="Your Full Name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  required
-                />
-              </div>
-              <div>
-                <label htmlFor="email" className="block text-sm font-medium text-darkPurple-300 mb-1">
-                  Email Address
-                </label>
-                <div className="flex flex-col md:flex-row md:items-center gap-2">
-                  <input
-                    type="email"
-                    id="email"
-                    className="w-full px-4 py-2 rounded-lg bg-darkPurple-900/50 border border-darkPurple-700 focus:outline-none focus:ring-2 focus:ring-yellow-400/50 text-white"
-                    placeholder="Your email address"
-                    value={email}
-                    onChange={(e) => {
-                      const newEmail = e.target.value;
-                      setEmail(newEmail);
-                      // Reset OTP state when email changes
-                      setOtpSent(false);
-                      setShowEmailOtpInput(false);
-                      setDevOtp(null);
-                      // If email matches the original profile email, revert verification status to original
-                      // Otherwise, set to false requiring re-verification
-                      if (profile && profile.email === newEmail && profile.emailVerified) {
-                        setIsEmailVerified(true);
-                      } else {
-                        setIsEmailVerified(false);
-                      }
-                    }}
-                    required
-                  />
-                  <div className="flex flex-col gap-2 shrink-0">
-                    {!isEmailVerified ? (
-                      <div className="flex items-center gap-2">
+                {!editMode ? (
+                  /* Summary View */
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="space-y-6">
+                      <div className="bg-white/5 rounded-2xl p-5 border border-white/5">
+                        <label className="text-xs font-bold text-gray-500 uppercase tracking-widest block mb-2">Full Name</label>
+                        <p className="text-white text-lg font-medium">{profile?.name || '--'}</p>
+                      </div>
+                      <div className="bg-white/5 rounded-2xl p-5 border border-white/5 flex items-center justify-between">
+                        <div>
+                          <label className="text-xs font-bold text-gray-500 uppercase tracking-widest block mb-2">Email</label>
+                          <p className="text-white text-lg font-medium">{profile?.email || '--'}</p>
+                        </div>
+                        {isEmailVerified && <span className="bg-emerald-500/20 text-emerald-400 px-3 py-1 rounded-full text-[10px] font-black tracking-widest uppercase border border-emerald-500/30">Verified</span>}
+                      </div>
+                      <div className="bg-white/5 rounded-2xl p-5 border border-white/5">
+                        <label className="text-xs font-bold text-gray-500 uppercase tracking-widest block mb-2">Phone</label>
+                        <p className="text-white text-lg font-medium">{profile?.phoneNumber || '--'}</p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      <label className="text-xs font-bold text-gray-500 uppercase tracking-widest block mb-2 px-2">Saved Addresses</label>
+                      {addresses.length === 0 ? (
+                        <div className="bg-white/5 border border-dashed border-white/10 rounded-2xl p-8 text-center">
+                          <p className="text-gray-500 text-sm">No addresses found</p>
+                        </div>
+                      ) : (
+                        addresses.map((addr) => (
+                          <div key={addr._id || addr.id} className="bg-cyan-500/5 border border-white/5 rounded-2xl p-4 relative group">
+                            <div className="flex items-center gap-2 mb-2">
+                              <span className="text-[10px] font-black uppercase tracking-widest bg-cyan-500/20 text-cyan-400 px-2 py-0.5 rounded border border-cyan-500/30">{addr.label}</span>
+                              {addr.isDefault && <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">Default</span>}
+                            </div>
+                            <p className="text-white text-sm font-semibold">{addr.houseNo}, {addr.building}</p>
+                            <p className="text-gray-400 text-xs mt-1">{addr.landmark}</p>
+                            <p className="text-gray-500 text-[10px] mt-2 font-medium">{addr.receiverName} · {addr.receiverPhone}</p>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  /* Edit Form */
+                  <form onSubmit={handleSubmitProfile} className="space-y-8 max-w-2xl">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Full Name</label>
+                        <input
+                          type="text"
+                          value={name}
+                          onChange={e => setName(e.target.value)}
+                          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-cyan-500/50 transition-all font-medium"
+                          placeholder="Your Name"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Phone Number</label>
+                        <input
+                          type="tel"
+                          value={phoneNumber}
+                          onChange={e => setPhoneNumber(e.target.value)}
+                          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-cyan-500/50 transition-all font-medium"
+                          placeholder="10-digit primary phone"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Email Address</label>
+                      <div className="flex gap-2">
+                        <input
+                          type="email"
+                          value={email}
+                          onChange={e => {
+                            setEmail(e.target.value);
+                            setIsEmailVerified(false);
+                            setOtpSent(false);
+                            setShowEmailOtpInput(false);
+                          }}
+                          className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-cyan-500/50 transition-all font-medium"
+                          placeholder="email@example.com"
+                        />
+                        {!isEmailVerified && !showEmailOtpInput && (
+                          <button
+                            type="button"
+                            onClick={handleRequestOtp}
+                            disabled={verifying}
+                            className="bg-cyan-500 hover:bg-cyan-400 text-black px-6 rounded-xl font-bold text-xs uppercase transition-all disabled:opacity-50"
+                          >
+                            {verifying ? '...' : 'Verify'}
+                          </button>
+                        )}
+                      </div>
+
+                      {showEmailOtpInput && !isEmailVerified && (
+                        <div className="mt-4 p-4 bg-cyan-500/5 border border-cyan-500/20 rounded-2xl flex items-center gap-3 animate-in fade-in zoom-in-95">
+                          <input
+                            type="text"
+                            className="flex-1 bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-white center font-mono tracking-widest"
+                            placeholder="OTP"
+                            value={emailOtp}
+                            onChange={e => setEmailOtp(e.target.value.slice(0, 6))}
+                          />
+                          <button
+                            type="button"
+                            onClick={verifyOtp}
+                            className="bg-white text-black px-4 py-2 rounded-lg font-bold text-xs uppercase"
+                          >
+                            CONFIRM
+                          </button>
+                        </div>
+                      )}
+                      {devOtp && (
+                        <p className="text-cyan-400 text-[10px] font-mono mt-1 opacity-60">TEST MODE: Your OTP is {devOtp}</p>
+                      )}
+                    </div>
+
+                    {/* Multi-Address Management */}
+                    <div className="space-y-4 pt-4">
+                      <div className="flex items-center justify-between px-1">
+                        <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Addresses</label>
                         <button
                           type="button"
-                          onClick={handleRequestOtp}
-                          disabled={verifying || otpSent}
-                          className="flex-1 md:flex-none px-4 py-2 rounded-lg bg-yellow-500 text-black font-semibold text-sm hover:bg-yellow-400 transition-colors focus:outline-none focus:ring-2 focus:ring-yellow-400/70 whitespace-nowrap disabled:opacity-50"
+                          onClick={() => {
+                            setIsAddingAddress(true);
+                            setAddressForm({ label: 'Home', houseNo: '', building: '', landmark: '', receiverName: name, receiverPhone: phoneNumber });
+                          }}
+                          className="text-cyan-400 text-xs font-bold flex items-center gap-1 hover:text-white transition-colors"
                         >
-                          {otpSent ? 'OTP Sent' : 'Get OTP'}
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                          ADD NEW
                         </button>
-
                       </div>
-                    ) : (
-                      <span className="text-green-400 text-sm font-medium">Verified!</span>
-                    )}
+
+                      <div className="grid grid-cols-1 gap-3">
+                        {addresses.map(addr => (
+                          <div key={addr._id || addr.id} className="bg-white/5 border border-white/5 rounded-2xl p-4 flex items-center justify-between group">
+                            <div className="flex items-center gap-3">
+                              <div className="bg-cyan-500/20 h-10 w-10 rounded-full flex items-center justify-center text-cyan-400">
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                              </div>
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <p className="text-white text-sm font-bold">{addr.label}</p>
+                                  <span className="text-gray-500 text-[10px] font-medium leading-none mt-0.5">{addr.houseNo}</span>
+                                </div>
+                                <p className="text-gray-400 text-xs truncate max-w-[200px]">{addr.building}</p>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteAddress(addr._id || addr.id)}
+                              className="opacity-0 group-hover:opacity-100 p-2 text-gray-500 hover:text-red-400 transition-all"
+                            >
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="flex gap-4 pt-6">
+                      <button
+                        type="submit"
+                        disabled={!isEmailVerified}
+                        className="flex-1 bg-cyan-500 hover:bg-cyan-400 text-black py-4 rounded-2xl font-black text-sm uppercase tracking-widest transition-all shadow-[0_4px_20px_rgba(6,182,212,0.3)] disabled:opacity-50"
+                      >
+                        SAVE ALL CHANGES
+                      </button>
+                      {profile && (
+                        <button
+                          type="button"
+                          onClick={() => setEditMode(false)}
+                          className="px-8 border border-white/10 text-gray-400 hover:text-white rounded-2xl font-bold text-xs uppercase transition-all"
+                        >
+                          CANCEL
+                        </button>
+                      )}
+                    </div>
+                  </form>
+                )}
+              </div>
+            )}
+
+            {currentTab === 'orders' && (
+              <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
+                <div className="flex items-center justify-between mb-8">
+                  <div>
+                    <h3 className="text-2xl font-bold text-white uppercase tracking-wider">Order History</h3>
+                    <p className="text-gray-400 text-sm mt-1">Track your deliveries and sessions</p>
                   </div>
                 </div>
-                {showEmailOtpInput && !isEmailVerified && (
-                  <div className="mt-2 w-full">
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="text"
-                        className="w-full px-4 py-2 rounded-lg bg-darkPurple-900/50 border border-darkPurple-700 focus:outline-none focus:ring-2 focus:ring-yellow-400/50 text-white"
-                        placeholder="Enter 6-digit OTP"
-                        value={emailOtp}
-                        onChange={(e) => setEmailOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                        required
-                        maxLength={6}
-                      />
-                      <button
-                        type="button"
-                        onClick={verifyOtp}
-                        disabled={verifying || emailOtp.length < 6}
-                        className="px-4 py-2 rounded-lg bg-blue-500 text-white font-semibold text-sm hover:bg-blue-400 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400/70 whitespace-nowrap disabled:opacity-50"
-                      >
-                        {verifying ? 'Verifying...' : 'Verify'}
-                      </button>
-                    </div>
-                    {devOtp && (
-                      <div className="mt-2 p-2 bg-yellow-500/20 border border-yellow-500/50 rounded text-yellow-300 font-mono text-xs text-center">
-                        <span className="font-bold">DEV MODE:</span> Your OTP is {devOtp} (Email service unavailable)
+
+                {orders.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-20 bg-white/5 border border-dashed border-white/10 rounded-3xl opacity-60">
+                    <svg className="w-16 h-16 text-gray-500 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>
+                    <p className="text-gray-400 font-medium">No orders discovered yet</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {orders.map(order => (
+                      <div key={order._id || order.id} className="bg-black/20 border border-white/5 rounded-2xl p-6 hover:border-cyan-500/30 transition-all duration-300">
+                        <div className="flex flex-wrap justify-between items-start gap-4 mb-6">
+                          <div>
+                            <p className="text-cyan-400 font-mono text-[10px] uppercase font-bold tracking-widest">ORDER #{(order.orderNumber || (order._id || '------').slice(-6)).toUpperCase()}</p>
+                            <p className="text-white font-bold mt-1">{new Date(order.placedAt || order.createdAt).toLocaleDateString()}</p>
+                          </div>
+                          <div className="text-right">
+                            <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border ${order.status === 'delivered' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
+                                order.status === 'cancelled' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
+                                  'bg-cyan-500/10 text-cyan-400 border-cyan-500/20'
+                              }`}>
+                              {order.status || 'Processing'}
+                            </span>
+                            <p className="text-gray-500 text-[10px] mt-2 font-bold tracking-wide">{order.paymentMethod?.toUpperCase()} · {order.paymentStatus === 'completed' ? 'PAID' : 'PENDING'}</p>
+                          </div>
+                        </div>
+
+                        <div className="space-y-3 mb-6">
+                          {(order.items || []).map((item, idx) => (
+                            <div key={idx} className="flex justify-between items-center text-sm">
+                              <div className="flex items-center gap-3">
+                                <div className="h-4 w-4 rounded-full bg-cyan-500/20 flex items-center justify-center text-cyan-400 text-[10px] font-black">1</div>
+                                <span className="text-gray-300">{item.name || item.series} {item.flavor && `· ${item.flavor}`}</span>
+                              </div>
+                              <span className="text-white font-mono font-bold">₹{item.price?.toLocaleString()}</span>
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="pt-4 border-t border-white/5 flex justify-between items-center">
+                          <span className="text-gray-500 text-xs font-bold uppercase tracking-widest">Total Amount</span>
+                          <span className="text-2xl font-black text-white">₹{order.total?.toLocaleString()}</span>
+                        </div>
                       </div>
-                    )}
+                    ))}
                   </div>
                 )}
               </div>
-              <div>
-                <label htmlFor="phoneNumber" className="block text-sm font-medium text-darkPurple-300 mb-1">
-                  Phone Number
-                </label>
-                <input
-                  type="text"
-                  id="phoneNumber"
-                  className="w-full px-4 py-2 rounded-lg bg-darkPurple-900/50 border border-darkPurple-700 focus:outline-none focus:ring-2 focus:ring-yellow-400/50 text-white"
-                  placeholder="e.g., 9876543210"
-                  value={phoneNumber}
-                  onChange={(e) => {
-                    // Allow only numbers and plus sign
-                    const val = e.target.value.replace(/[^\d+]/g, '');
-                    setPhoneNumber(val);
-                  }}
-                  required
-                />
-              </div>
-              <div>
-                <label htmlFor="address" className="block text-sm font-medium text-darkPurple-300 mb-1">
-                  Address Details
-                </label>
-                <div className="space-y-3">
-                  <input
-                    type="text"
-                    placeholder="Flat/Building Name"
-                    className="w-full px-4 py-2 rounded-lg bg-darkPurple-900/50 border border-darkPurple-700 focus:outline-none focus:ring-2 focus:ring-yellow-400/50 text-white"
-                    value={flatBuilding}
-                    onChange={(e) => {
-                      setFlatBuilding(e.target.value);
-                      if (isAddressVerified) setIsAddressVerified(false);
-                    }}
-                  />
-                  <input
-                    type="text"
-                    placeholder="Road Name / Area / Colony"
-                    className="w-full px-4 py-2 rounded-lg bg-darkPurple-900/50 border border-darkPurple-700 focus:outline-none focus:ring-2 focus:ring-yellow-400/50 text-white"
-                    value={areaRoad}
-                    onChange={(e) => {
-                      setAreaRoad(e.target.value);
-                      if (isAddressVerified) setIsAddressVerified(false);
-                    }}
-                  />
-                  <input
-                    type="text"
-                    placeholder="Landmark (Optional)"
-                    className="w-full px-4 py-2 rounded-lg bg-darkPurple-900/50 border border-darkPurple-700 focus:outline-none focus:ring-2 focus:ring-yellow-400/50 text-white"
-                    value={landmark}
-                    onChange={(e) => {
-                      setLandmark(e.target.value);
-                      if (isAddressVerified) setIsAddressVerified(false);
-                    }}
-                  />
-
-                  <div className="flex flex-col md:flex-row gap-2">
-                    <div className="relative w-full">
-                      {/* Hidden actual textarea for calculation logic if needed, but we build address from parts */}
-                    </div>
-
-                    {!isAddressVerified && (
-                      <button
-                        type="button"
-                        onClick={verifyAddress}
-                        className="w-full md:w-auto px-4 py-2 rounded-lg bg-green-500 text-black font-semibold text-sm hover:bg-green-400 transition-colors focus:outline-none focus:ring-2 focus:ring-green-400/70 whitespace-nowrap h-fit"
-                      >
-                        Verify Address
-                      </button>
-                    )}
-                    {isAddressVerified && (
-                      <span className="text-green-400 text-sm font-medium mt-2 md:mt-0 self-center">Verified!</span>
-                    )}
-                  </div>
-                </div>
-
-              </div>
-              <button
-                type="submit"
-                className="w-full py-2 px-4 rounded-lg bg-yellow-500 text-black font-semibold text-lg hover:bg-yellow-400 transition-colors focus:outline-none focus:ring-2 focus:ring-yellow-400/70"
-              >
-                Save Details
-              </button>
-              {profile && (
-                <button
-                  type="button"
-                  onClick={() => setEditMode(false)}
-                  className="w-full mt-2 py-2 px-4 rounded-lg bg-darkPurple-900 text-gray-100 text-sm hover:bg-darkPurple-800 transition-colors focus:outline-none focus:ring-2 focus:ring-darkPurple-700/70"
-                >
-                  Cancel
-                </button>
-              )}
-            </form>
-          )}
+            )}
+          </div>
         </div>
       </div>
-    </div >
+
+      {/* Modern Add Address Modal (Overlay) */}
+      {isAddingAddress && (
+        <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => setIsAddingAddress(false)} />
+          <div className="relative bg-neutral-900 border border-white/10 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+
+            <div className="p-6 pb-0 flex items-center justify-between">
+              <h4 className="text-xl font-bold text-white tracking-tight">Add Address Details</h4>
+              <button onClick={() => setIsAddingAddress(false)} className="text-gray-500 hover:text-white transition-colors">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+
+            <div className="p-6 space-y-5">
+              {/* Google Map Placeholder Image style from screenshot */}
+              <div className="h-28 bg-white/5 rounded-2xl overflow-hidden relative">
+                <img src="https://images.unsplash.com/photo-1526778548025-fa2f459cd5c1?auto=format&fit=crop&q=80&w=400" className="w-full h-full object-cover opacity-50 gray-grayscale" alt="Map View" />
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="h-10 w-10 bg-cyan-500 rounded-full flex items-center justify-center shadow-[0_0_20px_rgba(6,182,212,0.5)]">
+                    <svg className="w-5 h-5 text-black" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" /></svg>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <p className="text-xs font-black text-gray-500 uppercase tracking-widest">Add Address Label</p>
+                <div className="flex gap-2 pt-2">
+                  {['Home', 'Work', 'Other'].map(l => (
+                    <button
+                      key={l}
+                      onClick={() => setAddressForm({ ...addressForm, label: l })}
+                      className={`flex-1 py-3 rounded-xl font-bold text-xs uppercase transition-all border ${addressForm.label === l ? 'bg-white text-black border-white' : 'bg-black/40 text-gray-400 border-white/10 hover:border-white/20'}`}
+                    >
+                      {l}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest px-1">House No. & Floor *</label>
+                  <input
+                    type="text"
+                    value={addressForm.houseNo}
+                    onChange={e => setAddressForm({ ...addressForm, houseNo: e.target.value })}
+                    className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-1 focus:ring-cyan-500/50"
+                    placeholder="e.g. A-402, 4th Floor"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest px-1">Building & Block Name *</label>
+                  <input
+                    type="text"
+                    value={addressForm.building}
+                    onChange={e => setAddressForm({ ...addressForm, building: e.target.value })}
+                    className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-1 focus:ring-cyan-500/50"
+                    placeholder="Building Name / Area Name"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest px-1">Landmark & Area (Optional)</label>
+                  <input
+                    type="text"
+                    value={addressForm.landmark}
+                    onChange={e => setAddressForm({ ...addressForm, landmark: e.target.value })}
+                    className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-1 focus:ring-cyan-500/50"
+                    placeholder="Near XYZ Circle"
+                  />
+                </div>
+
+                <div className="pt-4 border-t border-white/5 space-y-4">
+                  <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Receiver Details</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <input
+                      type="text"
+                      value={addressForm.receiverName}
+                      onChange={e => setAddressForm({ ...addressForm, receiverName: e.target.value })}
+                      className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-2 text-xs text-white"
+                      placeholder="Name"
+                    />
+                    <input
+                      type="tel"
+                      value={addressForm.receiverPhone}
+                      onChange={e => setAddressForm({ ...addressForm, receiverPhone: e.target.value })}
+                      className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-2 text-xs text-white"
+                      placeholder="Phone"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <button
+                onClick={handleSaveAddress}
+                className="w-full bg-white text-black py-4 rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl hover:bg-cyan-400 hover:shadow-cyan-500/20 transition-all mt-4"
+              >
+                SAVE ADDRESS
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

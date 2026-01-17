@@ -34,6 +34,18 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
+  addresses: [{
+    label: String, // Home, Work, Other
+    houseNo: String,
+    building: String,
+    landmark: String,
+    receiverName: String,
+    receiverPhone: String,
+    isDefault: {
+      type: Boolean,
+      default: false
+    }
+  }],
   createdAt: {
     type: Date,
     default: Date.now

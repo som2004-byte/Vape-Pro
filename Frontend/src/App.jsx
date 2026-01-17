@@ -567,7 +567,7 @@ export default function App() {
           method: 'POST',
           headers: getAuthHeaders(user.token),
           body: JSON.stringify({
-            shippingAddress: pendingOrder.customerProfile.address || '',
+            shippingAddress: paymentData.shippingAddress || pendingOrder.customerProfile.address || '',
             paymentMethod: paymentData.paymentMethod || 'card',
             items: pendingOrder.items.map(item => ({
               ...item,
@@ -685,7 +685,14 @@ export default function App() {
         onNavigate={handleNavigate}
         cartItemCount={cartItems.reduce((sum, item) => sum + (item.quantity || 1), 0)}
         searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
+        onSearchChange={(query) => {
+          setSearchQuery(query);
+          if (query.trim() && currentPage !== 'home') {
+            setCurrentPage('home');
+            // Optional: reset category to show all matching results
+            setCurrentCategory('all');
+          }
+        }}
         isAdminLoggedIn={isAdminLoggedIn}
         adminUser={adminUser}
         onAdminLogout={handleAdminLogout}

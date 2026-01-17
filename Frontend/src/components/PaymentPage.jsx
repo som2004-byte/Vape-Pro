@@ -9,156 +9,66 @@ export default function PaymentPage({
   onCancel,
 }) {
   const [paymentMethod, setPaymentMethod] = useState('cod');
-  const [cardNumber, setCardNumber] = useState('');
-  const [cardName, setCardName] = useState('');
-  const [expiry, setExpiry] = useState('');
-  const [cvv, setCvv] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
-  const [paymentStatus, setPaymentStatus] = useState(null); // 'processing', 'success', 'failed'
+  const [paymentStatus, setPaymentStatus] = useState(null);
+  const [selectedAddressIndex, setSelectedAddressIndex] = useState(0);
+
   const videoSrc = '/videos/login-bg.mp4';
+  const addresses = customerProfile?.addresses || [];
 
-  // Generate a random transaction ID
-  const generateTransactionId = () => {
-    return `TXN${Date.now()}${Math.floor(Math.random() * 1000)}`;
-  };
-
-  // Simulate payment processing
   const handlePayment = async () => {
-    // Verify address and phone number
-    if (!customerProfile || !customerProfile.address || !customerProfile.address.trim()) {
+    const selectedAddress = addresses[selectedAddressIndex] || { building: customerProfile?.address };
+
+    if (!selectedAddress || (!selectedAddress.building && !selectedAddress.houseNo)) {
       alert('Please provide a valid shipping address in your profile before placing the order.');
       return;
     }
 
     const phoneRegex = /^(\+91)?[6789]\d{9}$/;
-    const sanitizedPhone = (customerProfile.phoneNumber || '').replace(/[\s\-]/g, '');
-    if (!customerProfile || !sanitizedPhone || !phoneRegex.test(sanitizedPhone)) {
-      alert('Please provide a valid Indian mobile number in your profile before placing the order.');
+    const phoneToVerify = selectedAddress.receiverPhone || customerProfile?.phoneNumber || '';
+    const sanitizedPhone = phoneToVerify.replace(/[\s\-]/g, '');
+
+    if (!sanitizedPhone || !phoneRegex.test(sanitizedPhone)) {
+      alert('Please provide a valid Indian mobile number for the receiver before placing the order.');
       return;
-    }
-
-    // Handle Cash on Delivery
-    if (paymentMethod === 'cod') {
-      setIsProcessing(true);
-      setPaymentStatus('processing');
-
-      // For COD, immediately confirm order (no payment processing needed)
-      setTimeout(() => {
-        setPaymentStatus('success');
-        const transactionId = `COD${Date.now()}${Math.floor(Math.random() * 1000)}`;
-
-        setTimeout(() => {
-          onPaymentSuccess({
-            transactionId,
-            paymentMethod: 'cod',
-            paymentStatus: 'pending', // COD orders are pending until delivery
-            paidAt: null, // Not paid yet for COD
-          });
-        }, 1500);
-      }, 1000); // Shorter delay for COD
-      return;
-    }
-
-    // For card payment, validate card details
-    if (paymentMethod === 'card') {
-      if (!cardNumber || !cardName || !expiry || !cvv) {
-        alert('Please fill in all payment details');
-        return;
-      }
-    }
-
-    // For UPI payment, validate UPI ID
-    if (paymentMethod === 'upi') {
-      const upiInput = document.getElementById('upiId');
-      if (!upiInput || !upiInput.value.trim()) {
-        alert('Please enter your UPI ID');
-        return;
-      }
     }
 
     setIsProcessing(true);
     setPaymentStatus('processing');
 
-    // Simulate payment processing delay (3 seconds)
+    // Simulate ordering
     setTimeout(() => {
-      // Simulate 90% success rate for demo
-      const isSuccess = Math.random() > 0.1;
+      setPaymentStatus('success');
+      const transactionId = `${paymentMethod.toUpperCase()}${Date.now()}${Math.floor(Math.random() * 1000)}`;
 
-      if (isSuccess) {
-        setPaymentStatus('success');
-        const transactionId = generateTransactionId();
-
-        // Wait a moment then call success handler
-        setTimeout(() => {
-          onPaymentSuccess({
-            transactionId,
-            paymentMethod,
-            paymentStatus: 'completed',
-            paidAt: new Date().toISOString(),
-          });
-        }, 1500);
-      } else {
-        setPaymentStatus('failed');
-        setIsProcessing(false);
-      }
-    }, 3000);
-  };
-
-  const formatCardNumber = (value) => {
-    const v = value.replace(/\s+/g, '').replace(/[^0-9]/gi, '');
-    const matches = v.match(/\d{4,16}/g);
-    const match = (matches && matches[0]) || '';
-    const parts = [];
-    for (let i = 0, len = match.length; i < len; i += 4) {
-      parts.push(match.substring(i, i + 4));
-    }
-    if (parts.length) {
-      return parts.join(' ');
-    } else {
-      return v;
-    }
-  };
-
-  const handleCardNumberChange = (e) => {
-    const formatted = formatCardNumber(e.target.value);
-    setCardNumber(formatted);
-  };
-
-  const handleExpiryChange = (e) => {
-    let value = e.target.value.replace(/\D/g, '');
-    if (value.length >= 2) {
-      value = value.substring(0, 2) + '/' + value.substring(2, 4);
-    }
-    setExpiry(value);
+      setTimeout(() => {
+        onPaymentSuccess({
+          transactionId,
+          paymentMethod,
+          paymentStatus: paymentMethod === 'cod' ? 'pending' : 'completed',
+          paidAt: paymentMethod === 'cod' ? null : new Date().toISOString(),
+          shippingAddress: `${selectedAddress.houseNo || ''}, ${selectedAddress.building || ''}, ${selectedAddress.landmark || ''}`.replace(/^, /, '')
+        });
+      }, 1500);
+    }, 2000);
   };
 
   if (paymentStatus === 'success') {
     return (
-      <div className="relative min-h-screen overflow-hidden flex items-center justify-center">
-        <video
-          className="absolute inset-0 w-full h-full object-cover opacity-90"
-          src={videoSrc}
-          autoPlay
-          muted
-          loop
-          playsInline
-        />
-        <div className="absolute inset-0">
-          <VapeSmokeEffect density={100} speed={0.55} opacity={0.6} />
-        </div>
-        <div className="absolute inset-0 bg-gradient-to-br from-black/40 via-black/25 to-black/50" />
-        <div className="relative z-10 text-center p-8">
-          <div className="bg-gradient-to-br from-darkPurple-950/90 to-black/90 backdrop-blur-sm p-8 rounded-lg shadow-lg max-w-md w-full border border-green-500/50">
-            <div className="text-6xl mb-4">✓</div>
-            <h2 className="text-3xl font-bold text-green-400 mb-2">
-              {paymentMethod === 'cod' ? 'Order Placed Successfully!' : 'Payment Successful!'}
-            </h2>
-            <p className="text-darkPurple-300 mb-4">
-              {paymentMethod === 'cod'
-                ? 'Your order has been placed. Pay cash on delivery when your order arrives.'
-                : 'Your order has been placed successfully.'}
+      <div className="relative min-h-screen flex items-center justify-center bg-black">
+        <video className="absolute inset-0 w-full h-full object-cover opacity-60" src={videoSrc} autoPlay muted loop playsInline />
+        <div className="relative z-10 text-center p-8 animate-in fade-in zoom-in-95 duration-500">
+          <div className="bg-emerald-500/20 backdrop-blur-xl border border-emerald-500/30 p-12 rounded-[40px] shadow-2xl max-w-md">
+            <div className="h-20 w-20 bg-emerald-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-[0_0_30px_rgba(16,185,129,0.5)]">
+              <svg className="w-10 h-10 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={4} d="M5 13l4 4L19 7" /></svg>
+            </div>
+            <h2 className="text-3xl font-black text-white mb-2 uppercase tracking-tight">Order Received!</h2>
+            <p className="text-emerald-100/70 font-medium mb-6">
+              {paymentMethod === 'cod' ? 'Your order is being processed for cash on delivery.' : 'Payment confirmed. Your order is on the way.'}
             </p>
-            <p className="text-sm text-darkPurple-400">Redirecting to your orders...</p>
+            <div className="h-1 w-full bg-emerald-500/20 rounded-full overflow-hidden">
+              <div className="h-full bg-emerald-500 animate-[progress_2s_ease-in-out]" style={{ width: '100%' }} />
+            </div>
           </div>
         </div>
       </div>
@@ -166,135 +76,171 @@ export default function PaymentPage({
   }
 
   return (
-    <div className="relative min-h-screen overflow-hidden pt-24">
-      {/* Background video */}
-      <video
-        className="absolute inset-0 w-full h-full object-cover opacity-90"
-        src={videoSrc}
-        autoPlay
-        muted
-        loop
-        playsInline
-      />
+    <div className="relative min-h-screen bg-black">
+      <div className="fixed inset-0 z-0">
+        <video className="w-full h-full object-cover opacity-50" src={videoSrc} autoPlay muted loop playsInline />
+        <div className="absolute inset-0 bg-gradient-to-tr from-black via-transparent to-black" />
+        <VapeSmokeEffect density={40} speed={0.4} opacity={0.3} />
+      </div>
 
-      {/* Subtle overlay for readability - lighter to blend better */}
-      <div className="absolute inset-0 bg-gradient-to-br from-black/40 via-black/25 to-black/50" />
+      <div className="relative z-10 container mx-auto px-4 pt-32 pb-20">
+        <div className="max-w-6xl mx-auto">
+          <header className="mb-12 text-center md:text-left">
+            <h2 className="text-4xl md:text-5xl font-black text-white uppercase tracking-tighter italic">Checkout</h2>
+            <p className="text-gray-400 font-medium mt-2">Finish your order and start vaping smart</p>
+          </header>
 
-      {/* Content */}
-      <div className="relative z-20 container mx-auto px-4 pb-8">
-        <h2 className="text-3xl font-bold mb-8 text-center bg-gradient-to-r from-yellowGradient-start via-yellowGradient-end to-yellowGradient-start bg-clip-text text-transparent">
-          Payment & Checkout
-        </h2>
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+            {/* Delivery & Payment Selection */}
+            <div className="lg:col-span-8 space-y-8">
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {/* Order Summary */}
-          <div className="md:col-span-1 bg-gradient-to-br from-darkPurple-950/90 to-black/90 backdrop-blur-sm p-6 rounded-lg shadow-lg border border-darkPurple-700/50 h-fit">
-            <h3 className="text-2xl font-bold text-white mb-4">Order Summary</h3>
-            <div className="space-y-2 mb-4">
-              {cartItems.map((item) => (
-                <div key={item.id} className="flex justify-between text-sm text-darkPurple-300">
-                  <span>{item.series || item.name} x{item.quantity}</span>
-                  <span>₹{((item.price || 0) * (item.quantity || 1)).toLocaleString()}</span>
+              {/* Address Selection */}
+              <section className="bg-neutral-900/40 backdrop-blur-2xl border border-white/5 rounded-[32px] p-8">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-xl font-bold text-white flex items-center gap-3">
+                    <span className="h-8 w-8 rounded-full bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-sm font-black">1</span>
+                    DELIVERY ADDRESS
+                  </h3>
                 </div>
-              ))}
-            </div>
-            <div className="border-t border-darkPurple-700 my-4"></div>
-            <div className="flex justify-between items-center text-white text-xl font-bold mb-4">
-              <span>Total</span>
-              <span>₹{total.toLocaleString()}</span>
-            </div>
-            {customerProfile && (
-              <div className="mt-4 pt-4 border-t border-darkPurple-700">
-                <p className="text-xs text-darkPurple-400 mb-1">Shipping to:</p>
-                <p className="text-sm text-darkPurple-300">{customerProfile.address || 'No address provided'}</p>
-              </div>
-            )}
-          </div>
 
-          {/* Payment Form */}
-          <div className="md:col-span-2 bg-gradient-to-br from-darkPurple-950/90 to-black/90 backdrop-blur-sm p-8 rounded-lg shadow-lg border border-darkPurple-700/50">
-            <h3 className="text-2xl font-bold text-white mb-6">Payment Details</h3>
+                {addresses.length === 0 ? (
+                  <div className="p-6 bg-red-500/10 border border-red-500/20 rounded-2xl">
+                    <p className="text-red-400 text-sm font-bold">No saved addresses found. Please add an address in your profile.</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {addresses.map((addr, idx) => (
+                      <button
+                        key={addr._id || addr.id}
+                        onClick={() => setSelectedAddressIndex(idx)}
+                        className={`text-left p-5 rounded-2xl transition-all duration-300 border ${selectedAddressIndex === idx ? 'bg-white/10 border-white/40 ring-2 ring-white/10' : 'bg-white/5 border-white/5 opacity-50 hover:opacity-100'}`}
+                      >
+                        <div className="flex items-center justify-between mb-3">
+                          <span className="text-[10px] font-black uppercase tracking-widest bg-white/10 px-2 py-0.5 rounded text-gray-300">{addr.label}</span>
+                          {selectedAddressIndex === idx && <div className="h-4 w-4 bg-cyan-500 rounded-full flex items-center justify-center"><svg className="w-3 h-3 text-black" fill="currentColor" viewBox="0 0 20 20"><path d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" /></svg></div>}
+                        </div>
+                        <p className="text-white font-bold leading-tight line-clamp-1">{addr.houseNo}, {addr.building}</p>
+                        <p className="text-gray-400 text-xs mt-1 truncate">{addr.landmark}</p>
+                        <p className="text-gray-500 text-[10px] font-bold mt-3 tracking-wide">{addr.receiverName} · {addr.receiverPhone}</p>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </section>
 
-            {/* Payment Method Selection */}
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-darkPurple-300 mb-3">
-                Payment Method
-              </label>
-              <div className="grid grid-cols-1 gap-4">
-                <button
-                  type="button"
-                  className="p-4 rounded-lg border-2 border-yellow-400 bg-yellow-400/10 transition-colors"
-                >
-                  <div className="text-white font-semibold text-sm">Cash on Delivery</div>
-                </button>
-              </div>
-            </div>
+              {/* Payment Method */}
+              <section className="bg-neutral-900/40 backdrop-blur-2xl border border-white/5 rounded-[32px] p-8">
+                <h3 className="text-xl font-bold text-white flex items-center gap-3 mb-8">
+                  <span className="h-8 w-8 rounded-full bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-sm font-black">2</span>
+                  PAYMENT METHOD
+                </h3>
 
-
-
-            {paymentMethod === 'cod' && (
-              <div className="space-y-4">
-                <div className="p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
-                  <div className="flex items-start gap-3">
-                    <svg className="w-6 h-6 text-yellow-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                    </svg>
-                    <div>
-                      <p className="text-yellow-400 font-semibold mb-1">Cash on Delivery</p>
-                      <p className="text-sm text-darkPurple-300">
-                        Pay with cash when your order is delivered. Please keep exact change ready for the delivery person.
-                      </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <button
+                    onClick={() => setPaymentMethod('cod')}
+                    className={`flex items-center gap-4 p-6 rounded-2xl border transition-all ${paymentMethod === 'cod' ? 'bg-cyan-500/10 border-cyan-500/50' : 'bg-white/5 border-white/5 hover:bg-white/10'}`}
+                  >
+                    <div className={`h-12 w-12 rounded-xl flex items-center justify-center ${paymentMethod === 'cod' ? 'bg-cyan-500 text-black' : 'bg-white/10 text-gray-400'}`}>
+                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
                     </div>
+                    <div className="text-left">
+                      <p className={`font-bold ${paymentMethod === 'cod' ? 'text-white' : 'text-gray-400'}`}>CASH ON DELIVERY</p>
+                      <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-1">Pay when you receive</p>
+                    </div>
+                  </button>
+
+                  <button
+                    disabled
+                    className="flex items-center gap-4 p-6 rounded-2xl border border-white/5 bg-white/5 opacity-30 cursor-not-allowed group"
+                  >
+                    <div className="h-12 w-12 rounded-xl bg-white/10 text-gray-500 flex items-center justify-center">
+                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
+                    </div>
+                    <div className="text-left">
+                      <p className="text-gray-500 font-bold">ONLINE PAYMENT</p>
+                      <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-1 italic">Coming Soon</p>
+                    </div>
+                  </button>
+                </div>
+
+                {paymentMethod === 'cod' && (
+                  <div className="mt-8 p-6 bg-cyan-950/20 border border-cyan-500/10 rounded-2xl flex gap-4 items-start">
+                    <svg className="w-6 h-6 text-cyan-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    <p className="text-sm text-gray-300">
+                      You've selected <span className="text-white font-bold">Cash on Delivery</span>. No extra charges apply. Please ensure someone is available at the provided address to receive the order and make the payment.
+                    </p>
+                  </div>
+                )}
+              </section>
+            </div>
+
+            {/* Side Column: Summary & Place Order */}
+            <div className="lg:col-span-4 space-y-6">
+              <div className="bg-black/60 backdrop-blur-2xl border border-white/10 rounded-[40px] p-8 shadow-2xl sticky top-32">
+                <h3 className="text-xl font-black text-white uppercase tracking-tighter mb-8 italic">Order Summary</h3>
+
+                <div className="space-y-4 mb-8 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
+                  {cartItems.map((item, idx) => (
+                    <div key={idx} className="flex justify-between items-center text-sm">
+                      <span className="text-gray-400 font-medium">
+                        <span className="text-white font-bold">{item.quantity}x</span> {item.series || item.name}
+                      </span>
+                      <span className="text-white font-mono font-bold">₹{((item.price || 0) * (item.quantity || 1)).toLocaleString()}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="space-y-4 pt-6 border-t border-white/10">
+                  <div className="flex justify-between text-xs font-bold uppercase tracking-widest text-gray-500">
+                    <span>Items Total</span>
+                    <span className="text-gray-300">₹{total.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between text-xs font-bold uppercase tracking-widest text-gray-500">
+                    <span>Delivery</span>
+                    <span className="text-emerald-400">FREE</span>
+                  </div>
+                  <div className="flex justify-between items-center pt-4">
+                    <span className="text-lg font-black text-white uppercase italic tracking-tighter">Grand Total</span>
+                    <span className="text-3xl font-black text-cyan-400">₹{total.toLocaleString()}</span>
                   </div>
                 </div>
-                <div className="p-4 bg-darkPurple-900/30 rounded-lg">
-                  <p className="text-sm text-darkPurple-300">
 
-                    <span className="font-semibold text-white">COD Charges:</span> No additional charges
-                  </p>
+                <button
+                  onClick={handlePayment}
+                  disabled={isProcessing || addresses.length === 0}
+                  className="w-full bg-cyan-400 hover:bg-cyan-300 text-black py-5 rounded-2xl font-black text-md uppercase tracking-widest shadow-[0_10px_35px_rgba(34,211,238,0.3)] transition-all mt-10 disabled:opacity-50 disabled:grayscale"
+                >
+                  {isProcessing ? 'PROCESSING...' : 'COMPLETE ORDER'}
+                </button>
+
+                <button
+                  onClick={onCancel}
+                  disabled={isProcessing}
+                  className="w-full text-gray-500 hover:text-white font-bold text-xs uppercase tracking-widest mt-6 transition-colors"
+                >
+                  Go Back
+                </button>
+
+                <div className="mt-8 pt-8 border-t border-white/5">
+                  <div className="flex items-center gap-3 opacity-40">
+                    <svg className="w-5 h-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" /></svg>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-gray-400 leading-tight">Secure 256-bit SSL<br />encrypted checkout</span>
+                  </div>
                 </div>
               </div>
-            )}
-
-            {paymentStatus === 'failed' && (
-              <div className="mt-4 p-4 bg-red-500/20 border border-red-500/50 rounded-lg">
-                <p className="text-red-300 text-sm">
-                  Payment failed. Please try again or use a different payment method.
-                </p>
-              </div>
-            )}
-
-            <div className="flex gap-4 mt-8">
-              <button
-                type="button"
-                onClick={onCancel}
-                className="flex-1 py-3 px-4 rounded-lg bg-darkPurple-900 text-gray-100 text-lg hover:bg-darkPurple-800 transition-colors"
-                disabled={isProcessing}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handlePayment}
-                className="flex-1 py-3 px-4 rounded-lg bg-yellow-500 text-black font-semibold text-lg hover:bg-yellow-400 transition-colors focus:outline-none focus:ring-2 focus:ring-yellow-400/70 disabled:opacity-50 disabled:cursor-not-allowed"
-                disabled={isProcessing}
-              >
-                {isProcessing ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <span className="animate-spin">⏳</span>
-                    {paymentMethod === 'cod' ? 'Placing Order...' : 'Processing...'}
-                  </span>
-                ) : (
-                  paymentMethod === 'cod'
-                    ? `Place Order (₹${total.toLocaleString()})`
-                    : `Pay ₹${total.toLocaleString()}`
-                )}
-              </button>
             </div>
           </div>
         </div>
       </div>
+
+      <style dangerouslySetInnerHTML={{
+        __html: `
+        @keyframes progress { from { transform: translateX(-100%); } to { transform: translateX(0); } }
+        .center-input::placeholder { text-align: center; }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
+      `}} />
     </div>
   );
 }
-
