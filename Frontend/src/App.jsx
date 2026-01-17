@@ -58,7 +58,7 @@ export default function App() {
         adminUser={adminUser || { username: 'Admin' }}
         adminToken={adminToken}
         onLogout={handleAdminLogout}
-        onNavigateToStore={() => {/* No store in admin portal */ }}
+        onNavigateToStore={() => {/* No storefront on this branch */ }}
       />
     </div>
   );

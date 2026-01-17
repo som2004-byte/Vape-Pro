@@ -7,7 +7,7 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
   const logo = '/images/vapesmart-logo.png';
 
   // Navigation and view states
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState('inventory'); // Default to Supply Depot as requested
   const [selectedUser, setSelectedUser] = useState(null);
   const [selectedReferenceUser, setSelectedReferenceUser] = useState(null); // Helper for user details
   const [selectedRequirement, setSelectedRequirement] = useState(null);
@@ -62,7 +62,8 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
         setProducts([createdProduct, ...products]);
         setIsCreatingProduct(false);
         setNewProductForm({ name: '', description: '', price: '', category: 'disposable', stock: 0, brand: '', image: '' });
-        alert('Product added into the Supply Chain successfully.');
+        alert('Product added and initialized in the Supply Depot registry.');
+        handleRefresh(); // Refresh list to show new item
       } else {
         const err = await response.json();
         setError(err.message || 'Failed to create product');
@@ -241,11 +242,11 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
           setProducts(products.map(p =>
             (p.id === productId || p._id === productId) ? newProduct : p
           ));
-          if (selectedProduct && (selectedProduct.id === productId || selectedProduct._id === productId)) {
-            setSelectedProduct(newProduct);
-          }
+
           setStockUpdateValue('');
           setPriceUpdateValue('');
+          setSelectedProduct(null); // Return to main Supply Depot list
+          alert('Supply Node updated and promoted to Database.');
           return;
         } else {
           // If promotion failed, don't try to update the non-existent ID
@@ -279,7 +280,8 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
 
         setStockUpdateValue('');
         setPriceUpdateValue('');
-        setSelectedProduct(null); // Return to list view
+        setSelectedProduct(null); // Return to main Supply Depot list
+        alert('Product specifications updated successfully.');
       } else {
         const errorData = await response.json();
         setError(errorData.message || 'Failed to update product');
@@ -1071,15 +1073,7 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
           <div className="p-4 md:p-6 md:p-8 border-b border-gray-800 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <h3 className="text-xl md:text-3xl font-black italic tracking-tighter uppercase">Supply Depot (Live Registry)</h3>
             <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3 w-full md:w-auto">
-              {usingApiProducts && (
-                <button
-                  onClick={() => setIsCreatingProduct(true)}
-                  className="px-6 py-3 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-lg shadow-purple-600/20 transition-all flex items-center justify-center gap-2"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" /></svg>
-                  Add Product
-                </button>
-              )}
+
               <input
                 type="text"
                 placeholder="Search Supplies..."
