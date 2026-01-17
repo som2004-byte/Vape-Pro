@@ -25,6 +25,55 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
     password: ''
   });
 
+  const [newProductForm, setNewProductForm] = useState({
+    name: '',
+    description: '',
+    price: '',
+    category: 'disposable',
+    stock: 0,
+    brand: '',
+    image: ''
+  });
+
+  const handleCreateProduct = async (e) => {
+    e.preventDefault();
+    try {
+      setLoading(true);
+      const payload = {
+        ...newProductForm,
+        images: newProductForm.image ? [newProductForm.image] : [],
+        price: Number(newProductForm.price),
+        stock: Number(newProductForm.stock)
+      };
+
+      const response = await fetch(`${API_BASE_URL}/products`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${adminToken}`
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const createdProduct = data.product;
+        // Prepend new product to list and ensure it has correct structure
+        setProducts([createdProduct, ...products]);
+        setIsCreatingProduct(false);
+        setNewProductForm({ name: '', description: '', price: '', category: 'disposable', stock: 0, brand: '', image: '' });
+        alert('Product added into the Supply Chain successfully.');
+      } else {
+        const err = await response.json();
+        setError(err.message || 'Failed to create product');
+      }
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Data states
   const [users, setUsers] = useState([]);
   const [admins, setAdmins] = useState([]);
@@ -1022,7 +1071,15 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
           <div className="p-4 md:p-6 md:p-8 border-b border-gray-800 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <h3 className="text-xl md:text-3xl font-black italic tracking-tighter uppercase">Supply Depot (Live Registry)</h3>
             <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3 w-full md:w-auto">
-
+              {usingApiProducts && (
+                <button
+                  onClick={() => setIsCreatingProduct(true)}
+                  className="px-6 py-3 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-lg shadow-purple-600/20 transition-all flex items-center justify-center gap-2"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" /></svg>
+                  Add Product
+                </button>
+              )}
               <input
                 type="text"
                 placeholder="Search Supplies..."
@@ -1441,10 +1498,126 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
         )
       }
 
-      {/* Create Product Modal */}
-      {
+      {isCreatingProduct && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="bg-gray-900 border border-gray-800 rounded-[32px] p-8 max-w-2xl w-full relative max-h-[90vh] overflow-y-auto custom-scrollbar">
+            <button
+              onClick={() => setIsCreatingProduct(false)}
+              className="absolute top-6 right-6 text-gray-500 hover:text-white"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
 
-      }
+            <h3 className="text-2xl font-black italic uppercase mb-2">Initialize Supply Node</h3>
+            <p className="text-sm text-gray-500 font-bold uppercase tracking-widest mb-8">Register new inventory asset to the database</p>
+
+            <form onSubmit={handleCreateProduct} className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-[10px] font-black uppercase text-gray-500 tracking-widest mb-2">Product Name</label>
+                  <input
+                    required
+                    type="text"
+                    value={newProductForm.name}
+                    onChange={e => setNewProductForm({ ...newProductForm, name: e.target.value })}
+                    className="w-full bg-black border border-gray-800 rounded-xl px-4 py-3 text-white font-bold focus:border-purple-500 focus:outline-none transition-colors"
+                    placeholder="e.g. ELFBAR 5000"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black uppercase text-gray-500 tracking-widest mb-2">Brand Identity</label>
+                  <input
+                    required
+                    type="text"
+                    value={newProductForm.brand}
+                    onChange={e => setNewProductForm({ ...newProductForm, brand: e.target.value })}
+                    className="w-full bg-black border border-gray-800 rounded-xl px-4 py-3 text-white font-bold focus:border-purple-500 focus:outline-none transition-colors"
+                    placeholder="e.g. Elfbar"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-black uppercase text-gray-500 tracking-widest mb-2">Description / Flavor Profile</label>
+                <textarea
+                  required
+                  rows={3}
+                  value={newProductForm.description}
+                  onChange={e => setNewProductForm({ ...newProductForm, description: e.target.value })}
+                  className="w-full bg-black border border-gray-800 rounded-xl px-4 py-3 text-white font-bold focus:border-purple-500 focus:outline-none transition-colors resize-none"
+                  placeholder="Detailed product specifications..."
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-[10px] font-black uppercase text-gray-500 tracking-widest mb-2">Category Classification</label>
+                  <select
+                    value={newProductForm.category}
+                    onChange={e => setNewProductForm({ ...newProductForm, category: e.target.value })}
+                    className="w-full bg-black border border-gray-800 rounded-xl px-4 py-3 text-white font-bold focus:border-purple-500 focus:outline-none transition-colors appearance-none"
+                  >
+                    <option value="disposable">Disposable</option>
+                    <option value="pod-systems">Pod Systems</option>
+                    <option value="podkits">Pod Kits</option>
+                    <option value="starter-kits">Starter Kits</option>
+                    <option value="mods">Mods</option>
+                    <option value="tanks">Tanks</option>
+                    <option value="coils">Coils</option>
+                    <option value="e-liquids">E-Liquids</option>
+                    <option value="accessories">Accessories</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black uppercase text-gray-500 tracking-widest mb-2">Image URL (Optional)</label>
+                  <input
+                    type="text"
+                    value={newProductForm.image}
+                    onChange={e => setNewProductForm({ ...newProductForm, image: e.target.value })}
+                    className="w-full bg-black border border-gray-800 rounded-xl px-4 py-3 text-white font-bold focus:border-purple-500 focus:outline-none transition-colors"
+                    placeholder="https://..."
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-[10px] font-black uppercase text-gray-500 tracking-widest mb-2">Unit Value (₹)</label>
+                  <input
+                    required
+                    type="number"
+                    min="0"
+                    value={newProductForm.price}
+                    onChange={e => setNewProductForm({ ...newProductForm, price: e.target.value })}
+                    className="w-full bg-black border border-gray-800 rounded-xl px-4 py-3 text-white font-bold focus:border-purple-500 focus:outline-none transition-colors"
+                    placeholder="0.00"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black uppercase text-gray-500 tracking-widest mb-2">Initial Stock</label>
+                  <input
+                    required
+                    type="number"
+                    min="0"
+                    value={newProductForm.stock}
+                    onChange={e => setNewProductForm({ ...newProductForm, stock: e.target.value })}
+                    className="w-full bg-black border border-gray-800 rounded-xl px-4 py-3 text-white font-bold focus:border-purple-500 focus:outline-none transition-colors"
+                    placeholder="0"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-4 rounded-xl bg-gradient-to-r from-purple-600 to-blue-600 text-white font-black uppercase tracking-widest hover:shadow-lg hover:shadow-purple-600/20 transition-all disabled:opacity-50"
+              >
+                {loading ? 'Processing Registry...' : 'Create Supply Node'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Selected Requirement - (Existing) */}
       {
