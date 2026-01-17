@@ -546,10 +546,9 @@ export default function App() {
 
   if (tempAdminBypass || (currentPage === 'adminDashboard' && isAdminLoggedIn)) {
     return (
-      <div className="relative min-h-screen bg-gradient-to-b from-black via-darkPurple-950/20 to-black text-gray-100">
+      <div className="relative min-h-screen bg-black text-gray-100">
         <div className="fixed inset-0 -z-10 opacity-80"><VapeSmokeEffect density={40} speed={0.4} opacity={0.35} /></div>
-        <Navbar user={adminUser} onLogout={handleAdminLogout} isAdmin={true} onNavigate={handleNavigate} isAdminLoggedIn={true} adminUser={adminUser} />
-        <main className="pt-32"><AdminDashboard adminUser={adminUser || { username: 'Admin' }} adminToken={adminToken} onNavigateToStore={() => setCurrentPage('home')} onProductUpdate={fetchProducts} /></main>
+        <AdminDashboard adminUser={adminUser || { username: 'Admin' }} adminToken={adminToken} onLogout={handleAdminLogout} onNavigateToStore={() => setCurrentPage('home')} onProductUpdate={fetchProducts} />
       </div>
     )
   }
