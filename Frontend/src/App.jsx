@@ -86,27 +86,50 @@ export default function App() {
       setIsLoadingProducts(true);
       const data = await apiCall(API_ENDPOINTS.PRODUCTS.ALL);
       if (Array.isArray(data)) {
-        // Create a map of backend products for easy lookup
+        // Create a map of backend products for easy lookup by SKU/ID
         const backendMap = new Map(data.map(p => [p.sku || p._id, p]));
+
+        // Helper to normalize strings for matching
+        const normalize = (s) => (s || '').toString().toLowerCase().trim().replace(/[^a-z0-9]/g, '');
 
         // Merge backend data with static PRODUCTS to ensure all items are visible
         const mergedProducts = PRODUCTS.map(staticProduct => {
-          const backendProduct = backendMap.get(staticProduct.id);
+          // Find backend counterpart
+          // Strategy 1: Match by SKU/ID
+          let backendProduct = backendMap.get(staticProduct.id);
+
+          // Strategy 2: Match by Brand + Flavor (Fuzzy)
+          if (!backendProduct) {
+            backendProduct = data.find(p =>
+              normalize(p.brand) === normalize(staticProduct.brand) &&
+              normalize(p.flavor) === normalize(staticProduct.flavor)
+            );
+          }
+
           if (backendProduct) {
-            // Extract detailed specs if they exist in backend structure (often nested in specifications)
             const backendSpecs = backendProduct.specifications || {};
+
+            // Smart Name Construction to avoid "flavor - flavor" duplication
+            const series = backendProduct.series || staticProduct.series || '';
+            const flavor = backendProduct.flavor || staticProduct.flavor || '';
+            const name = backendProduct.name || '';
+
+            let finalTitle = series || name || staticProduct.name || '';
+            if (flavor && !finalTitle.toLowerCase().includes(flavor.toLowerCase())) {
+              finalTitle += ` - ${flavor}`;
+            }
 
             return {
               ...staticProduct,
               ...backendProduct,
               id: backendProduct._id || backendProduct.id,
+              name: finalTitle,
 
               // Visuals
               cardImage: backendProduct.images?.[0] || staticProduct.cardImage,
               poster: backendProduct.images?.[0] || staticProduct.poster,
 
-              // Core Data & Specs - Prefer backend specs if present, otherwise static
-              // Check both top-level and nested specifications
+              // Specs Fallback - Ensure puffs/nicotine never show as N/A if static data exists
               puffs: backendSpecs.puffs ? parseInt(backendSpecs.puffs) : (backendProduct.puffs || staticProduct.puffs),
               nicotine: backendSpecs.nicotine || backendProduct.nicotine || staticProduct.nicotine,
               type: backendSpecs.type || backendProduct.type || staticProduct.type,
@@ -119,16 +142,17 @@ export default function App() {
               isBestSelling: backendProduct.isBestSelling || staticProduct.isBestSelling
             };
           }
-          // Product not in backend? Show static version marked as sold out (or available if you prefer)
+
+          // Fallback for static products NOT in backend
           return {
             ...staticProduct,
             soldOut: true
           };
         });
 
-        // Add pure backend products not matched in static list
-        const staticIds = new Set(PRODUCTS.map(p => p.id));
-        const newBackendProducts = data.filter(p => !staticIds.has(p.sku || p._id)).map(p => {
+        // Add pure backend products that were NOT matched above
+        const matchedBackendIds = new Set(mergedProducts.map(p => p._id).filter(Boolean));
+        const newBackendProducts = data.filter(p => !matchedBackendIds.has(p._id)).map(p => {
           const specs = p.specifications || {};
           return {
             ...p,

@@ -26,8 +26,7 @@ export default function ProductModal({ product, onClose, onAddToCart, onBuyNow }
                   <p className="text-sm text-gray-400 uppercase tracking-wide mb-1">{product.brand}</p>
                 )}
                 <h3 className="text-xl md:text-2xl font-semibold text-white leading-tight">
-                  {product.series || product.name}
-                  {product.flavor && ` - ${product.flavor}`}
+                  {product.name || (product.series + (product.flavor ? ` - ${product.flavor}` : ''))}
                 </h3>
               </div>
               <button

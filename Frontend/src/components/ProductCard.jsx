@@ -79,8 +79,7 @@ export default function ProductCard({ product, onOpen, onAddToCart }) {
             <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">{product.brand}</p>
           )}
           <h3 className="font-bold text-lg text-white line-clamp-2 min-h-[3.5rem]">
-            {product.series || product.name}
-            {product.flavor && ` - ${product.flavor}`}
+            {product.name || (product.series + (product.flavor ? ` - ${product.flavor}` : ''))}
           </h3>
           {(product.features || product.type) && (
             <p className="text-sm text-gray-400 mt-1 line-clamp-1">
