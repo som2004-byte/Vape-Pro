@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import VapeSmokeEffect from './VapeSmokeEffect'
+import { GoogleLogin } from '@react-oauth/google';
 import API_BASE_URL from '../config'
 import { API_ENDPOINTS, apiCall, getAuthHeaders } from '../utils/apiConfig';
 
@@ -416,6 +417,35 @@ export default function LoginSignup({ onLogin, onAdminLogin }) {
     }
   };
 
+  const handleGoogleSuccess = async (response) => {
+    setIsLoading(true);
+    setError('');
+    setExpression('THINKING');
+    try {
+      const data = await apiCall(API_ENDPOINTS.AUTH.GOOGLE_LOGIN, {
+        method: 'POST',
+        body: JSON.stringify({ credential: response.credential })
+      });
+
+      setExpression('HAPPY');
+      if (onLogin) {
+        onLogin({
+          id: data.user.id,
+          name: data.user.name,
+          email: data.user.email,
+          token: data.token,
+          isLogin: true
+        });
+      }
+    } catch (err) {
+      console.error('Google Auth Error:', err);
+      setError(err.message || 'Google login failed');
+      setExpression('SAD');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="relative min-h-screen overflow-hidden bg-gray-100">
       {/* Background video */}
@@ -757,6 +787,28 @@ export default function LoginSignup({ onLogin, onAdminLogin }) {
                       </span>
                     ) : isLogin ? 'Login' : 'Sign Up'}
                   </button>
+
+                  <div className="relative my-6">
+                    <div className="absolute inset-0 flex items-center">
+                      <div className="w-full border-t border-darkPurple-800/50"></div>
+                    </div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                      <span className="bg-black/50 px-2 text-darkPurple-400">Or continue with</span>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-center">
+                    <GoogleLogin
+                      onSuccess={handleGoogleSuccess}
+                      onError={() => {
+                        setError('Google Login failed');
+                        setExpression('SAD');
+                      }}
+                      theme="filled_black"
+                      shape="pill"
+                      width="100%"
+                    />
+                  </div>
 
                   {error && (
                     <div className="mt-4 p-3 bg-red-600/20 border border-red-600/50 text-red-200 rounded-lg text-sm">

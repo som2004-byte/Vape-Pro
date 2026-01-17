@@ -6,7 +6,10 @@ const cors = require('cors');
 const mongoose = require('mongoose');
 const nodemailer = require('nodemailer');
 const https = require('https'); // For Telegram
+const { OAuth2Client } = require('google-auth-library');
 require('dotenv').config();
+
+const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 const User = require('./models/User');
 const EmailOtp = require('./models/EmailOtp');
@@ -129,10 +132,67 @@ app.post('/api/login', async (req, res) => {
   try {
     const { email, password } = req.body;
     const user = await User.findOne({ email });
-    if (!user || !(await bcrypt.compare(password, user.password))) return res.status(401).json({ message: 'Invalid credentials' });
+    if (!user || !user.password || !(await bcrypt.compare(password, user.password))) {
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
     const token = jwt.sign({ id: user._id, email: user.email }, JWT_SECRET, { expiresIn: '24h' });
     res.json({ token, user: { id: user._id, email: user.email, name: user.name } });
   } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+app.post('/api/google-login', async (req, res) => {
+  try {
+    const { credential } = req.body;
+    if (!credential) return res.status(400).json({ message: 'ID Token required' });
+
+    const ticket = await client.verifyIdToken({
+      idToken: credential,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+
+    const payload = ticket.getPayload();
+    const { sub: googleId, email, name, picture, email_verified } = payload;
+
+    let user = await User.findOne({
+      $or: [
+        { googleId },
+        { email: email.toLowerCase() }
+      ]
+    });
+
+    if (!user) {
+      // Create new user if doesn't exist
+      user = new User({
+        googleId,
+        email: email.toLowerCase(),
+        name: name,
+        emailVerified: email_verified || true,
+      });
+      await user.save();
+      sendTelegramNotification(`👤 *New Google Sign Up*\nName: ${name}\nEmail: \`${email}\``);
+    } else {
+      // Update existing user with googleId if they didn't have it
+      if (!user.googleId) {
+        user.googleId = googleId;
+        user.emailVerified = true;
+        await user.save();
+      }
+    }
+
+    const token = jwt.sign({ id: user._id, email: user.email }, JWT_SECRET, { expiresIn: '24h' });
+    res.json({
+      token,
+      user: {
+        id: user._id,
+        email: user.email,
+        name: user.name,
+        picture
+      }
+    });
+  } catch (error) {
+    console.error('Google Login Error:', error);
+    res.status(500).json({ message: 'Google authentication failed', error: error.message });
+  }
 });
 
 

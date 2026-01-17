@@ -15,7 +15,12 @@ const userSchema = new mongoose.Schema({
   },
   password: {
     type: String,
-    required: true
+    required: false // Optional for Google users
+  },
+  googleId: {
+    type: String,
+    unique: true,
+    sparse: true // Only required if logging in via Google
   },
   // Optional fields for future email verification state
   emailVerified: {

@@ -11,6 +11,7 @@ export const API_ENDPOINTS = {
     AUTH: {
         SIGNUP: `${API_BASE_URL}/api/signup`,
         LOGIN: `${API_BASE_URL}/api/login`,
+        GOOGLE_LOGIN: `${API_BASE_URL}/api/google-login`,
         VERIFY_OTP: `${API_BASE_URL}/api/verify-otp`,
         RESEND_OTP: `${API_BASE_URL}/api/resend-otp`,
     },
