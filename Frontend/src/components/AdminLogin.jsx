@@ -56,7 +56,7 @@ export default function AdminLogin({ onAdminLogin }) {
         <div className="flex items-center gap-4">
           <img src={logo} alt="Logo" className="h-10 w-auto" />
           <div className="flex flex-col">
-            <h1 className="text-xl font-black italic tracking-tighter text-white leading-none">VAPEMASTER</h1>
+            <h1 className="text-xl font-black italic tracking-tighter text-white leading-none">VAPESMART</h1>
             <span className="text-[10px] font-bold tracking-[0.2em] text-gray-500 uppercase">Platform Console</span>
           </div>
         </div>
