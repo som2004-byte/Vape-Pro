@@ -95,8 +95,12 @@ export default function ProductCard({ product, onOpen, onAddToCart }) {
 
         {/* Product Details */}
         <div className="flex items-center justify-between text-sm text-gray-400">
-          <span>{product.puffs?.toLocaleString() || 'N/A'} puffs</span>
-          <span className="text-gray-500">·</span>
+          {product.puffs ? (
+            <>
+              <span>{product.puffs.toLocaleString()} puffs</span>
+              <span className="text-gray-500">·</span>
+            </>
+          ) : null}
           <span>{product.nicotine || 'N/A'}</span>
         </div>
 

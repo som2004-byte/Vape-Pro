@@ -86,88 +86,115 @@ export default function App() {
       setIsLoadingProducts(true);
       const data = await apiCall(API_ENDPOINTS.PRODUCTS.ALL);
       if (Array.isArray(data)) {
-        // Create a map of backend products for easy lookup by SKU/ID
-        const backendMap = new Map(data.map(p => [p.sku || p._id, p]));
-
         // Helper to normalize strings for matching
         const normalize = (s) => (s || '').toString().toLowerCase().trim().replace(/[^a-z0-9]/g, '');
 
-        // Merge backend data with static PRODUCTS to ensure all items are visible
+        // Comprehensive spec resolver
+        const resolveSpec = (backendVal, staticVal, isNumber = false) => {
+          const isEmpty = (v) => v === null || v === undefined || v === "" || v === 0 || v === "0" || (typeof v === 'string' && (v.toLowerCase() === 'n/a' || v.toLowerCase() === 'null'));
+          if (!isEmpty(backendVal)) return isNumber ? parseInt(backendVal) : backendVal;
+          return staticVal;
+        };
+
+        const matchedBackendIds = new Set();
+        const finalProductsMap = new Map(); // Key: normalized brand|series|flavor
+
+        // 1. Process Static Products first (The "Anchor" items)
         const mergedProducts = PRODUCTS.map(staticProduct => {
-          // Find backend counterpart
-          // Strategy 1: Match by SKU/ID
-          let backendProduct = backendMap.get(staticProduct.id);
+          const staticNormKey = `${normalize(staticProduct.brand)}|${normalize(staticProduct.series)}|${normalize(staticProduct.flavor)}`;
 
-          // Strategy 2: Match by Brand + Flavor (Fuzzy)
-          if (!backendProduct) {
-            backendProduct = data.find(p =>
-              normalize(p.brand) === normalize(staticProduct.brand) &&
-              normalize(p.flavor) === normalize(staticProduct.flavor)
-            );
-          }
+          // Find best backend match
+          const matchingBackendProducts = data.filter(p => {
+            if (matchedBackendIds.has(p._id)) return false;
+            const isIdMatch = p.sku === staticProduct.id || p._id === staticProduct.id;
+            const isFuzzyMatch = normalize(p.brand) === normalize(staticProduct.brand) &&
+              normalize(p.flavor) === normalize(staticProduct.flavor);
+            return isIdMatch || isFuzzyMatch;
+          });
 
-          if (backendProduct) {
+          if (matchingBackendProducts.length > 0) {
+            // Prioritize item with stock
+            const backendProduct = matchingBackendProducts.find(p => p.stock > 0) || matchingBackendProducts[0];
+            matchingBackendProducts.forEach(p => matchedBackendIds.add(p._id));
+
             const backendSpecs = backendProduct.specifications || {};
 
-            // Smart Name Construction to avoid "flavor - flavor" duplication
+            // Smart Name Construction
             const series = backendProduct.series || staticProduct.series || '';
-            const flavor = backendProduct.flavor || staticProduct.flavor || '';
-            const name = backendProduct.name || '';
+            let flavor = backendProduct.flavor || staticProduct.flavor || '';
+            if (normalize(flavor) === 'null') flavor = '';
 
-            let finalTitle = series || name || staticProduct.name || '';
+            let finalTitle = series;
             if (flavor && !finalTitle.toLowerCase().includes(flavor.toLowerCase())) {
               finalTitle += ` - ${flavor}`;
             }
 
-            return {
+            const finalProduct = {
               ...staticProduct,
               ...backendProduct,
               id: backendProduct._id || backendProduct.id,
               name: finalTitle,
+              brand: staticProduct.brand, // Correct backend brand errors using static data
 
-              // Visuals
-              cardImage: backendProduct.images?.[0] || staticProduct.cardImage,
-              poster: backendProduct.images?.[0] || staticProduct.poster,
-
-              // Specs Fallback - Ensure puffs/nicotine never show as N/A if static data exists
-              puffs: backendSpecs.puffs ? parseInt(backendSpecs.puffs) : (backendProduct.puffs || staticProduct.puffs),
-              nicotine: backendSpecs.nicotine || backendProduct.nicotine || staticProduct.nicotine,
-              type: backendSpecs.type || backendProduct.type || staticProduct.type,
-              features: backendSpecs.features || backendProduct.features || staticProduct.features,
+              // Specs Fallback
+              puffs: resolveSpec(backendSpecs.puffs || backendProduct.puffs, staticProduct.puffs, true),
+              nicotine: resolveSpec(backendSpecs.nicotine || backendProduct.nicotine, staticProduct.nicotine),
+              type: resolveSpec(backendSpecs.type || backendProduct.type, staticProduct.type),
+              features: resolveSpec(backendSpecs.features || backendProduct.features, staticProduct.features),
 
               // Market Data
-              price: backendProduct.price,
-              stock: backendProduct.stock,
-              soldOut: backendProduct.stock <= 0,
+              price: backendProduct.price || staticProduct.price,
+              stock: backendProduct.stock || 0,
+              soldOut: (backendProduct.stock || 0) <= 0,
               isBestSelling: backendProduct.isBestSelling || staticProduct.isBestSelling
             };
+
+            finalProductsMap.set(staticNormKey, finalProduct);
+            return finalProduct;
           }
 
-          // Fallback for static products NOT in backend
-          return {
-            ...staticProduct,
-            soldOut: true
-          };
+          // Static item not in backend - Show as Sold Out
+          const ghostProduct = { ...staticProduct, soldOut: true };
+          finalProductsMap.set(staticNormKey, ghostProduct);
+          return ghostProduct;
         });
 
-        // Add pure backend products that were NOT matched above
-        const matchedBackendIds = new Set(mergedProducts.map(p => p._id).filter(Boolean));
-        const newBackendProducts = data.filter(p => !matchedBackendIds.has(p._id)).map(p => {
+        // 2. Process remaining backend items (Unique/New products)
+        data.filter(p => !matchedBackendIds.has(p._id)).forEach(p => {
+          const normKey = `${normalize(p.brand)}|${normalize(p.series)}|${normalize(p.flavor)}`;
+
+          // Prevent duplicates if already matched fuzzy
+          if (finalProductsMap.has(normKey)) return;
+
           const specs = p.specifications || {};
-          return {
+
+          // Try to find a "Series Prototype" in static data to inherit specs (e.g. 0 puffs fix)
+          const prototype = PRODUCTS.find(sp => normalize(sp.brand) === normalize(p.brand) && normalize(sp.series) === normalize(p.series));
+
+          let flavor = p.flavor || '';
+          if (normalize(flavor) === 'null') flavor = '';
+          let finalTitle = p.series || p.name || 'Vape Item';
+          if (flavor && !finalTitle.toLowerCase().includes(flavor.toLowerCase())) {
+            finalTitle += ` - ${flavor}`;
+          }
+
+          const newProduct = {
             ...p,
             id: p._id || p.id,
+            name: finalTitle,
             cardImage: p.images?.[0] || '',
             poster: p.images?.[0] || '',
-            puffs: specs.puffs ? parseInt(specs.puffs) : (p.puffs || 0),
-            nicotine: specs.nicotine || p.nicotine || '',
-            type: specs.type || p.type || '',
-            features: specs.features || p.features || '',
-            soldOut: p.stock <= 0
+            puffs: resolveSpec(specs.puffs || p.puffs, prototype?.puffs || 0, true),
+            nicotine: resolveSpec(specs.nicotine || p.nicotine, prototype?.nicotine || ''),
+            type: resolveSpec(specs.type || p.type, prototype?.type || ''),
+            features: resolveSpec(specs.features || p.features, prototype?.features || ''),
+            soldOut: (p.stock || 0) <= 0
           };
+
+          finalProductsMap.set(normKey, newProduct);
         });
 
-        setBackendProducts([...mergedProducts, ...newBackendProducts]);
+        setBackendProducts(Array.from(finalProductsMap.values()));
       }
     } catch (err) {
       console.error('Failed to fetch products:', err);
