@@ -81,7 +81,7 @@ const sendOtpEmail = async (toEmail, code) => {
 
 // --- ROUTES ---
 
-app.get('/api/im-alive', (req, res) => res.json({ message: 'Server is updated and routes are ready' }));
+app.get('/api/im-alive', (req, res) => res.json({ message: 'Server is updated (v2) and routes are ready', timestamp: new Date() }));
 
 app.post('/api/signup', async (req, res) => {
   try {
@@ -116,7 +116,9 @@ app.use('/api/orders', orderRoutes);
 app.use('/api/cart', cartRoutes);
 
 // Use product routes
+console.log('Mounting /api/products route...');
 app.use('/api/products', productRoutes);
+app.get('/api/test-products', (req, res) => res.json({ message: 'Product test route working' }));
 
 app.get('/api/account', authenticateToken, async (req, res) => {
   try {
