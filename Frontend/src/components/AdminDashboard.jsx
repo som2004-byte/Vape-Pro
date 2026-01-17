@@ -230,6 +230,7 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
 
         setStockUpdateValue('');
         setPriceUpdateValue('');
+        setSelectedProduct(null); // Return to list view
       } else {
         const errorData = await response.json();
         setError(errorData.message || 'Failed to update product');
