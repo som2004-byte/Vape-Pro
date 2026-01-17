@@ -37,10 +37,10 @@ export default function AdminLogin({ onAdminLogin }) {
   };
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center bg-black text-gray-100 overflow-hidden font-sans">
+    <div className="relative min-h-screen flex flex-col bg-black text-gray-100 overflow-hidden font-sans selection:bg-purple-500/30">
       <div className="fixed inset-0 z-0">
         <video
-          className="w-full h-full object-cover opacity-60 grayscale"
+          className="w-full h-full object-cover opacity-40 grayscale"
           src="/videos/login-bg.mp4"
           autoPlay
           loop
@@ -48,90 +48,96 @@ export default function AdminLogin({ onAdminLogin }) {
           playsInline
         />
       </div>
-      <VapeSmokeEffect density={60} speed={0.4} opacity={0.3} />
+      <div className="fixed inset-0 z-0 bg-gradient-to-t from-purple-900/20 via-black/80 to-black/90 pointer-events-none" />
+      <VapeSmokeEffect density={40} speed={0.3} opacity={0.4} />
 
-      {/* Cyberpunk Grid Overlay */}
-      <div className="absolute inset-0 bg-[linear-gradient(rgba(18,18,24,0.9),rgba(18,18,24,0.9)),linear-gradient(0deg,rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:40px_40px] z-[1] pointer-events-none"></div>
-
-      <div className="relative z-10 w-full max-w-lg p-8 md:p-12 rounded-[2rem] bg-black/40 border border-white/5 backdrop-blur-3xl shadow-[0_0_80px_rgba(139,92,246,0.15)] overflow-hidden group">
-
-        {/* Animated Glow Border Effect */}
-        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-purple-500/10 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000 pointer-events-none" />
-
-        <div className="flex flex-col items-center mb-10 text-center">
-          <div className="relative mb-6">
-            <div className="absolute inset-0 bg-purple-500/20 blur-xl rounded-full" />
-            <img src={logo} alt="Logo" className="relative h-20 w-auto filter drop-shadow-[0_0_15px_rgba(168,85,247,0.6)]" />
+      {/* Top Navigation Bar */}
+      <header className="relative z-20 w-full px-8 py-6 flex items-center justify-between border-b border-white/5 bg-black/50 backdrop-blur-sm">
+        <div className="flex items-center gap-4">
+          <img src={logo} alt="Logo" className="h-10 w-auto" />
+          <div className="flex flex-col">
+            <h1 className="text-xl font-black italic tracking-tighter text-white leading-none">VAPEMASTER</h1>
+            <span className="text-[10px] font-bold tracking-[0.2em] text-gray-500 uppercase">Platform Console</span>
           </div>
-          <h1 className="text-4xl md:text-5xl font-black italic tracking-tighter uppercase text-transparent bg-clip-text bg-gradient-to-r from-white via-gray-200 to-gray-400 mb-2">
-            Admin Access
-          </h1>
-          <div className="h-0.5 w-24 bg-gradient-to-r from-transparent via-purple-500 to-transparent mb-3 opacity-50" />
-          <p className="text-xs md:text-sm font-bold text-gray-400 uppercase tracking-[0.3em]">
-            Authorized Personnel Only
-          </p>
         </div>
 
-        {error && (
-          <div className="mb-6 p-4 bg-red-900/20 border-l-4 border-red-500 text-red-200 rounded-r-lg text-sm font-medium shadow-[0_0_20px_rgba(239,68,68,0.1)]">
-            {error}
-          </div>
-        )}
+        <div className="hidden md:flex items-center gap-8">
+          <nav className="flex gap-6 text-[10px] font-bold tracking-[0.15em] text-gray-400 uppercase">
+            <a href="#" className="hover:text-white transition-colors">Home Console</a>
+            <span className="text-white">Admin Access</span>
+          </nav>
+          <div className="h-6 w-px bg-white/20"></div>
+          <button className="px-6 py-2 bg-gradient-to-r from-purple-600 to-pink-600 rounded-md text-[10px] font-black uppercase tracking-wider text-white hover:opacity-90 transition-opacity shadow-[0_0_15px_rgba(168,85,247,0.4)]">
+            Authorized Login
+          </button>
+        </div>
+      </header>
 
-        <form onSubmit={handleLogin} className="space-y-6">
-          <div className="group/input">
-            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 ml-1 group-focus-within/input:text-purple-400 transition-colors">Email Node</label>
-            <div className="relative">
+      {/* Main Content Area */}
+      <main className="relative z-10 flex-1 flex items-center justify-center p-4">
+        <div className="w-full max-w-[420px] bg-black/80 border border-white/10 rounded-[2.5rem] p-8 md:p-10 shadow-2xl backdrop-blur-xl">
+
+          {/* Card Internal Header */}
+          <div className="flex flex-col items-center mb-10 text-center">
+            <div className="mb-6 relative group">
+              <div className="absolute inset-0 bg-red-500/20 blur-xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
+              <img src={logo} alt="Logo" className="relative h-14 w-auto filter drop-shadow-[0_0_10px_rgba(255,255,255,0.1)]" />
+            </div>
+            <h2 className="text-4xl font-black italic tracking-tighter uppercase text-white mb-2">
+              Admin Access
+            </h2>
+            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.25em]">
+              Authorized Personnel Only
+            </p>
+          </div>
+
+          {error && (
+            <div className="mb-6 p-3 bg-red-500/10 border border-red-500/20 text-red-200 rounded-xl text-xs font-bold text-center">
+              {error}
+            </div>
+          )}
+
+          <form onSubmit={handleLogin} className="space-y-5">
+            <div className="space-y-1.5">
+              <label className="block text-[9px] font-bold text-gray-500 uppercase tracking-[0.15em] ml-2">Email Node</label>
               <input
                 type="email"
-                className="w-full pl-4 pr-4 py-4 bg-black/60 border-2 border-white/5 rounded-xl text-white placeholder-gray-600 focus:border-purple-500/50 focus:bg-black/80 focus:shadow-[0_0_30px_rgba(168,85,247,0.1)] transition-all outline-none font-mono text-sm tracking-wide"
+                className="w-full px-6 py-3.5 bg-black/50 border border-white/10 rounded-2xl text-white placeholder-gray-600 focus:border-white/30 focus:bg-black transition-all outline-none font-bold italic text-sm"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="admin@vapesmart.ai"
                 required
               />
             </div>
-          </div>
 
-          <div className="group/input">
-            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 ml-1 group-focus-within/input:text-purple-400 transition-colors">Access Key</label>
-            <div className="relative">
+            <div className="space-y-1.5">
+              <label className="block text-[9px] font-bold text-gray-500 uppercase tracking-[0.15em] ml-2">Access Key</label>
               <input
                 type="password"
-                className="w-full pl-4 pr-4 py-4 bg-black/60 border-2 border-white/5 rounded-xl text-white placeholder-gray-600 focus:border-purple-500/50 focus:bg-black/80 focus:shadow-[0_0_30px_rgba(168,85,247,0.1)] transition-all outline-none font-mono text-sm tracking-wide"
+                className="w-full px-6 py-3.5 bg-black/50 border border-white/10 rounded-2xl text-white placeholder-gray-600 focus:border-white/30 focus:bg-black transition-all outline-none font-bold italic text-sm tracking-widest"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••••••"
                 required
               />
             </div>
+
+            <button
+              type="submit"
+              className="w-full py-4 mt-6 rounded-2xl bg-white text-black font-black uppercase tracking-[0.15em] hover:bg-gray-200 hover:scale-[1.01] transition-all duration-300 shadow-[0_0_20px_rgba(255,255,255,0.1)] disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+              disabled={loading}
+            >
+              {loading ? 'Processing...' : 'Initiate Login'}
+            </button>
+          </form>
+
+          <div className="mt-10 text-center">
+            <a href="#" className="text-[9px] font-bold text-gray-600 hover:text-gray-400 uppercase tracking-[0.15em] transition-colors">
+              Need a master node? Register Here
+            </a>
           </div>
-
-          <button
-            type="submit"
-            className="relative w-full py-4 mt-6 rounded-xl overflow-hidden group/btn font-black uppercase tracking-widest text-white shadow-2xl shadow-purple-900/20 disabled:opacity-50 disabled:cursor-not-allowed"
-            disabled={loading}
-          >
-            <div className="absolute inset-0 bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-800 transition-all duration-300 group-hover/btn:scale-105" />
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover/btn:translate-x-[100%] transition-transform duration-700" />
-            <span className="relative z-10 flex items-center justify-center gap-2">
-              {loading ? (
-                <>
-                  <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                  Authenticating...
-                </>
-              ) : (
-                <>Initiate Login <span className="text-lg">→</span></>
-              )}
-            </span>
-          </button>
-        </form>
-      </div>
-
-      {/* Footer Text */}
-      <div className="absolute bottom-6 text-center w-full">
-        <p className="text-[10px] text-gray-600 uppercase tracking-widest">© 2024 VapeSmart Secure Systems • v2.1.0-RC</p>
-      </div>
+        </div>
+      </main>
     </div>
   );
 }
