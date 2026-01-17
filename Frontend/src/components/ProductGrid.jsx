@@ -5,7 +5,7 @@ export default function ProductGrid({
   products,
   onOpen,
   category,
-  activeFilters,
+  activeFilters = {},
   onFilterChange,
   onAddToCart // Accept onAddToCart prop
 }) {
@@ -14,7 +14,7 @@ export default function ProductGrid({
 
   // Filter products
   let filteredProducts = [...products]
-  
+
   // Availability filter
   if (filterAvailability === 'in-stock') {
     filteredProducts = filteredProducts.filter(p => !p.soldOut)
@@ -23,7 +23,7 @@ export default function ProductGrid({
   }
 
   // Sort products
-  switch(sortBy) {
+  switch (sortBy) {
     case 'price-low':
       filteredProducts.sort((a, b) => (a.price || 0) - (b.price || 0))
       break
@@ -61,7 +61,7 @@ export default function ProductGrid({
       <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-darkPurple-900/30">
         <div className="flex items-center gap-4 flex-wrap">
           <span className="text-darkPurple-300 text-sm font-medium">Filter:</span>
-          
+
           <select
             value={filterAvailability}
             onChange={(e) => setFilterAvailability(e.target.value)}
@@ -144,8 +144,8 @@ export default function ProductGrid({
               className="animate-fade-in"
               style={{ animationDelay: `${index * 0.05}s` }}
             >
-              <ProductCard 
-                product={product} 
+              <ProductCard
+                product={product}
                 onOpen={onOpen}
                 onAddToCart={onAddToCart} // Pass onAddToCart to ProductCard
               />
