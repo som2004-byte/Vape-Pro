@@ -37,11 +37,14 @@ router.put(
       }
 
       const updates = {};
-      const { name, phone, address } = req.body;
+      const { name, phone, address, addresses, emailVerified, phoneVerified } = req.body;
 
       if (name) updates.name = name;
-      if (phone) updates.phone = phone;
+      if (phone) updates.phoneNumber = phone;
       if (address) updates.address = address;
+      if (addresses) updates.addresses = addresses;
+      if (typeof emailVerified === 'boolean') updates.emailVerified = emailVerified;
+      if (typeof phoneVerified === 'boolean') updates.phoneVerified = phoneVerified;
 
       const user = await User.findByIdAndUpdate(
         req.user._id,
@@ -126,7 +129,7 @@ router.post(
 
       const { productId, quantity } = req.body;
       const cart = req.cart;
-      
+
       // Check if item already exists in cart
       const existingItem = cart.items.find(
         item => item.product.toString() === productId
@@ -147,7 +150,7 @@ router.post(
 
       await cart.save();
       await cart.populate('items.product');
-      
+
       res.status(201).json({
         message: 'Item added to cart',
         cart,
@@ -179,7 +182,7 @@ router.delete(
       }
 
       cart.items.splice(itemIndex, 1);
-      
+
       // Recalculate total
       cart.total = cart.items.reduce((total, item) => {
         return total + (item.quantity * (item.product?.price || 0));
@@ -187,7 +190,7 @@ router.delete(
 
       await cart.save();
       await cart.populate('items.product');
-      
+
       res.json({
         message: 'Item removed from cart',
         cart,
@@ -205,7 +208,7 @@ router.get('/orders', authenticateToken, async (req, res) => {
     const orders = await Order.find({ user: req.user._id })
       .sort({ createdAt: -1 })
       .populate('items.product');
-    
+
     res.json(orders);
   } catch (error) {
     console.error('Get orders error:', error);
@@ -251,7 +254,7 @@ router.post(
       });
 
       await order.save();
-      
+
       // Clear the cart
       cart.items = [];
       cart.total = 0;

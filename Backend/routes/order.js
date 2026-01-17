@@ -48,7 +48,7 @@ router.post(
         // Try to find product in database, but don't fail if not found
         let product = null;
         try {
-          product = await Product.findById(productId);
+          product = await Product.findOne({ productId: productId });
         } catch (err) {
           console.log('Product lookup failed, using item data:', productId);
         }
@@ -164,13 +164,7 @@ router.post(
 
       for (const item of itemsToProcess) {
         const productId = item.product || item.id || item._id || item.productId;
-        // Try to find product in database, but don't fail if not found
-        let product = null;
-        try {
-          product = await Product.findById(productId);
-        } catch (err) {
-          console.log('Product lookup failed, using item data:', productId);
-        }
+        const product = await Product.findOne({ productId: productId });
 
         if (!product) {
           return res.status(400).json({
