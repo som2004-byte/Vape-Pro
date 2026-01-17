@@ -86,18 +86,48 @@ export default function App() {
       setIsLoadingProducts(true);
       const data = await apiCall(API_ENDPOINTS.PRODUCTS.ALL);
       if (Array.isArray(data)) {
-        setBackendProducts(data.map(p => ({
+        // Create a map of backend products for easy lookup
+        const backendMap = new Map(data.map(p => [p.sku || p._id, p]));
+
+        // Merge backend data with static PRODUCTS to ensure all items are visible
+        // If a static product exists in backend, use backend data (stock, price, etc)
+        // If not in backend, show it but mark as soldOut (or keep as is if you prefer)
+        const mergedProducts = PRODUCTS.map(staticProduct => {
+          const backendProduct = backendMap.get(staticProduct.id);
+          if (backendProduct) {
+            return {
+              ...staticProduct,
+              ...backendProduct,
+              id: backendProduct._id || backendProduct.id, // Use backend ID for cart/orders
+              // Ensure UI properties are preserved or updated
+              cardImage: backendProduct.images?.[0] || staticProduct.cardImage,
+              poster: backendProduct.images?.[0] || staticProduct.poster,
+              price: backendProduct.price,
+              stock: backendProduct.stock,
+              soldOut: backendProduct.stock <= 0,
+              isBestSelling: backendProduct.isBestSelling || staticProduct.isBestSelling
+            };
+          }
+          // Product not in backend yet? Show it but mark as sold out to be safe, 
+          // or keep it available if purely frontend-driven. 
+          // Request says: "show the product just make sure its saying product is out of stock"
+          return {
+            ...staticProduct,
+            soldOut: true
+          };
+        });
+
+        // Also add any new products from backend that aren't in static list
+        const staticIds = new Set(PRODUCTS.map(p => p.id));
+        const newBackendProducts = data.filter(p => !staticIds.has(p.sku || p._id)).map(p => ({
           ...p,
-          id: p.sku || p._id,
+          id: p._id || p.id,
           cardImage: p.images?.[0] || '',
           poster: p.images?.[0] || '',
-          series: p.specifications?.series || p.series || '',
-          puffs: p.specifications?.puffs ? parseInt(p.specifications.puffs) : (p.puffs || 0),
-          nicotine: p.specifications?.nicotine || p.nicotine || '',
-          type: p.specifications?.type || p.type || '',
-          features: p.specifications?.features || p.features || '',
           soldOut: p.stock <= 0
-        })));
+        }));
+
+        setBackendProducts([...mergedProducts, ...newBackendProducts]);
       }
     } catch (err) {
       console.error('Failed to fetch products:', err);
