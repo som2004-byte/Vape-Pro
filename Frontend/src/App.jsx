@@ -90,42 +90,58 @@ export default function App() {
         const backendMap = new Map(data.map(p => [p.sku || p._id, p]));
 
         // Merge backend data with static PRODUCTS to ensure all items are visible
-        // If a static product exists in backend, use backend data (stock, price, etc)
-        // If not in backend, show it but mark as soldOut (or keep as is if you prefer)
         const mergedProducts = PRODUCTS.map(staticProduct => {
           const backendProduct = backendMap.get(staticProduct.id);
           if (backendProduct) {
+            // Extract detailed specs if they exist in backend structure (often nested in specifications)
+            const backendSpecs = backendProduct.specifications || {};
+
             return {
               ...staticProduct,
               ...backendProduct,
-              id: backendProduct._id || backendProduct.id, // Use backend ID for cart/orders
-              // Ensure UI properties are preserved or updated
+              id: backendProduct._id || backendProduct.id,
+
+              // Visuals
               cardImage: backendProduct.images?.[0] || staticProduct.cardImage,
               poster: backendProduct.images?.[0] || staticProduct.poster,
+
+              // Core Data & Specs - Prefer backend specs if present, otherwise static
+              // Check both top-level and nested specifications
+              puffs: backendSpecs.puffs ? parseInt(backendSpecs.puffs) : (backendProduct.puffs || staticProduct.puffs),
+              nicotine: backendSpecs.nicotine || backendProduct.nicotine || staticProduct.nicotine,
+              type: backendSpecs.type || backendProduct.type || staticProduct.type,
+              features: backendSpecs.features || backendProduct.features || staticProduct.features,
+
+              // Market Data
               price: backendProduct.price,
               stock: backendProduct.stock,
               soldOut: backendProduct.stock <= 0,
               isBestSelling: backendProduct.isBestSelling || staticProduct.isBestSelling
             };
           }
-          // Product not in backend yet? Show it but mark as sold out to be safe, 
-          // or keep it available if purely frontend-driven. 
-          // Request says: "show the product just make sure its saying product is out of stock"
+          // Product not in backend? Show static version marked as sold out (or available if you prefer)
           return {
             ...staticProduct,
             soldOut: true
           };
         });
 
-        // Also add any new products from backend that aren't in static list
+        // Add pure backend products not matched in static list
         const staticIds = new Set(PRODUCTS.map(p => p.id));
-        const newBackendProducts = data.filter(p => !staticIds.has(p.sku || p._id)).map(p => ({
-          ...p,
-          id: p._id || p.id,
-          cardImage: p.images?.[0] || '',
-          poster: p.images?.[0] || '',
-          soldOut: p.stock <= 0
-        }));
+        const newBackendProducts = data.filter(p => !staticIds.has(p.sku || p._id)).map(p => {
+          const specs = p.specifications || {};
+          return {
+            ...p,
+            id: p._id || p.id,
+            cardImage: p.images?.[0] || '',
+            poster: p.images?.[0] || '',
+            puffs: specs.puffs ? parseInt(specs.puffs) : (p.puffs || 0),
+            nicotine: specs.nicotine || p.nicotine || '',
+            type: specs.type || p.type || '',
+            features: specs.features || p.features || '',
+            soldOut: p.stock <= 0
+          };
+        });
 
         setBackendProducts([...mergedProducts, ...newBackendProducts]);
       }
