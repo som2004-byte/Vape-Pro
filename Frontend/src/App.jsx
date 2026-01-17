@@ -70,7 +70,7 @@ export default function App() {
   const [currentCategory, setCurrentCategory] = useState('all')
   const [activeFilters, setActiveFilters] = useState({})
   const [searchQuery, setSearchQuery] = useState('')
-  const [currentPage, setCurrentPage] = useState('home')
+  const [currentPage, setCurrentPage] = useState(persistedState.isAdminLoggedIn ? 'adminDashboard' : 'home')
   const [accountTab, setAccountTab] = useState('profile')
   const [cartItems, setCartItems] = useState(persistedState.cartItems)
   const [toast, setToast] = useState(null)
