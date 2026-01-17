@@ -11,6 +11,10 @@ require('dotenv').config();
 
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
+if (!process.env.GOOGLE_CLIENT_ID) {
+  console.error("❌ GOOGLE_CLIENT_ID is missing in Backend/.env! Google Login will fail.");
+}
+
 const User = require('./models/User');
 const EmailOtp = require('./models/EmailOtp');
 const Admin = require('./models/Admin');

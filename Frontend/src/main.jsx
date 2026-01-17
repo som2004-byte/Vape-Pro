@@ -4,7 +4,11 @@ import { GoogleOAuthProvider } from '@react-oauth/google'
 import App from './App'
 import './index.css'
 
-const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "736916823376-79i1t5on5f639gldo6puv0a0g0t884ps.apps.googleusercontent.com"; // Placeholder or env
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+
+if (!GOOGLE_CLIENT_ID) {
+    console.warn("[Google Auth] VITE_GOOGLE_CLIENT_ID is not defined in .env! Google Login will not work.");
+}
 
 createRoot(document.getElementById('root')).render(
     <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
