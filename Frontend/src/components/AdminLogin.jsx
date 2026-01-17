@@ -37,7 +37,7 @@ export default function AdminLogin({ onAdminLogin }) {
   };
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center bg-black text-gray-100 overflow-hidden">
+    <div className="relative min-h-screen flex items-center justify-center bg-black text-gray-100 overflow-hidden font-sans">
       <div className="fixed inset-0 z-0">
         <video
           className="w-full h-full object-cover opacity-60 grayscale"
@@ -50,58 +50,87 @@ export default function AdminLogin({ onAdminLogin }) {
       </div>
       <VapeSmokeEffect density={60} speed={0.4} opacity={0.3} />
 
-      <div className="absolute inset-0 bg-gradient-to-br from-black via-black/80 to-purple-900/40 z-[1]"></div>
+      {/* Cyberpunk Grid Overlay */}
+      <div className="absolute inset-0 bg-[linear-gradient(rgba(18,18,24,0.9),rgba(18,18,24,0.9)),linear-gradient(0deg,rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:40px_40px] z-[1] pointer-events-none"></div>
 
-      <div className="relative z-10 p-10 max-w-md w-full rounded-[40px] bg-black/60 border border-white/10 backdrop-blur-3xl shadow-[0_0_100px_rgba(168,85,247,0.15)]">
-        <div className="flex flex-col items-center mb-10">
-          <img src={logo} alt="Logo" className="h-16 w-16 mb-4 filter drop-shadow-[0_0_10px_rgba(168,85,247,0.5)]" />
-          <h1 className="text-4xl font-black italic tracking-tighter uppercase text-white">
+      <div className="relative z-10 w-full max-w-lg p-8 md:p-12 rounded-[2rem] bg-black/40 border border-white/5 backdrop-blur-3xl shadow-[0_0_80px_rgba(139,92,246,0.15)] overflow-hidden group">
+
+        {/* Animated Glow Border Effect */}
+        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-purple-500/10 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000 pointer-events-none" />
+
+        <div className="flex flex-col items-center mb-10 text-center">
+          <div className="relative mb-6">
+            <div className="absolute inset-0 bg-purple-500/20 blur-xl rounded-full" />
+            <img src={logo} alt="Logo" className="relative h-20 w-auto filter drop-shadow-[0_0_15px_rgba(168,85,247,0.6)]" />
+          </div>
+          <h1 className="text-4xl md:text-5xl font-black italic tracking-tighter uppercase text-transparent bg-clip-text bg-gradient-to-r from-white via-gray-200 to-gray-400 mb-2">
             Admin Access
           </h1>
-          <p className="text-sm font-bold text-gray-500 mt-2 uppercase tracking-widest">
+          <div className="h-0.5 w-24 bg-gradient-to-r from-transparent via-purple-500 to-transparent mb-3 opacity-50" />
+          <p className="text-xs md:text-sm font-bold text-gray-400 uppercase tracking-[0.3em]">
             Authorized Personnel Only
           </p>
         </div>
 
         {error && (
-          <div className="mb-6 p-4 bg-red-500/10 border border-red-500/50 text-red-400 rounded-2xl text-sm font-bold italic">
+          <div className="mb-6 p-4 bg-red-900/20 border-l-4 border-red-500 text-red-200 rounded-r-lg text-sm font-medium shadow-[0_0_20px_rgba(239,68,68,0.1)]">
             {error}
           </div>
         )}
 
         <form onSubmit={handleLogin} className="space-y-6">
-          <div>
-            <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 ml-1">Email Node</label>
-            <input
-              type="email"
-              className="w-full px-6 py-4 bg-black border border-gray-800 rounded-2xl text-white placeholder-gray-700 focus:border-purple-500 transition-all outline-none font-bold italic"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="admin@vapesmart.ai"
-              required
-            />
+          <div className="group/input">
+            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 ml-1 group-focus-within/input:text-purple-400 transition-colors">Email Node</label>
+            <div className="relative">
+              <input
+                type="email"
+                className="w-full pl-4 pr-4 py-4 bg-black/60 border-2 border-white/5 rounded-xl text-white placeholder-gray-600 focus:border-purple-500/50 focus:bg-black/80 focus:shadow-[0_0_30px_rgba(168,85,247,0.1)] transition-all outline-none font-mono text-sm tracking-wide"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="admin@vapesmart.ai"
+                required
+              />
+            </div>
           </div>
 
-          <div>
-            <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 ml-1">Access Key</label>
-            <input
-              type="password"
-              className="w-full px-6 py-4 bg-black border border-gray-800 rounded-2xl text-white placeholder-gray-700 focus:border-purple-500 transition-all outline-none font-bold italic"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••••••"
-              required
-            />
+          <div className="group/input">
+            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 ml-1 group-focus-within/input:text-purple-400 transition-colors">Access Key</label>
+            <div className="relative">
+              <input
+                type="password"
+                className="w-full pl-4 pr-4 py-4 bg-black/60 border-2 border-white/5 rounded-xl text-white placeholder-gray-600 focus:border-purple-500/50 focus:bg-black/80 focus:shadow-[0_0_30px_rgba(168,85,247,0.1)] transition-all outline-none font-mono text-sm tracking-wide"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••••••"
+                required
+              />
+            </div>
           </div>
 
           <button
             type="submit"
-            className="w-full py-5 px-4 mt-4 rounded-2xl bg-white text-black font-black uppercase tracking-widest hover:bg-purple-600 hover:text-white transition-all duration-300 shadow-xl shadow-white/5 disabled:opacity-50"
+            className="relative w-full py-4 mt-6 rounded-xl overflow-hidden group/btn font-black uppercase tracking-widest text-white shadow-2xl shadow-purple-900/20 disabled:opacity-50 disabled:cursor-not-allowed"
             disabled={loading}
           >
-            {loading ? 'Processing...' : 'Initiate Login'}
+            <div className="absolute inset-0 bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-800 transition-all duration-300 group-hover/btn:scale-105" />
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover/btn:translate-x-[100%] transition-transform duration-700" />
+            <span className="relative z-10 flex items-center justify-center gap-2">
+              {loading ? (
+                <>
+                  <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                  Authenticating...
+                </>
+              ) : (
+                <>Initiate Login <span className="text-lg">→</span></>
+              )}
+            </span>
           </button>
         </form>
+      </div>
+
+      {/* Footer Text */}
+      <div className="absolute bottom-6 text-center w-full">
+        <p className="text-[10px] text-gray-600 uppercase tracking-widest">© 2024 VapeSmart Secure Systems • v2.1.0-RC</p>
       </div>
     </div>
   );
