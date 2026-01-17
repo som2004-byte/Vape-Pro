@@ -120,7 +120,14 @@ export default function AdminLogin({ onAdminLogin }) {
             </button>
           </form>
 
-          <div className="mt-10 text-center">
+          <div className="mt-6 text-center">
+            <button
+              type="button"
+              onClick={() => alert('Please contact the System Supervisor for access key reset protocols.')}
+              className="text-[9px] font-bold text-gray-500 hover:text-white uppercase tracking-[0.15em] transition-colors mb-4 block w-full"
+            >
+              Forgot Access Key?
+            </button>
             <a href="#" className="text-[9px] font-bold text-gray-600 hover:text-gray-400 uppercase tracking-[0.15em] transition-colors">
               Need a master node? Register Here
             </a>
