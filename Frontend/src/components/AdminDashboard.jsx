@@ -116,101 +116,33 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
           setter(data.orders || (Array.isArray(data) ? data : []));
         } else if (endpoint.includes('/products')) {
           const rawProducts = data.products || (Array.isArray(data) ? data : []);
-
           const normalize = (s) => (s || '').toString().toLowerCase().trim().replace(/[^a-z0-9]/g, '');
 
-          // Create a set of normalized keys for products already in the database
-          const databaseProductKeys = new Set();
-
-          const processedLiveProducts = rawProducts.map(lp => {
-            const normBrand = normalize(lp.brand);
-            const normFlavor = normalize(lp.flavor);
-            const normSeries = normalize(lp.series || '');
-
-            // Find match for image fallback
-            const match = USER_PRODUCTS.find(up =>
-              up.id === lp.id || up.id === lp._id || up.id === lp.sku ||
-              (normalize(up.brand) === normBrand && normalize(up.flavor) === normFlavor)
-            );
-
-            // Add to represented keys
-            if (normBrand && normFlavor) {
-              databaseProductKeys.add(`${normBrand}|${normSeries}|${normFlavor}`);
-              // Lens: also mark brand|flavor as represented to catch variations in series naming
-              databaseProductKeys.add(`${normBrand}|${normFlavor}`);
-            }
-            if (lp.sku) databaseProductKeys.add(lp.sku);
-
-            return {
-              ...lp,
-              name: (lp.name || '').replace(/\s-\snull/g, '').replace(/null/g, ''),
-              image: (lp.image && lp.image !== '') ? lp.image : (lp.images && lp.images.length > 0) ? lp.images[0] : (match ? (match.poster || match.cardImage) : ''),
-              stock: Number(lp.stock || 0),
-              isDemo: false
-            };
-          });
-
-          const missingDemoProducts = USER_PRODUCTS.filter(up => {
+          // Map over USER_PRODUCTS (Master Source) and augment with DB stock/price
+          const finalProducts = USER_PRODUCTS.map(up => {
             const normBrand = normalize(up.brand);
             const normFlavor = normalize(up.flavor);
             const normSeries = normalize(up.series || '');
 
-            const specificKey = `${normBrand}|${normSeries}|${normFlavor}`;
-            const generalKey = `${normBrand}|${normFlavor}`;
+            // Find matching record in database by SKU or normalized properties
+            const dbMatch = rawProducts.find(lp =>
+              lp.sku === up.id ||
+              (normalize(lp.brand) === normBrand && normalize(lp.flavor) === normFlavor && normalize(lp.series) === normSeries) ||
+              (normalize(lp.brand) === normBrand && normalize(lp.flavor) === normFlavor)
+            );
 
-            const isRepresented = databaseProductKeys.has(specificKey) ||
-              databaseProductKeys.has(generalKey) ||
-              databaseProductKeys.has(up.id);
-            return !isRepresented;
-          }).map(up => ({
-            ...up,
-            _id: up.id,
-            name: up.flavor ? `${up.brand} ${up.series} - ${up.flavor}` : `${up.brand} ${up.series}`,
-            image: up.poster || up.cardImage || '',
-            isDemo: true
-          }));
-
-          const finalProductsMap = new Map();
-          const seenNameKeys = new Set();
-
-          // 1. Process Live Products (Priority)
-          processedLiveProducts.forEach(lp => {
-            const normBrand = normalize(lp.brand);
-            const normFlavor = normalize(lp.flavor);
-            const normSeries = normalize(lp.series || '');
-
-            const specificKey = `${normBrand}|${normSeries}|${normFlavor}`;
-            const generalKey = `${normBrand}|${normFlavor}`;
-            const skuKey = lp.sku;
-
-            // If we haven't seen this product by any of its identifiers, add it
-            if (!seenNameKeys.has(specificKey) && !seenNameKeys.has(generalKey) && (skuKey ? !seenNameKeys.has(skuKey) : true)) {
-              finalProductsMap.set(skuKey || specificKey, lp);
-              seenNameKeys.add(specificKey);
-              seenNameKeys.add(generalKey);
-              if (skuKey) seenNameKeys.add(skuKey);
-            }
+            return {
+              ...up,
+              _id: dbMatch?._id || up.id, // Prefer MongoID if exists, fallback to SKU
+              stock: dbMatch ? Number(dbMatch.stock) : 100, // Default to 100 if new
+              backendPrice: dbMatch?.price,
+              isDemo: false, // In this mode, everything is manageable
+              name: up.flavor ? `${up.brand} ${up.series} - ${up.flavor}` : `${up.brand} ${up.series}`,
+              image: up.poster || up.cardImage || ''
+            };
           });
 
-          // 2. Add Missing Demo Products
-          missingDemoProducts.forEach(dp => {
-            const normBrand = normalize(dp.brand);
-            const normFlavor = normalize(dp.flavor);
-            const normSeries = normalize(dp.series || '');
-
-            const specificKey = `${normBrand}|${normSeries}|${normFlavor}`;
-            const generalKey = `${normBrand}|${normFlavor}`;
-            const idKey = dp.id;
-
-            if (!seenNameKeys.has(specificKey) && !seenNameKeys.has(generalKey) && !seenNameKeys.has(idKey)) {
-              finalProductsMap.set(idKey || specificKey, dp);
-              seenNameKeys.add(specificKey);
-              seenNameKeys.add(generalKey);
-              seenNameKeys.add(idKey);
-            }
-          });
-
-          setter(Array.from(finalProductsMap.values()));
+          setter(finalProducts);
         } else if (endpoint.includes('/users')) {
           setter(data.users || (Array.isArray(data) ? data : []));
         } else if (endpoint.includes('/admins')) {
@@ -280,93 +212,9 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
     try {
       setLoading(true);
 
-      const isMongoId = (id) => /^[0-9a-fA-F]{24}$/.test(id);
-
-      if (!isMongoId(productId)) {
-        // This is a Demo Product (local ID). To sync changes across devices, 
-        // we must promote it to a real Database product.
-        const productToPromote = products.find(p => p.id === productId || p._id === productId);
-        if (!productToPromote) return;
-
-        // Find the ORIGINAL full demo object to ensure we have all fields 
-        const originalDemoData = USER_PRODUCTS.find(p => p.id === productId) || {};
-
-        const payload = {
-          ...originalDemoData, // Use original data as base
-          ...productToPromote, // Override with current state
-          ...updates,          // Override with specific updates
-
-          // Explicitly ensure required fields for Mongoose Schema
-          // Explicitly ensure required fields for Mongoose Schema 
-          // Build a clean name: prefer "Brand Series - Flavor" or just "Brand Series" if flavor is null
-          name: updates.name || productToPromote.name || (originalDemoData.flavor
-            ? `${originalDemoData.brand} ${originalDemoData.series} - ${originalDemoData.flavor}`
-            : `${originalDemoData.brand} ${originalDemoData.series}`),
-          description: productToPromote.description || originalDemoData.features || `Premium vape product from ${productToPromote.brand || 'VapeSmart'}`,
-          category: (() => {
-            const validCategories = ['disposable', 'pod-systems', 'starter-kits', 'mods', 'tanks', 'coils', 'e-liquids', 'accessories'];
-            const candidate = (productToPromote.mainCategory || productToPromote.category || originalDemoData.mainCategory || originalDemoData.category || 'disposable').toLowerCase();
-            return validCategories.includes(candidate) ? candidate : 'disposable';
-          })(),
-          brand: productToPromote.brand || originalDemoData.brand || 'Generic',
-
-          price: Number(updates.price || productToPromote.price || originalDemoData.price || 0),
-          stock: Number(updates.stock || productToPromote.stock || 0),
-          sku: productId // Set SKU to the demo ID for persistent matching
-        };
-        // Remove system fields and IDs
-        delete payload._id;
-        delete payload.id;
-        delete payload.createdAt;
-        delete payload.updatedAt;
-        delete payload.__v;
-        delete payload.isDemo; // Remove our local flag
-
-        // Ensure images format is correct
-        if (payload.image && !payload.images) {
-          payload.images = [payload.image];
-        }
-
-        const response = await fetch(`${API_BASE_URL}/products`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${adminToken}`
-          },
-          body: JSON.stringify(payload)
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          const newProduct = data.product || data;
-          // Replace the local demo product with the new DB product in state
-          setProducts(products.map(p => {
-            if (p.id === productId || p._id === productId) {
-              return {
-                ...p,
-                ...newProduct,
-                image: newProduct.image || (newProduct.images && newProduct.images[0]) || p.image,
-                isDemo: false
-              };
-            }
-            return p;
-          }));
-
-          setStockUpdateValue('');
-          setPriceUpdateValue('');
-          setSelectedProduct(null); // Return to main Supply Depot list
-          alert('Supply Node updated and promoted to Database.');
-          return;
-        } else {
-          // If promotion failed, don't try to update the non-existent ID
-          const errData = await response.json();
-          console.error("Promotion failed:", errData);
-          throw new Error(errData.error || errData.message || "Failed to promote demo product to database");
-        }
-      }
-
-      const response = await fetch(`${API_BASE_URL}/products/${productId}`, {
-        method: 'PUT',
+      // Simple Stock/Price registry update - Backend now handles upsert automatically
+      const response = await fetch(`${API_BASE_URL}/products/${productId}/stock`, {
+        method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${adminToken}`
@@ -375,17 +223,12 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
       });
 
       if (response.ok) {
-        const data = await response.json();
-        const updatedProduct = data.product;
+        const updatedFromDb = await response.json();
 
-        // Update local state with response from server
-        setProducts(products.map(p => {
-          if (p._id === productId || p.id === productId) {
-            return {
-              ...p,
-              ...updatedProduct,
-              image: updatedProduct.image || (updatedProduct.images && updatedProduct.images[0]) || p.image
-            };
+        // Update local state by merging DB data with UI Master (data.js)
+        setProducts(prev => prev.map(p => {
+          if (p._id === productId || p.id === productId || p.sku === productId) {
+            return { ...p, ...updatedFromDb, isDemo: false };
           }
           return p;
         }));
@@ -1334,35 +1177,30 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
                       if (stockUpdateValue !== '') updates.stock = Number(stockUpdateValue);
                       if (priceUpdateValue !== '') updates.price = Number(priceUpdateValue);
                       if (Object.keys(updates).length > 0) {
-                        handleProductUpdate(selectedProduct._id, updates);
+                        handleProductUpdate(selectedProduct._id || selectedProduct.id, updates);
                       }
                     }}
-                    disabled={(!stockUpdateValue && !priceUpdateValue) || selectedProduct?.isDemo}
+                    disabled={(!stockUpdateValue && !priceUpdateValue)}
                     className="w-full bg-purple-600 hover:bg-purple-500 text-white px-8 py-4 rounded-2xl font-black uppercase tracking-widest disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-purple-600/20 mb-4"
                   >
-                    {!selectedProduct?.isDemo ? 'Update details' : 'Demo Mode - Updates Disabled'}
+                    Update details
                   </button>
-                  {selectedProduct?.isDemo && (
-                    <p className="text-red-400 text-xs font-bold text-center mb-8 uppercase tracking-widest">
-                      You are viewing demo data. Initialize this product to enable updates.
-                    </p>
-                  )}
 
                   {/* Quick Actions */}
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <button disabled={!usingApiProducts} onClick={() => handleProductUpdate(selectedProduct._id, { stock: selectedProduct.stock + 10 })} className="p-4 rounded-2xl bg-gray-900 border border-gray-800 hover:border-green-500/50 hover:bg-green-500/10 disabled:opacity-50 disabled:cursor-not-allowed transition-all group">
+                    <button onClick={() => handleProductUpdate(selectedProduct._id || selectedProduct.id, { stock: selectedProduct.stock + 10 })} className="p-4 rounded-2xl bg-gray-900 border border-gray-800 hover:border-green-500/50 hover:bg-green-500/10 transition-all group">
                       <p className="text-green-500 font-black text-lg group-hover:scale-110 transition-transform">+10</p>
                       <p className="text-[10px] font-bold uppercase text-gray-500">Quick Restock</p>
                     </button>
-                    <button disabled={!usingApiProducts} onClick={() => handleProductUpdate(selectedProduct._id, { stock: selectedProduct.stock + 50 })} className="p-4 rounded-2xl bg-gray-900 border border-gray-800 hover:border-green-500/50 hover:bg-green-500/10 disabled:opacity-50 disabled:cursor-not-allowed transition-all group">
+                    <button onClick={() => handleProductUpdate(selectedProduct._id || selectedProduct.id, { stock: selectedProduct.stock + 50 })} className="p-4 rounded-2xl bg-gray-900 border border-gray-800 hover:border-green-500/50 hover:bg-green-500/10 transition-all group">
                       <p className="text-green-500 font-black text-lg group-hover:scale-110 transition-transform">+50</p>
                       <p className="text-[10px] font-bold uppercase text-gray-500">Bulk Restock</p>
                     </button>
-                    <button disabled={!usingApiProducts} onClick={() => handleProductUpdate(selectedProduct._id, { stock: Math.max(0, selectedProduct.stock - 10) })} className="p-4 rounded-2xl bg-gray-900 border border-gray-800 hover:border-yellow-500/50 hover:bg-yellow-500/10 disabled:opacity-50 disabled:cursor-not-allowed transition-all group">
+                    <button onClick={() => handleProductUpdate(selectedProduct._id || selectedProduct.id, { stock: Math.max(0, selectedProduct.stock - 10) })} className="p-4 rounded-2xl bg-gray-900 border border-gray-800 hover:border-yellow-500/50 hover:bg-yellow-500/10 transition-all group">
                       <p className="text-yellow-500 font-black text-lg group-hover:scale-110 transition-transform">-10</p>
                       <p className="text-[10px] font-bold uppercase text-gray-500">Reduce</p>
                     </button>
-                    <button disabled={!usingApiProducts} onClick={() => handleProductUpdate(selectedProduct._id, { stock: 0 })} className="p-4 rounded-2xl bg-gray-900 border border-gray-800 hover:border-red-500/50 hover:bg-red-500/10 disabled:opacity-50 disabled:cursor-not-allowed transition-all group">
+                    <button onClick={() => handleProductUpdate(selectedProduct._id || selectedProduct.id, { stock: 0 })} className="p-4 rounded-2xl bg-gray-900 border border-gray-800 hover:border-red-500/50 hover:bg-red-500/10 transition-all group">
                       <p className="text-red-500 font-black text-lg group-hover:scale-110 transition-transform">ZERO</p>
                       <p className="text-[10px] font-bold uppercase text-gray-500">Deplete</p>
                     </button>

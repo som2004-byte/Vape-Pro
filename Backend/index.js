@@ -332,20 +332,70 @@ app.post('/api/verify-email-otp', async (req, res) => {
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-const seedAdminIfNeeded = async () => {
-  if (!ADMIN_EMAIL || !ADMIN_PASSWORD) return;
-  const existing = await Admin.findOne({ email: ADMIN_EMAIL });
-  if (!existing) await new Admin({ email: ADMIN_EMAIL, name: 'Admin', password: await bcrypt.hash(ADMIN_PASSWORD, 10) }).save();
-};
+// Health Checks
+app.get('/', (req, res) => res.status(200).json({ status: 'UP', message: 'Vape-Pro Backend is operational', version: '2.1.0' }));
+app.get('/health', (req, res) => res.status(200).json({ status: 'UP' }));
+app.get('/api/im-alive', (req, res) => res.json({ message: 'Server is updated and registry-ready', timestamp: new Date() }));
 
+// Error Handling Middleware
 app.use((err, req, res, next) => {
-  console.error(err);
-  res.status(500).json({ message: 'Server error', error: err.message });
+  console.error(`[ERROR] ${new Date().toISOString()}:`, err);
+  res.status(500).json({ message: 'Internal Server Error', error: err.message });
 });
 
-app.use((req, res) => res.status(404).json({ message: `Route ${req.method} ${req.url} not found` }));
+// 404 Handler
+app.use((req, res) => {
+  console.log(`[404] ${req.method} ${req.url}`);
+  res.status(404).json({ message: `Route ${req.method} ${req.url} not found` });
+});
 
-app.listen(PORT, async () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-  await seedAdminIfNeeded();
+const seedAdminIfNeeded = async () => {
+  try {
+    if (!ADMIN_EMAIL || !ADMIN_PASSWORD) {
+      console.log('Skipping admin seed: No credentials provided in .env');
+      return;
+    }
+    const existing = await Admin.findOne({ email: ADMIN_EMAIL });
+    if (!existing) {
+      await new Admin({
+        email: ADMIN_EMAIL,
+        name: 'Admin',
+        password: await bcrypt.hash(ADMIN_PASSWORD, 10)
+      }).save();
+      console.log('✅ Default admin account seeded successfully');
+    }
+  } catch (err) {
+    console.error('❌ Admin seed failed:', err.message);
+  }
+};
+
+// Start Server
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`
+  🚀 ==========================================
+  🚀 VAPE-PRO BACKEND // OPERATIONAL
+  🚀 ==========================================
+  🚀 Environment: Production / Render
+  🚀 API Port:    ${PORT}
+  🚀 Frontend:     https://vapesmart.co.in
+  🚀 Registry:     Frontend-First Dynamic Mode
+  🚀 ==========================================
+  `);
+
+  // Connect to DB after starting server to avoid binding timeouts
+  if (typeof MONGODB_URI === 'string' && MONGODB_URI.trim()) {
+    console.log('Connecting to MongoDB...');
+    mongoose
+      .connect(MONGODB_URI.trim())
+      .then(async () => {
+        console.log('✅ Connected to MongoDB');
+        await seedAdminIfNeeded();
+      })
+      .catch((err) => {
+        console.error('❌ MongoDB connection error:', err);
+        console.warn('⚠️ Server is running without Database connection. Stock tracking will fail.');
+      });
+  } else {
+    console.warn('⚠️ MONGODB_URI missing. Running in memory-only mode (No stock persistence).');
+  }
 });

@@ -83,18 +83,32 @@ router.post(
 
         total += itemPrice * item.quantity;
 
-        // Reduce product stock and track in database
+        // Reduce product stock and track in database with robust resolution
         if (product) {
           const requestedQty = Number(item.quantity) || 1;
-          if (product.stock >= requestedQty) {
-            // Atomic update is better
-            await Product.updateOne(
-              { _id: product._id },
-              { $inc: { stock: -requestedQty } }
-            );
-          } else {
-            console.warn(`Insufficient stock for ${itemName}. DB: ${product.stock}, Req: ${requestedQty}`);
-            // Still allow order to proceed but log the discrepancy
+          await Product.updateOne(
+            { _id: product._id },
+            { $inc: { stock: -requestedQty } }
+          );
+        } else if (productId) {
+          // JIT (Just-In-Time) Stock Registry Creation:
+          // If the product doesn't exist in DB, we create a record for it so stock can be saved/deducted
+          try {
+            const requestedQty = Number(item.quantity) || 1;
+            const newProduct = new Product({
+              _id: (typeof productId === 'string' && productId.match(/^[0-9a-fA-F]{24}$/)) ? productId : undefined,
+              sku: (typeof productId === 'string' && !productId.match(/^[0-9a-fA-F]{24}$/)) ? productId : undefined,
+              name: itemName,
+              price: itemPrice,
+              stock: 100 - requestedQty, // Start with 100 base if it's the first time we see it
+              images: [itemImage],
+              brand: item.brand || 'VapeSmart',
+              category: 'disposable'
+            });
+            await newProduct.save();
+            console.log(`Dynamic stock registry created for: ${itemName}`);
+          } catch (createErr) {
+            console.error('Failed to create dynamic stock record:', createErr);
           }
         }
       }

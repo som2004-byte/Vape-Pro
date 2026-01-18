@@ -534,14 +534,27 @@ router.patch(
       }
 
       const { stock } = req.body;
-      const product = await Product.findByIdAndUpdate(
-        req.params.productId,
-        { stock },
-        { new: true, runValidators: true }
-      );
+      const { productId } = req.params;
+      const isValidObjectId = (id) => typeof id === 'string' && /^[0-9a-fA-F]{24}$/.test(id);
+
+      let product;
+      if (isValidObjectId(productId)) {
+        product = await Product.findByIdAndUpdate(
+          productId,
+          { stock },
+          { new: true, runValidators: true }
+        );
+      } else {
+        // Upsert by SKU for frontend-only products (Stock Registry Mode)
+        product = await Product.findOneAndUpdate(
+          { sku: productId },
+          { stock },
+          { new: true, upsert: true, runValidators: true, setDefaultsOnInsert: true }
+        );
+      }
 
       if (!product) {
-        return res.status(404).json({ message: 'Product not found' });
+        return res.status(404).json({ message: 'Product stock registry could not be updated.' });
       }
 
       res.json(product);
