@@ -38,6 +38,35 @@ router.post(
         return res.status(400).json({ message: 'Order must contain items' });
       }
 
+      // Idempotency Check: Prevent double-submission of the same order
+      // Check if this user created an identical order (same items/total) in the last 30 seconds
+      const thirtySecondsAgo = new Date(Date.now() - 30000);
+      const recentOrder = await Order.findOne({
+        userId: user._id,
+        createdAt: { $gte: thirtySecondsAgo },
+        total: { $gt: 0 } // sanity check
+      }).sort({ createdAt: -1 });
+
+      if (recentOrder) {
+        // Compare items strictly to see if it's a duplicate request
+        const isDuplicateDetails = itemsToProcess.length === recentOrder.items.length &&
+          itemsToProcess.every((item, index) => {
+            const rItem = recentOrder.items[index];
+            const itemId = item.product || item.id || item._id || item.productId;
+            // Compare Product ID and Quantity
+            return (rItem.productId === itemId || rItem._id?.toString() === itemId) &&
+              rItem.quantity === item.quantity;
+          });
+
+        if (isDuplicateDetails) {
+          console.log(`Duplicate order detected for User ${user._id} - Returning existing Order ${recentOrder._id}`);
+          return res.status(200).json({
+            message: 'Order already processed',
+            order: recentOrder
+          });
+        }
+      }
+
       // Verify product availability and calculate total
       let total = 0;
       const orderItems = [];
