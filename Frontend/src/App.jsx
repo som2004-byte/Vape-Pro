@@ -770,6 +770,7 @@ export default function App() {
         {currentPage === 'account' && (
           <AccountSection
             activeTab={accountTab}
+            products={backendProducts}
             profile={customerProfile}
             onSaveProfile={async (saved) => {
               setCustomerProfile(saved);

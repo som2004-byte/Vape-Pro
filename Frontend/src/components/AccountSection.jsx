@@ -7,6 +7,7 @@ export default function AccountSection({
   profile,
   onSaveProfile,
   orders = [],
+  products = [],
   onNotify,
 }) {
   const [currentTab, setCurrentTab] = useState(activeTab);
@@ -208,7 +209,16 @@ export default function AccountSection({
                 <svg className={`w-5 h-5 transition-transform duration-300 ${currentTab === 'orders' ? 'scale-110' : 'group-hover:scale-110'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>
                 <span className="font-bold text-sm uppercase tracking-widest">Orders</span>
               </div>
-              {currentTab === 'orders' && <div className="h-1.5 w-1.5 rounded-full bg-cyan-500 animate-pulse" />}
+            </button>
+            <button
+              onClick={() => setCurrentTab('addresses')}
+              className={`w-full flex items-center justify-between px-5 py-4 rounded-2xl transition-all duration-300 group ${currentTab === 'addresses' ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 shadow-[0_0_20px_rgba(6,182,212,0.1)]' : 'text-gray-500 hover:text-white hover:bg-white/5'}`}
+            >
+              <div className="flex items-center gap-4">
+                <svg className={`w-5 h-5 transition-transform duration-300 ${currentTab === 'addresses' ? 'scale-110' : 'group-hover:scale-110'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                <span className="font-bold text-sm uppercase tracking-widest">Addresses</span>
+              </div>
+              {currentTab === 'addresses' && <div className="h-1.5 w-1.5 rounded-full bg-cyan-500 animate-pulse" />}
             </button>
           </div>
 
@@ -484,7 +494,25 @@ export default function AccountSection({
                               cleanName += ` · ${item.flavor}`;
                             }
                             // Heal zero price using backendProducts if available
-                            const itemPrice = (item.price && item.price > 0) ? item.price : 0;
+                            let itemPrice = (item.price && item.price > 0) ? item.price : 0;
+
+                            if (itemPrice === 0) {
+                              // Try to find product in the passed products list
+                              const prodId = item.productId || item.product || item.id;
+                              const p = products.find(p =>
+                                (p._id && p._id.toString() === prodId?.toString()) ||
+                                (p.id && p.id.toString() === prodId?.toString()) ||
+                                (p.sku && p.sku === prodId)
+                              );
+
+                              if (p && p.price) {
+                                itemPrice = p.price;
+                              } else if (item.name) {
+                                // Fallback by name
+                                const pByName = products.find(p => p.name === item.name);
+                                if (pByName && pByName.price) itemPrice = pByName.price;
+                              }
+                            }
 
                             return (
                               <div key={idx} className="flex justify-between items-center text-sm">
@@ -501,8 +529,98 @@ export default function AccountSection({
                         <div className="pt-4 border-t border-white/5 flex justify-between items-center">
                           <span className="text-gray-500 text-xs font-bold uppercase tracking-widest">Total Amount</span>
                           <span className="text-2xl font-black text-white">
-                            ₹{(order.total && order.total > 0 ? order.total : (order.items || []).reduce((sum, item) => sum + ((item.price || 0) * (item.quantity || 1)), 0)).toLocaleString()}
+                            ₹{(order.total && order.total > 0 ? order.total : (order.items || []).reduce((sum, item) => {
+                              let startPrice = (item.price && item.price > 0) ? item.price : 0;
+                              if (startPrice === 0) {
+                                const prodId = item.productId || item.product || item.id;
+                                const p = products.find(p =>
+                                  (p._id && p._id.toString() === prodId?.toString()) ||
+                                  (p.id && p.id.toString() === prodId?.toString()) ||
+                                  (p.sku && p.sku === prodId)
+                                );
+                                if (p && p.price) startPrice = p.price;
+                                else if (item.name) {
+                                  const pByName = products.find(p => p.name === item.name);
+                                  if (pByName && pByName.price) startPrice = pByName.price;
+                                }
+                              }
+                              return sum + (startPrice * (item.quantity || 1));
+                            }, 0)).toLocaleString()}
                           </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {currentTab === 'addresses' && (
+              <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
+                <div className="flex items-center justify-between mb-8">
+                  <div>
+                    <h3 className="text-2xl font-bold text-white uppercase tracking-wider">Saved Addresses</h3>
+                    <p className="text-gray-400 text-sm mt-1">Manage your delivery locations</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setIsAddingAddress(true);
+                      setAddressForm({ label: 'Home', houseNo: '', building: '', landmark: '', receiverName: name, receiverPhone: phoneNumber });
+                    }}
+                    className="flex items-center gap-2 px-6 py-2 rounded-full border border-cyan-500/30 text-cyan-400 text-sm font-bold hover:bg-cyan-500 hover:text-black transition-all duration-300 shadow-[0_0_15px_rgba(6,182,212,0.2)]"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                    ADD NEW
+                  </button>
+                </div>
+
+                {addresses.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-20 bg-white/5 border border-dashed border-white/10 rounded-3xl opacity-60">
+                    <svg className="w-16 h-16 text-gray-500 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                    <p className="text-gray-400 font-medium">No addresses saved yet</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {addresses.map((addr) => (
+                      <div key={addr._id || addr.id} className="bg-white/5 border border-white/5 rounded-2xl p-6 relative group hover:border-cyan-500/30 transition-all duration-300">
+                        <div className="flex items-center justify-between mb-4">
+                          <span className="text-[10px] font-black uppercase tracking-widest bg-cyan-500 text-black px-2.5 py-1 rounded-md">
+                            {addr.label || 'Home'}
+                          </span>
+                          <div className="flex gap-2">
+                            {addr.isDefault && (
+                              <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400 flex items-center gap-1 border border-emerald-500/20 px-2 py-0.5 rounded-full">
+                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                                Default
+                              </span>
+                            )}
+                            <button
+                              onClick={() => handleDeleteAddress(addr._id || addr.id)}
+                              className="opacity-0 group-hover:opacity-100 text-gray-500 hover:text-red-400 transition-all"
+                              title="Delete Address"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                            </button>
+                          </div>
+                        </div>
+
+                        <p className="text-white text-lg font-bold leading-snug mb-2">
+                          {addr.houseNo ? addr.houseNo + ', ' : ''}{addr.building}
+                        </p>
+
+                        {addr.landmark && (
+                          <p className="text-gray-400 text-sm italic opacity-80 mb-4 flex items-center gap-1">
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                            {addr.landmark}
+                          </p>
+                        )}
+
+                        <div className="pt-4 border-t border-white/5 mt-auto">
+                          <p className="text-gray-500 text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
+                            <span className="text-cyan-400">{addr.receiverName || profile?.name}</span>
+                            <span>•</span>
+                            <span className="text-gray-300 font-mono text-xs">{addr.receiverPhone || profile?.phoneNumber}</span>
+                          </p>
                         </div>
                       </div>
                     ))}
