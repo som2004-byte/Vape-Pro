@@ -159,11 +159,11 @@ export default function AccountSection({
     const saved = {
       name: name.trim(),
       email: email.trim().toLowerCase(),
-      phone: phoneNumber.trim(),
+      phoneNumber: phoneNumber.trim(), // Use phoneNumber to match profile schema
       addresses: addresses,
-      address: addresses[0] ? `${addresses[0].houseNo}, ${addresses[0].building}, ${addresses[0].landmark}` : '',
+      address: addresses[0] ? `${addresses[0].houseNo ? addresses[0].houseNo + ', ' : ''}${addresses[0].building}${addresses[0].landmark ? ', ' + addresses[0].landmark : ''}` : '',
       emailVerified: isEmailVerified,
-      phoneVerified: true // Assumption based on previous logic
+      phoneVerified: true
     };
 
     onSaveProfile?.(saved);
@@ -183,21 +183,32 @@ export default function AccountSection({
         <div className="bg-neutral-900/40 backdrop-blur-2xl border border-white/10 rounded-3xl shadow-2xl overflow-hidden min-h-[600px] flex flex-col md:flex-row">
 
           {/* Sidebar Navigation */}
-          <div className="w-full md:w-64 bg-black/40 border-b md:border-b-0 md:border-r border-white/5 p-6 space-y-2">
-            <h2 className="text-xl font-bold text-white mb-6 px-2">Account</h2>
+          <div className="w-full md:w-72 bg-black/60 border-b md:border-b-0 md:border-r border-white/5 p-8 space-y-3">
+            <div className="mb-10 px-2">
+              <h2 className="text-2xl font-black text-white uppercase italic tracking-tighter">My Account</h2>
+              <div className="h-1 w-12 bg-cyan-500 mt-2 rounded-full" />
+            </div>
+
             <button
               onClick={() => setCurrentTab('profile')}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 ${currentTab === 'profile' ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
+              className={`w-full flex items-center justify-between px-5 py-4 rounded-2xl transition-all duration-300 group ${currentTab === 'profile' ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 shadow-[0_0_20px_rgba(6,182,212,0.1)]' : 'text-gray-500 hover:text-white hover:bg-white/5'}`}
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
-              <span className="font-semibold text-sm">Profile</span>
+              <div className="flex items-center gap-4">
+                <svg className={`w-5 h-5 transition-transform duration-300 ${currentTab === 'profile' ? 'scale-110' : 'group-hover:scale-110'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                <span className="font-bold text-sm uppercase tracking-widest">Profile</span>
+              </div>
+              {currentTab === 'profile' && <div className="h-1.5 w-1.5 rounded-full bg-cyan-500 animate-pulse" />}
             </button>
+
             <button
               onClick={() => setCurrentTab('orders')}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 ${currentTab === 'orders' ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
+              className={`w-full flex items-center justify-between px-5 py-4 rounded-2xl transition-all duration-300 group ${currentTab === 'orders' ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 shadow-[0_0_20px_rgba(6,182,212,0.1)]' : 'text-gray-500 hover:text-white hover:bg-white/5'}`}
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>
-              <span className="font-semibold text-sm">Orders</span>
+              <div className="flex items-center gap-4">
+                <svg className={`w-5 h-5 transition-transform duration-300 ${currentTab === 'orders' ? 'scale-110' : 'group-hover:scale-110'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>
+                <span className="font-bold text-sm uppercase tracking-widest">Orders</span>
+              </div>
+              {currentTab === 'orders' && <div className="h-1.5 w-1.5 rounded-full bg-cyan-500 animate-pulse" />}
             </button>
           </div>
 
@@ -255,9 +266,9 @@ export default function AccountSection({
                               <span className="text-[10px] font-black uppercase tracking-widest bg-cyan-500/20 text-cyan-400 px-2 py-0.5 rounded border border-cyan-500/30">{addr.label}</span>
                               {addr.isDefault && <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">Default</span>}
                             </div>
-                            <p className="text-white text-sm font-semibold">{addr.houseNo}, {addr.building}</p>
-                            <p className="text-gray-400 text-xs mt-1">{addr.landmark}</p>
-                            <p className="text-gray-500 text-[10px] mt-2 font-medium">{addr.receiverName} · {addr.receiverPhone}</p>
+                            <p className="text-white text-sm font-semibold">{addr.houseNo ? addr.houseNo + ', ' : ''}{addr.building}</p>
+                            {addr.landmark && <p className="text-gray-400 text-xs mt-1">{addr.landmark}</p>}
+                            <p className="text-gray-500 text-[10px] mt-2 font-black uppercase tracking-widest">{addr.receiverName} · {addr.receiverPhone}</p>
                           </div>
                         ))
                       )}
@@ -431,8 +442,8 @@ export default function AccountSection({
                           </div>
                           <div className="text-right">
                             <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border ${order.status === 'delivered' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
-                                order.status === 'cancelled' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
-                                  'bg-cyan-500/10 text-cyan-400 border-cyan-500/20'
+                              order.status === 'cancelled' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
+                                'bg-cyan-500/10 text-cyan-400 border-cyan-500/20'
                               }`}>
                               {order.status || 'Processing'}
                             </span>
@@ -491,13 +502,16 @@ export default function AccountSection({
               </div>
 
               <div className="space-y-1">
-                <p className="text-xs font-black text-gray-500 uppercase tracking-widest">Add Address Label</p>
-                <div className="flex gap-2 pt-2">
+                <p className="text-xs font-black text-gray-500 uppercase tracking-widest px-1">Label this address as</p>
+                <div className="flex gap-2 pt-1">
                   {['Home', 'Work', 'Other'].map(l => (
                     <button
                       key={l}
+                      type="button"
                       onClick={() => setAddressForm({ ...addressForm, label: l })}
-                      className={`flex-1 py-3 rounded-xl font-bold text-xs uppercase transition-all border ${addressForm.label === l ? 'bg-white text-black border-white' : 'bg-black/40 text-gray-400 border-white/10 hover:border-white/20'}`}
+                      className={`flex-1 py-3.5 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all duration-300 border ${addressForm.label === l
+                        ? 'bg-cyan-500 text-black border-cyan-400 shadow-[0_0_15px_rgba(6,182,212,0.3)]'
+                        : 'bg-black/40 text-gray-400 border-white/5 hover:border-white/20 hover:text-white'}`}
                     >
                       {l}
                     </button>
@@ -506,61 +520,65 @@ export default function AccountSection({
               </div>
 
               <div className="space-y-4">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest px-1">House No. & Floor *</label>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">House No. & Floor *</label>
                   <input
                     type="text"
                     value={addressForm.houseNo}
                     onChange={e => setAddressForm({ ...addressForm, houseNo: e.target.value })}
-                    className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-1 focus:ring-cyan-500/50"
+                    className="w-full bg-black/60 border border-white/10 rounded-2xl px-5 py-3.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/30 transition-all"
                     placeholder="e.g. A-402, 4th Floor"
                   />
                 </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest px-1">Building & Block Name *</label>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Building & Block Name *</label>
                   <input
                     type="text"
                     value={addressForm.building}
                     onChange={e => setAddressForm({ ...addressForm, building: e.target.value })}
-                    className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-1 focus:ring-cyan-500/50"
+                    className="w-full bg-black/60 border border-white/10 rounded-2xl px-5 py-3.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/30 transition-all"
                     placeholder="Building Name / Area Name"
                   />
                 </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest px-1">Landmark & Area (Optional)</label>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Landmark & Area (Optional)</label>
                   <input
                     type="text"
                     value={addressForm.landmark}
                     onChange={e => setAddressForm({ ...addressForm, landmark: e.target.value })}
-                    className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-1 focus:ring-cyan-500/50"
+                    className="w-full bg-black/60 border border-white/10 rounded-2xl px-5 py-3.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/30 transition-all"
                     placeholder="Near XYZ Circle"
                   />
                 </div>
 
                 <div className="pt-4 border-t border-white/5 space-y-4">
-                  <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Receiver Details</p>
-                  <div className="grid grid-cols-2 gap-3">
-                    <input
-                      type="text"
-                      value={addressForm.receiverName}
-                      onChange={e => setAddressForm({ ...addressForm, receiverName: e.target.value })}
-                      className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-2 text-xs text-white"
-                      placeholder="Name"
-                    />
-                    <input
-                      type="tel"
-                      value={addressForm.receiverPhone}
-                      onChange={e => setAddressForm({ ...addressForm, receiverPhone: e.target.value })}
-                      className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-2 text-xs text-white"
-                      placeholder="Phone"
-                    />
+                  <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest px-1">Receiver Details</p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <input
+                        type="text"
+                        value={addressForm.receiverName}
+                        onChange={e => setAddressForm({ ...addressForm, receiverName: e.target.value })}
+                        className="w-full bg-black/60 border border-white/5 rounded-xl px-4 py-3 text-xs text-white focus:outline-none focus:border-cyan-500/30"
+                        placeholder="Name"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <input
+                        type="tel"
+                        value={addressForm.receiverPhone}
+                        onChange={e => setAddressForm({ ...addressForm, receiverPhone: e.target.value })}
+                        className="w-full bg-black/60 border border-white/5 rounded-xl px-4 py-3 text-xs text-white focus:outline-none focus:border-cyan-500/30"
+                        placeholder="Phone"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
 
               <button
                 onClick={handleSaveAddress}
-                className="w-full bg-white text-black py-4 rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl hover:bg-cyan-400 hover:shadow-cyan-500/20 transition-all mt-4"
+                className="w-full bg-cyan-500 text-black py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-[0_4px_25px_rgba(6,182,212,0.3)] hover:bg-cyan-400 hover:scale-[1.02] active:scale-95 transition-all mt-4"
               >
                 SAVE ADDRESS
               </button>

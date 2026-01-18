@@ -14,18 +14,29 @@ export default function PaymentPage({
   const [selectedAddressIndex, setSelectedAddressIndex] = useState(0);
 
   const videoSrc = '/videos/login-bg.mp4';
-  const addresses = customerProfile?.addresses || [];
+  // Determine available addresses - handle both list and legacy string
+  const addresses = (customerProfile?.addresses?.length > 0)
+    ? customerProfile.addresses
+    : (customerProfile?.address ? [{
+      id: 'legacy',
+      label: 'Default',
+      building: customerProfile.address,
+      houseNo: '',
+      landmark: '',
+      receiverName: customerProfile.name || '',
+      receiverPhone: customerProfile.phoneNumber || customerProfile.phone || ''
+    }] : []);
 
   const handlePayment = async () => {
-    const selectedAddress = addresses[selectedAddressIndex] || { building: customerProfile?.address };
+    const selectedAddress = addresses[selectedAddressIndex];
 
-    if (!selectedAddress || (!selectedAddress.building && !selectedAddress.houseNo)) {
+    if (!selectedAddress) {
       alert('Please provide a valid shipping address in your profile before placing the order.');
       return;
     }
 
     const phoneRegex = /^(\+91)?[6789]\d{9}$/;
-    const phoneToVerify = selectedAddress.receiverPhone || customerProfile?.phoneNumber || '';
+    const phoneToVerify = selectedAddress.receiverPhone || customerProfile?.phoneNumber || customerProfile?.phone || '';
     const sanitizedPhone = phoneToVerify.replace(/[\s\-]/g, '');
 
     if (!sanitizedPhone || !phoneRegex.test(sanitizedPhone)) {
@@ -37,18 +48,26 @@ export default function PaymentPage({
     setPaymentStatus('processing');
 
     try {
+      const addressString = [selectedAddress.houseNo, selectedAddress.building, selectedAddress.landmark]
+        .filter(Boolean)
+        .join(', ');
+
       const response = await fetch(`${window.location.origin.includes('localhost') ? 'http://localhost:3000' : 'https://vape-pro-2.onrender.com'}/api/orders/checkout`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('vapesmart_token') || ''}`
+          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
         },
         body: JSON.stringify({
-          shippingAddress: `${selectedAddress.houseNo || ''}, ${selectedAddress.building || ''}, ${selectedAddress.landmark || ''}`.replace(/^, /, ''),
+          shippingAddress: addressString,
           paymentMethod,
           items: cartItems.map(item => ({
             product: item._id || item.id,
-            quantity: item.quantity || 1
+            quantity: item.quantity || 1,
+            name: item.name,
+            brand: item.brand,
+            series: item.series,
+            flavor: item.flavor
           }))
         })
       });
@@ -67,7 +86,7 @@ export default function PaymentPage({
           paymentMethod,
           paymentStatus: paymentMethod === 'cod' ? 'pending' : 'completed',
           paidAt: paymentMethod === 'cod' ? null : new Date().toISOString(),
-          shippingAddress: `${selectedAddress.houseNo || ''}, ${selectedAddress.building || ''}, ${selectedAddress.landmark || ''}`.replace(/^, /, '')
+          shippingAddress: addressString
         });
       }, 2000);
 
@@ -130,24 +149,43 @@ export default function PaymentPage({
                 </div>
 
                 {addresses.length === 0 ? (
-                  <div className="p-6 bg-red-500/10 border border-red-500/20 rounded-2xl">
-                    <p className="text-red-400 text-sm font-bold">No saved addresses found. Please add an address in your profile.</p>
+                  <div className="p-8 bg-black/40 border border-dashed border-red-500/20 rounded-2xl text-center">
+                    <svg className="w-12 h-12 text-red-500/40 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                    <p className="text-gray-400 text-sm font-medium mb-1">No saved addresses discovered</p>
+                    <p className="text-red-400/80 text-[10px] font-bold uppercase tracking-widest">Please add an address in your profile</p>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {addresses.map((addr, idx) => (
                       <button
-                        key={addr._id || addr.id}
+                        key={addr._id || addr.id || idx}
                         onClick={() => setSelectedAddressIndex(idx)}
-                        className={`text-left p-5 rounded-2xl transition-all duration-300 border ${selectedAddressIndex === idx ? 'bg-white/10 border-white/40 ring-2 ring-white/10' : 'bg-white/5 border-white/5 opacity-50 hover:opacity-100'}`}
+                        className={`text-left p-6 rounded-2xl transition-all duration-300 border relative group ${selectedAddressIndex === idx
+                          ? 'bg-cyan-500/10 border-cyan-500/50 ring-1 ring-cyan-500/20 shadow-[0_0_20px_rgba(6,182,212,0.1)]'
+                          : 'bg-white/5 border-white/5 opacity-60 hover:opacity-100 hover:bg-white/10'}`}
                       >
-                        <div className="flex items-center justify-between mb-3">
-                          <span className="text-[10px] font-black uppercase tracking-widest bg-white/10 px-2 py-0.5 rounded text-gray-300">{addr.label}</span>
-                          {selectedAddressIndex === idx && <div className="h-4 w-4 bg-cyan-500 rounded-full flex items-center justify-center"><svg className="w-3 h-3 text-black" fill="currentColor" viewBox="0 0 20 20"><path d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" /></svg></div>}
+                        <div className="flex items-center justify-between mb-4">
+                          <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded border ${selectedAddressIndex === idx ? 'bg-cyan-500 text-black border-cyan-400' : 'bg-white/10 text-gray-400 border-white/10'}`}>
+                            {addr.label || 'Other'}
+                          </span>
+                          {selectedAddressIndex === idx ? (
+                            <div className="h-5 w-5 bg-cyan-500 rounded-full flex items-center justify-center animate-in zoom-in-50 duration-300">
+                              <svg className="w-3.5 h-3.5 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={4} d="M5 13l4 4L19 7" /></svg>
+                            </div>
+                          ) : (
+                            <div className="h-5 w-5 border-2 border-white/10 rounded-full group-hover:border-white/30 transition-colors" />
+                          )}
                         </div>
-                        <p className="text-white font-bold leading-tight line-clamp-1">{addr.houseNo}, {addr.building}</p>
-                        <p className="text-gray-400 text-xs mt-1 truncate">{addr.landmark}</p>
-                        <p className="text-gray-500 text-[10px] font-bold mt-3 tracking-wide">{addr.receiverName} · {addr.receiverPhone}</p>
+                        <p className="text-white font-bold text-base leading-tight">
+                          {addr.houseNo ? `${addr.houseNo}, ` : ''}{addr.building}
+                        </p>
+                        {addr.landmark && <p className="text-gray-400 text-xs mt-1.5 font-medium">{addr.landmark}</p>}
+                        <div className="mt-4 pt-4 border-t border-white/5 flex items-center gap-2">
+                          <div className="h-1.5 w-1.5 rounded-full bg-cyan-500/40" />
+                          <p className="text-gray-500 text-[10px] font-black uppercase tracking-widest">
+                            {addr.receiverName || 'Receiver'} · {addr.receiverPhone || ''}
+                          </p>
+                        </div>
                       </button>
                     ))}
                   </div>
