@@ -24,6 +24,8 @@ export default function PaymentPage({
 
   // Simulate payment processing
   const handlePayment = async () => {
+    if (isProcessing) return;
+
     // Verify address and phone number
     if (!customerProfile || !customerProfile.address || !customerProfile.address.trim()) {
       alert('Please provide a valid shipping address in your profile before placing the order.');
