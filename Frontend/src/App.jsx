@@ -138,10 +138,12 @@ export default function App() {
             let finalTitle = backendProduct.name;
             if (!finalTitle || finalTitle.toLowerCase().includes('null')) {
               finalTitle = series;
-              if (flavor && !finalTitle.toLowerCase().includes(flavor.toLowerCase())) {
+              if (flavor && flavor.toLowerCase() !== 'null' && !finalTitle.toLowerCase().includes(flavor.toLowerCase())) {
                 finalTitle += ` - ${flavor}`;
               }
             }
+            // Final polish: remove any residual ' - null' or 'null'
+            finalTitle = finalTitle.replace(/\s*-\s*null/gi, '').replace(/null/gi, '').trim();
 
             const finalProduct = {
               ...staticProduct,
@@ -156,8 +158,8 @@ export default function App() {
               features: resolveSpec(backendSpecs.features || backendProduct.features, staticProduct.features),
 
               price: backendProduct.price || staticProduct.price,
-              stock: backendProduct.stock || 0,
-              soldOut: (backendProduct.stock || 0) <= 0,
+              stock: backendProduct.stock || 50, // Default stock if not in DB
+              soldOut: (backendProduct.stock !== undefined && backendProduct.stock <= 0),
               isBestSelling: backendProduct.isBestSelling || staticProduct.isBestSelling
             };
 
@@ -187,10 +189,11 @@ export default function App() {
           let finalTitle = p.name;
           if (!finalTitle || finalTitle.toLowerCase().includes('null')) {
             finalTitle = p.series || 'Vape Item';
-            if (flavor && !finalTitle.toLowerCase().includes(flavor.toLowerCase())) {
+            if (flavor && flavor.toLowerCase() !== 'null' && !finalTitle.toLowerCase().includes(flavor.toLowerCase())) {
               finalTitle += ` - ${flavor}`;
             }
           }
+          finalTitle = finalTitle.replace(/\s*-\s*null/gi, '').replace(/null/gi, '').trim();
 
           const newProduct = {
             ...p,
@@ -317,7 +320,10 @@ export default function App() {
         }
       };
       // Poll every 15 seconds to be gentler on the server
-      interval = setInterval(pollOrders, 15000);
+      interval = setInterval(() => {
+        pollOrders();
+        fetchProducts(); // Keep stock dynamic from admin side
+      }, 15000);
     }
     return () => clearInterval(interval);
   }, [isLoggedIn, user]);
@@ -595,7 +601,9 @@ export default function App() {
             items: pendingOrder.items.map(item => ({
               product: item._id || item.id,
               quantity: item.quantity || 1,
-              name: item.name,
+              name: item.name || item.series,
+              price: item.price, // CRITICAL: Send price to avoid ₹0 orders
+              image: item.image || item.cardImage || item.poster || '',
               brand: item.brand,
               series: item.series,
               flavor: item.flavor

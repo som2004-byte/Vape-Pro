@@ -237,40 +237,65 @@ export default function AccountSection({
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div className="space-y-6">
                       <div className="bg-white/5 rounded-2xl p-5 border border-white/5">
-                        <label className="text-xs font-bold text-gray-500 uppercase tracking-widest block mb-2">Full Name</label>
-                        <p className="text-white text-lg font-medium">{profile?.name || '--'}</p>
+                        <label className="text-xs font-bold text-gray-500 uppercase tracking-widest block mb-1">Full Name</label>
+                        <p className="text-white text-lg font-bold truncate">{profile?.name || '--'}</p>
                       </div>
-                      <div className="bg-white/5 rounded-2xl p-5 border border-white/5 flex items-center justify-between">
-                        <div>
-                          <label className="text-xs font-bold text-gray-500 uppercase tracking-widest block mb-2">Email</label>
-                          <p className="text-white text-lg font-medium">{profile?.email || '--'}</p>
+
+                      <div className="bg-white/5 rounded-2xl p-5 border border-white/5 relative group overflow-hidden">
+                        <div className="pr-16">
+                          <label className="text-xs font-bold text-gray-500 uppercase tracking-widest block mb-1">Email</label>
+                          <p className="text-white text-lg font-bold break-all leading-tight">{profile?.email || '--'}</p>
                         </div>
-                        {isEmailVerified && <span className="bg-emerald-500/20 text-emerald-400 px-3 py-1 rounded-full text-[10px] font-black tracking-widest uppercase border border-emerald-500/30">Verified</span>}
+                        {isEmailVerified && (
+                          <div className="absolute top-5 right-5">
+                            <span className="bg-emerald-500/10 text-emerald-400 px-2.5 py-1 rounded-lg text-[9px] font-black tracking-widest uppercase border border-emerald-500/20 shadow-[0_0_10px_rgba(52,211,153,0.1)]">
+                              Verified
+                            </span>
+                          </div>
+                        )}
                       </div>
+
                       <div className="bg-white/5 rounded-2xl p-5 border border-white/5">
-                        <label className="text-xs font-bold text-gray-500 uppercase tracking-widest block mb-2">Phone</label>
-                        <p className="text-white text-lg font-medium">{profile?.phoneNumber || '--'}</p>
+                        <label className="text-xs font-bold text-gray-500 uppercase tracking-widest block mb-1">Phone</label>
+                        <p className="text-white text-lg font-bold">{profile?.phoneNumber || '--'}</p>
                       </div>
                     </div>
 
                     <div className="space-y-4">
-                      <label className="text-xs font-bold text-gray-500 uppercase tracking-widest block mb-2 px-2">Saved Addresses</label>
+                      <label className="text-xs font-bold text-gray-500 uppercase tracking-widest block mb-2 px-1">Saved Addresses</label>
                       {addresses.length === 0 ? (
                         <div className="bg-white/5 border border-dashed border-white/10 rounded-2xl p-8 text-center">
-                          <p className="text-gray-500 text-sm">No addresses found</p>
+                          <p className="text-gray-500 text-sm font-medium">No addresses saved yet</p>
                         </div>
                       ) : (
-                        addresses.map((addr) => (
-                          <div key={addr._id || addr.id} className="bg-cyan-500/5 border border-white/5 rounded-2xl p-4 relative group">
-                            <div className="flex items-center gap-2 mb-2">
-                              <span className="text-[10px] font-black uppercase tracking-widest bg-cyan-500/20 text-cyan-400 px-2 py-0.5 rounded border border-cyan-500/30">{addr.label}</span>
-                              {addr.isDefault && <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">Default</span>}
+                        <div className="space-y-3">
+                          {addresses.map((addr) => (
+                            <div key={addr._id || addr.id} className="bg-white/5 border border-white/5 rounded-2xl p-5 relative group hover:border-cyan-500/30 transition-all duration-300">
+                              <div className="flex items-center gap-3 mb-3">
+                                <span className="text-[9px] font-black uppercase tracking-widest bg-cyan-500 text-black px-2 py-0.5 rounded-md">
+                                  {addr.label || 'Home'}
+                                </span>
+                                {addr.isDefault && (
+                                  <span className="text-[9px] font-black uppercase tracking-widest text-emerald-400 flex items-center gap-1">
+                                    <span className="h-1 w-1 rounded-full bg-emerald-400 animate-pulse" />
+                                    Default
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-white text-sm font-bold leading-relaxed pr-8 line-clamp-2">
+                                {addr.houseNo ? addr.houseNo + ', ' : ''}{addr.building}
+                              </p>
+                              {addr.landmark && (
+                                <p className="text-gray-400 text-xs mt-1 italic opacity-80">{addr.landmark}</p>
+                              )}
+                              <div className="mt-4 pt-3 border-t border-white/5">
+                                <p className="text-gray-500 text-[9px] font-black uppercase tracking-widest">
+                                  {addr.receiverName || profile?.name} · <span className="text-gray-400">{addr.receiverPhone || profile?.phoneNumber}</span>
+                                </p>
+                              </div>
                             </div>
-                            <p className="text-white text-sm font-semibold">{addr.houseNo ? addr.houseNo + ', ' : ''}{addr.building}</p>
-                            {addr.landmark && <p className="text-gray-400 text-xs mt-1">{addr.landmark}</p>}
-                            <p className="text-gray-500 text-[10px] mt-2 font-black uppercase tracking-widest">{addr.receiverName} · {addr.receiverPhone}</p>
-                          </div>
-                        ))
+                          ))}
+                        </div>
                       )}
                     </div>
                   </div>
@@ -452,20 +477,32 @@ export default function AccountSection({
                         </div>
 
                         <div className="space-y-3 mb-6">
-                          {(order.items || []).map((item, idx) => (
-                            <div key={idx} className="flex justify-between items-center text-sm">
-                              <div className="flex items-center gap-3">
-                                <div className="h-4 w-4 rounded-full bg-cyan-500/20 flex items-center justify-center text-cyan-400 text-[10px] font-black">1</div>
-                                <span className="text-gray-300">{item.name || item.series} {item.flavor && `· ${item.flavor}`}</span>
+                          {(order.items || []).map((item, idx) => {
+                            // Clean names and heal prices
+                            let cleanName = (item.name || item.series || 'Product').replace(/\s*-\s*null/gi, '').replace(/null/gi, '').trim();
+                            if (item.flavor && item.flavor.toLowerCase() !== 'null') {
+                              cleanName += ` · ${item.flavor}`;
+                            }
+                            // Heal zero price using backendProducts if available
+                            const itemPrice = (item.price && item.price > 0) ? item.price : 0;
+
+                            return (
+                              <div key={idx} className="flex justify-between items-center text-sm">
+                                <div className="flex items-center gap-3">
+                                  <div className="h-4 w-4 rounded-full bg-cyan-500/20 flex items-center justify-center text-cyan-400 text-[10px] font-black">{item.quantity}</div>
+                                  <span className="text-gray-300">{cleanName}</span>
+                                </div>
+                                <span className="text-white font-mono font-bold">₹{(itemPrice * (item.quantity || 1)).toLocaleString()}</span>
                               </div>
-                              <span className="text-white font-mono font-bold">₹{item.price?.toLocaleString()}</span>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
 
                         <div className="pt-4 border-t border-white/5 flex justify-between items-center">
                           <span className="text-gray-500 text-xs font-bold uppercase tracking-widest">Total Amount</span>
-                          <span className="text-2xl font-black text-white">₹{order.total?.toLocaleString()}</span>
+                          <span className="text-2xl font-black text-white">
+                            ₹{(order.total && order.total > 0 ? order.total : (order.items || []).reduce((sum, item) => sum + ((item.price || 0) * (item.quantity || 1)), 0)).toLocaleString()}
+                          </span>
                         </div>
                       </div>
                     ))}

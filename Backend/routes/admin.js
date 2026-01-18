@@ -291,7 +291,7 @@ router.get('/orders', authorizeAdmin, async (req, res) => {
     }
 
     const orders = await Order.find(query)
-      .populate('userId', 'name email')
+      .populate('userId', 'name email phone phoneNumber')
 
 
       .sort({ createdAt: -1 })
@@ -414,7 +414,7 @@ router.patch(
 router.get('/orders/:orderId', authorizeAdmin, async (req, res) => {
   try {
     const order = await Order.findById(req.params.orderId)
-      .populate('user', 'name email phone address')
+      .populate('userId', 'name email phone phoneNumber address addresses')
       .populate('items.product');
 
     if (!order) {
@@ -534,14 +534,27 @@ router.patch(
       }
 
       const { stock } = req.body;
-      const product = await Product.findByIdAndUpdate(
-        req.params.productId,
-        { stock },
-        { new: true, runValidators: true }
-      );
+      const { productId } = req.params;
+      const isValidObjectId = (id) => typeof id === 'string' && /^[0-9a-fA-F]{24}$/.test(id);
+
+      let product;
+      if (isValidObjectId(productId)) {
+        product = await Product.findByIdAndUpdate(
+          productId,
+          { stock },
+          { new: true, runValidators: true }
+        );
+      } else {
+        // Upsert by SKU for frontend-only products
+        product = await Product.findOneAndUpdate(
+          { sku: productId },
+          { stock },
+          { new: true, upsert: true, runValidators: true, setDefaultsOnInsert: true }
+        );
+      }
 
       if (!product) {
-        return res.status(404).json({ message: 'Product not found' });
+        return res.status(404).json({ message: 'Product not found and could not be initialized' });
       }
 
       res.json(product);
@@ -643,6 +656,11 @@ router.get('/stats', authorizeAdmin, async (req, res) => {
 
     const totalRevenue = result.length > 0 ? result[0].total : 0;
 
+    // Get pending orders & requirements
+    const pendingOrders = await Order.countDocuments({ status: 'pending' });
+    const totalRequirements = await ClientRequirement.countDocuments();
+    const pendingRequirements = await ClientRequirement.countDocuments({ status: { $ne: 'completed' } });
+
     // Get recent orders
     const recentOrders = await Order.find()
       .sort({ createdAt: -1 })
@@ -669,6 +687,9 @@ router.get('/stats', authorizeAdmin, async (req, res) => {
       totalUsers,
       totalOrders,
       totalRevenue,
+      pendingOrders,
+      totalRequirements,
+      pendingRequirements,
       recentOrders,
       salesByMonth,
     });

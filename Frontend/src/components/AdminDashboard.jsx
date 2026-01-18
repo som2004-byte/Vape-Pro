@@ -1194,35 +1194,30 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
                       if (stockUpdateValue !== '') updates.stock = Number(stockUpdateValue);
                       if (priceUpdateValue !== '') updates.price = Number(priceUpdateValue);
                       if (Object.keys(updates).length > 0) {
-                        handleProductUpdate(selectedProduct._id, updates);
+                        handleProductUpdate(selectedProduct._id || selectedProduct.id, updates);
                       }
                     }}
-                    disabled={(!stockUpdateValue && !priceUpdateValue) || !usingApiProducts}
+                    disabled={(!stockUpdateValue && !priceUpdateValue)}
                     className="w-full bg-purple-600 hover:bg-purple-500 text-white px-8 py-4 rounded-2xl font-black uppercase tracking-widest disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-purple-600/20 mb-4"
                   >
-                    {usingApiProducts ? 'Update details' : 'Demo Mode - Updates Disabled'}
+                    Update details
                   </button>
-                  {!usingApiProducts && (
-                    <p className="text-red-400 text-xs font-bold text-center mb-8 uppercase tracking-widest">
-                      You are viewing demo data. Connect DB to enable updates.
-                    </p>
-                  )}
 
                   {/* Quick Actions */}
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <button disabled={!usingApiProducts} onClick={() => handleProductUpdate(selectedProduct._id, { stock: selectedProduct.stock + 10 })} className="p-4 rounded-2xl bg-gray-900 border border-gray-800 hover:border-green-500/50 hover:bg-green-500/10 disabled:opacity-50 disabled:cursor-not-allowed transition-all group">
+                    <button onClick={() => handleProductUpdate(selectedProduct._id || selectedProduct.id, { stock: selectedProduct.stock + 10 })} className="p-4 rounded-2xl bg-gray-900 border border-gray-800 hover:border-green-500/50 hover:bg-green-500/10 transition-all group">
                       <p className="text-green-500 font-black text-lg group-hover:scale-110 transition-transform">+10</p>
                       <p className="text-[10px] font-bold uppercase text-gray-500">Quick Restock</p>
                     </button>
-                    <button disabled={!usingApiProducts} onClick={() => handleProductUpdate(selectedProduct._id, { stock: selectedProduct.stock + 50 })} className="p-4 rounded-2xl bg-gray-900 border border-gray-800 hover:border-green-500/50 hover:bg-green-500/10 disabled:opacity-50 disabled:cursor-not-allowed transition-all group">
+                    <button onClick={() => handleProductUpdate(selectedProduct._id || selectedProduct.id, { stock: selectedProduct.stock + 50 })} className="p-4 rounded-2xl bg-gray-900 border border-gray-800 hover:border-green-500/50 hover:bg-green-500/10 transition-all group">
                       <p className="text-green-500 font-black text-lg group-hover:scale-110 transition-transform">+50</p>
                       <p className="text-[10px] font-bold uppercase text-gray-500">Bulk Restock</p>
                     </button>
-                    <button disabled={!usingApiProducts} onClick={() => handleProductUpdate(selectedProduct._id, { stock: Math.max(0, selectedProduct.stock - 10) })} className="p-4 rounded-2xl bg-gray-900 border border-gray-800 hover:border-yellow-500/50 hover:bg-yellow-500/10 disabled:opacity-50 disabled:cursor-not-allowed transition-all group">
+                    <button onClick={() => handleProductUpdate(selectedProduct._id || selectedProduct.id, { stock: Math.max(0, selectedProduct.stock - 10) })} className="p-4 rounded-2xl bg-gray-900 border border-gray-800 hover:border-yellow-500/50 hover:bg-yellow-500/10 transition-all group">
                       <p className="text-yellow-500 font-black text-lg group-hover:scale-110 transition-transform">-10</p>
                       <p className="text-[10px] font-bold uppercase text-gray-500">Reduce</p>
                     </button>
-                    <button disabled={!usingApiProducts} onClick={() => handleProductUpdate(selectedProduct._id, { stock: 0 })} className="p-4 rounded-2xl bg-gray-900 border border-gray-800 hover:border-red-500/50 hover:bg-red-500/10 disabled:opacity-50 disabled:cursor-not-allowed transition-all group">
+                    <button onClick={() => handleProductUpdate(selectedProduct._id || selectedProduct.id, { stock: 0 })} className="p-4 rounded-2xl bg-gray-900 border border-gray-800 hover:border-red-500/50 hover:bg-red-500/10 transition-all group">
                       <p className="text-red-500 font-black text-lg group-hover:scale-110 transition-transform">ZERO</p>
                       <p className="text-[10px] font-bold uppercase text-gray-500">Deplete</p>
                     </button>

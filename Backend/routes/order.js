@@ -47,21 +47,28 @@ router.post(
 
         // Try to find product in database using _id or SKU
         let product = null;
+        // 1. Try MongoID, 2. Try SKU, 3. Try Name (Fuzzy Match)
         try {
-          if (productId.match(/^[0-9a-fA-F]{24}$/)) {
+          const isValidObjectId = (id) => typeof id === 'string' && /^[0-9a-fA-F]{24}$/.test(id);
+
+          if (isValidObjectId(productId)) {
             product = await Product.findById(productId);
           }
           if (!product) {
             product = await Product.findOne({ sku: productId });
           }
+          if (!product && (item.name || item.series)) {
+            const searchName = item.name || item.series;
+            product = await Product.findOne({ name: { $regex: new RegExp(`^${searchName}$`, 'i') } });
+          }
         } catch (err) {
-          console.log('Product lookup failed, using item data:', productId);
+          console.error('Product lookup error:', err);
         }
 
-        // Use item data if product not found in database
-        const itemName = product?.name || item.name || 'Product';
-        const itemPrice = product?.price || item.price || 0;
-        const itemImage = product?.images?.[0] || item.image || '';
+        // Use item data if product not found in database (Frontend-First fallbacks)
+        const itemName = item.name || product?.name || 'Product';
+        const itemPrice = Number(item.price) || product?.price || 0;
+        const itemImage = item.image || product?.images?.[0] || '';
 
         orderItems.push({
           productId: productId,
@@ -73,12 +80,31 @@ router.post(
 
         total += itemPrice * item.quantity;
 
-        // Reduce product stock only if product exists in database
-        if (product && product.stock >= item.quantity) {
-          product.stock -= item.quantity;
-          await product.save();
-        } else if (product) {
-          console.warn(`Not enough stock for ${itemName}. Available: ${product?.stock || 0}, Requested: ${item.quantity}`);
+        // Reduce product stock and track in database with robust resolution
+        if (product) {
+          const requestedQty = Number(item.quantity) || 1;
+          await Product.updateOne(
+            { _id: product._id },
+            { $inc: { stock: -requestedQty } }
+          );
+        } else if (productId) {
+          // JIT (Just-In-Time) Product Creation: 
+          // If product doesn't exist, create a minimalist stock record to enable tracking
+          try {
+            const requestedQty = Number(item.quantity) || 1;
+            const newProduct = new Product({
+              _id: (typeof productId === 'string' && productId.match(/^[0-9a-fA-F]{24}$/)) ? productId : undefined,
+              sku: (typeof productId === 'string' && !productId.match(/^[0-9a-fA-F]{24}$/)) ? productId : undefined,
+              name: itemName,
+              price: itemPrice,
+              stock: 100 - requestedQty, // Start with 100 base if new
+              images: [itemImage]
+            });
+            await newProduct.save();
+            console.log(`JIT Product created for: ${itemName}`);
+          } catch (createErr) {
+            console.error('Failed to JIT create product:', createErr);
+          }
         }
       }
 
@@ -169,11 +195,27 @@ router.post(
 
       for (const item of itemsToProcess) {
         const productId = item.product || item.id || item._id || item.productId;
-        const product = await Product.findOne({ productId: productId });
+        // Use robust resolution for legacy endpoint too
+        let product = null;
+        try {
+          const isValidObjectId = (id) => typeof id === 'string' && /^[0-9a-fA-F]{24}$/.test(id);
+          if (isValidObjectId(productId)) {
+            product = await Product.findById(productId);
+          }
+          if (!product) {
+            product = await Product.findOne({ sku: productId });
+          }
+          if (!product && (item.name || item.series)) {
+            const searchName = item.name || item.series;
+            product = await Product.findOne({ name: { $regex: new RegExp(`^${searchName}$`, 'i') } });
+          }
+        } catch (err) {
+          console.error('Legacy lookup error:', err);
+        }
 
         if (!product) {
           return res.status(400).json({
-            message: `Product ${productId} not found`
+            message: `Product ${productId} not found in database registry`
           });
         }
 
@@ -193,9 +235,11 @@ router.post(
 
         total += product.price * item.quantity;
 
-        // Reduce product stock
-        product.stock -= item.quantity;
-        await product.save();
+        // Reduce product stock atomically
+        await Product.updateOne(
+          { _id: product._id },
+          { $inc: { stock: -item.quantity } }
+        );
       }
 
       // Apply discount if any
