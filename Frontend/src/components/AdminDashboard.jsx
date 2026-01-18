@@ -67,34 +67,70 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
         } else if (endpoint.includes('/products')) {
           const rawProducts = data.products || (Array.isArray(data) ? data : []);
 
-          // Process and Match Products
-          const processedLiveProducts = rawProducts.map(lp => {
+          const normalize = (s) => (s === null || s === undefined || s === 'null') ? '' : s.toString().toLowerCase().trim().replace(/[^a-z0-9]/g, '');
+
+          const finalProductsMap = new Map();
+          const seenNameKeys = new Set();
+          const seenSkuKeys = new Set();
+
+          // 1. Process Live Products (Priority)
+          rawProducts.forEach(lp => {
             const match = USER_PRODUCTS.find(up =>
               up.id === lp.id || up.id === lp._id || up.id === lp.sku ||
-              (lp.brand && up.brand && lp.brand.toLowerCase() === up.brand.toLowerCase() && lp.flavor && up.flavor && lp.flavor.toLowerCase() === up.flavor.toLowerCase())
+              (normalize(lp.brand) === normalize(up.brand) && normalize(lp.flavor) === normalize(up.flavor))
             );
-            return {
+
+            const brand = lp.brand || match?.brand || 'Generic';
+            const series = lp.series || match?.series || '';
+            let flavor = lp.flavor || match?.flavor || '';
+            if (normalize(flavor) === '') flavor = '';
+
+            // Clean Name: Force re-generation if name is missing or contains "null"
+            let displayName = lp.name;
+            if (!displayName || displayName.toLowerCase().includes('null')) {
+              displayName = series ? (flavor ? `${brand} ${series} - ${flavor}` : `${brand} ${series}`) : brand;
+            }
+            if (displayName.endsWith(' - ')) displayName = displayName.slice(0, -3);
+
+            const item = {
               ...lp,
+              name: displayName,
               image: lp.image || (lp.images && lp.images[0]) || (match ? (match.poster || match.cardImage) : ''),
               isDemo: false
             };
+
+            const nameKey = `${normalize(brand)}|${normalize(series)}|${normalize(flavor)}`;
+            const skuKey = lp.sku;
+
+            // Strict deduplication: Check both SKU and Name
+            if (!seenNameKeys.has(nameKey) && (!skuKey || !seenSkuKeys.has(skuKey))) {
+              finalProductsMap.set(skuKey || nameKey, item);
+              seenNameKeys.add(nameKey);
+              if (skuKey) seenSkuKeys.add(skuKey);
+            }
           });
 
-          // Identify Demo items that aren't in the database yet
-          const missingDemoProducts = USER_PRODUCTS.filter(up => {
-            const isRepresented = rawProducts.some(lp =>
-              lp.id === up.id || lp._id === up.id || lp.sku === up.id ||
-              (lp.brand && lp.brand.toLowerCase() === up.brand.toLowerCase() && lp.flavor && lp.flavor.toLowerCase() === up.flavor.toLowerCase())
-            );
-            return !isRepresented;
-          }).map(up => ({
-            ...up,
-            _id: up.id,
-            image: up.poster || up.cardImage || '',
-            isDemo: true
-          }));
+          // 2. Add Missing Demo Products
+          USER_PRODUCTS.forEach(up => {
+            const nameKey = `${normalize(up.brand)}|${normalize(up.series)}|${normalize(up.flavor)}`;
+            const idKey = up.id;
 
-          setter([...processedLiveProducts, ...missingDemoProducts]);
+            if (!seenNameKeys.has(nameKey) && !seenSkuKeys.has(idKey)) {
+              let displayName = up.series ? (up.flavor ? `${up.brand} ${up.series} - ${up.flavor}` : `${up.brand} ${up.series}`) : up.brand;
+
+              finalProductsMap.set(idKey || nameKey, {
+                ...up,
+                _id: up.id,
+                name: displayName,
+                image: up.poster || up.cardImage || '',
+                isDemo: true
+              });
+              seenNameKeys.add(nameKey);
+              seenSkuKeys.add(idKey);
+            }
+          });
+
+          setter(Array.from(finalProductsMap.values()));
         } else if (endpoint.includes('/users')) {
           setter(data.users || (Array.isArray(data) ? data : []));
         } else if (endpoint.includes('/admins')) {
@@ -461,51 +497,7 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
           await fetchData('/admins', setAdmins);
           await fetchData('/client-requirements', setClientRequirements);
           await fetchData('/orders', setOrders);
-          await fetchData('/products?limit=1000', (backendProducts) => {
-            const liveProducts = backendProducts || [];
-
-            // Merge Strategy:
-            // 1. Map Live DB products, adding images from matching Demo products if missing.
-            // 2. Add any Demo products that are NOT yet in the DB.
-
-            const processedLiveProducts = liveProducts.map(lp => {
-              // Try to find matching demo product by ID (if preserved) or lenient Name matching
-              const match = USER_PRODUCTS.find(up =>
-                up.id === lp.id ||
-                up.id === lp._id ||
-                (lp.name && up.flavor && lp.name.includes(up.flavor)) ||
-                (lp.name && up.series && lp.name.includes(up.series))
-              );
-
-              return {
-                ...lp,
-                // Restore image if missing in DB but present in Demo data
-                // Priority: lp.image (if exists) -> lp.images[0] (standard DB format) -> Demo Match
-                image: lp.image || (lp.images && lp.images.length > 0 ? lp.images[0] : '') || (match ? (match.poster || match.cardImage) : ''),
-                // Restore clean name if needed (optional)
-              };
-            });
-
-            // Find Demo products that are NOT in the live list (to show as "Demo" items)
-            const missingDemoProducts = USER_PRODUCTS.filter(up => {
-              // Check if this demo product is already represented in liveProducts
-              const isRepresented = liveProducts.some(lp =>
-                lp.id === up.id ||
-                lp._id === up.id ||
-                (lp.name && up.flavor && lp.name.includes(up.flavor))
-              );
-              return !isRepresented;
-            }).map(up => ({
-              ...up,
-              _id: up.id, // Use local ID
-              name: `${up.brand} ${up.series} - ${up.flavor}`,
-              image: up.poster || up.cardImage || '',
-              isDemo: true // Flag to identify these need "Promotion" on edit
-            }));
-
-            // Combine: Live Products first, then remaining Demo products
-            setProducts([...processedLiveProducts, ...missingDemoProducts]);
-          });
+          await fetchData('/products?limit=1000', setProducts);
           fetchStats();
         } else {
           // Fallback for demo mode if no token

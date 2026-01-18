@@ -70,7 +70,7 @@ export default function App() {
   const [currentCategory, setCurrentCategory] = useState('all')
   const [activeFilters, setActiveFilters] = useState({})
   const [searchQuery, setSearchQuery] = useState('')
-  const [currentPage, setCurrentPage] = useState(persistedState.isAdminLoggedIn ? 'adminDashboard' : 'home')
+  const [currentPage, setCurrentPage] = useState('home')
   const [accountTab, setAccountTab] = useState('profile')
   const [cartItems, setCartItems] = useState(persistedState.cartItems)
   const [toast, setToast] = useState(null)
@@ -86,10 +86,8 @@ export default function App() {
       setIsLoadingProducts(true);
       const data = await apiCall(API_ENDPOINTS.PRODUCTS.ALL);
       if (Array.isArray(data)) {
-        // Helper to normalize strings for matching
-        const normalize = (s) => (s || '').toString().toLowerCase().trim().replace(/[^a-z0-9]/g, '');
+        const normalize = (s) => (s === null || s === undefined || s === 'null') ? '' : s.toString().toLowerCase().trim().replace(/[^a-z0-9]/g, '');
 
-        // Comprehensive spec resolver
         const resolveSpec = (backendVal, staticVal, isNumber = false) => {
           const isEmpty = (v) => v === null || v === undefined || v === "" || v === 0 || v === "0" || (typeof v === 'string' && (v.toLowerCase() === 'n/a' || v.toLowerCase() === 'null'));
           if (!isEmpty(backendVal)) return isNumber ? parseInt(backendVal) : backendVal;
@@ -97,11 +95,12 @@ export default function App() {
         };
 
         const matchedBackendIds = new Set();
-        const finalProductsMap = new Map(); // Key: normalized brand|series|flavor
+        const finalProductsMap = new Map();
+        const seenNameKeys = new Set();
 
-        // 1. Process Static Products first (The "Anchor" items)
-        const mergedProducts = PRODUCTS.map(staticProduct => {
-          const staticNormKey = `${normalize(staticProduct.brand)}|${normalize(staticProduct.series)}|${normalize(staticProduct.flavor)}`;
+        // 1. Process Static Products
+        PRODUCTS.forEach(staticProduct => {
+          const staticNameKey = `${normalize(staticProduct.brand)}|${normalize(staticProduct.series)}|${normalize(staticProduct.flavor)}`;
 
           // Find best backend match
           const matchingBackendProducts = data.filter(p => {
@@ -113,20 +112,20 @@ export default function App() {
           });
 
           if (matchingBackendProducts.length > 0) {
-            // Prioritize item with stock
             const backendProduct = matchingBackendProducts.find(p => p.stock > 0) || matchingBackendProducts[0];
             matchingBackendProducts.forEach(p => matchedBackendIds.add(p._id));
 
             const backendSpecs = backendProduct.specifications || {};
-
-            // Smart Name Construction
             const series = backendProduct.series || staticProduct.series || '';
             let flavor = backendProduct.flavor || staticProduct.flavor || '';
-            if (normalize(flavor) === 'null') flavor = '';
+            if (normalize(flavor) === '') flavor = '';
 
-            let finalTitle = series;
-            if (flavor && !finalTitle.toLowerCase().includes(flavor.toLowerCase())) {
-              finalTitle += ` - ${flavor}`;
+            let finalTitle = backendProduct.name;
+            if (!finalTitle || finalTitle.toLowerCase().includes('null')) {
+              finalTitle = series;
+              if (flavor && !finalTitle.toLowerCase().includes(flavor.toLowerCase())) {
+                finalTitle += ` - ${flavor}`;
+              }
             }
 
             const finalProduct = {
@@ -134,52 +133,48 @@ export default function App() {
               ...backendProduct,
               id: backendProduct._id || backendProduct.id,
               name: finalTitle,
-              brand: staticProduct.brand, // Correct backend brand errors using static data
+              brand: staticProduct.brand,
 
-              // Specs Fallback
               puffs: resolveSpec(backendSpecs.puffs || backendProduct.puffs, staticProduct.puffs, true),
               nicotine: resolveSpec(backendSpecs.nicotine || backendProduct.nicotine, staticProduct.nicotine),
               type: resolveSpec(backendSpecs.type || backendProduct.type, staticProduct.type),
               features: resolveSpec(backendSpecs.features || backendProduct.features, staticProduct.features),
 
-              // Market Data
               price: backendProduct.price || staticProduct.price,
               stock: backendProduct.stock || 0,
               soldOut: (backendProduct.stock || 0) <= 0,
               isBestSelling: backendProduct.isBestSelling || staticProduct.isBestSelling
             };
 
-            finalProductsMap.set(staticNormKey, finalProduct);
-            return finalProduct;
+            finalProductsMap.set(staticNameKey, finalProduct);
+            seenNameKeys.add(staticNameKey);
+          } else {
+            const ghostProduct = {
+              ...staticProduct,
+              stock: staticProduct.stock || 0,
+              soldOut: (staticProduct.stock || 0) <= 0
+            };
+            finalProductsMap.set(staticNameKey, ghostProduct);
+            seenNameKeys.add(staticNameKey);
           }
-
-          // Static item not in backend - Show its default stock
-          const ghostProduct = {
-            ...staticProduct,
-            stock: staticProduct.stock || 0,
-            soldOut: (staticProduct.stock || 0) <= 0
-          };
-          finalProductsMap.set(staticNormKey, ghostProduct);
-          return ghostProduct;
         });
 
-        // 2. Process remaining backend items (Unique/New products)
+        // 2. Process remaining backend items
         data.filter(p => !matchedBackendIds.has(p._id)).forEach(p => {
           const normKey = `${normalize(p.brand)}|${normalize(p.series)}|${normalize(p.flavor)}`;
-
-          // Prevent duplicates if already matched fuzzy
-          if (finalProductsMap.has(normKey)) return;
+          if (finalProductsMap.has(normKey) || seenNameKeys.has(normKey)) return;
 
           const specs = p.specifications || {};
-
-          // Try to find a "Series Prototype" in static data to inherit specs (e.g. 0 puffs fix)
           const prototype = PRODUCTS.find(sp => normalize(sp.brand) === normalize(p.brand) && normalize(sp.series) === normalize(p.series));
 
           let flavor = p.flavor || '';
-          if (normalize(flavor) === 'null') flavor = '';
-          let finalTitle = p.series || p.name || 'Vape Item';
-          if (flavor && !finalTitle.toLowerCase().includes(flavor.toLowerCase())) {
-            finalTitle += ` - ${flavor}`;
+          if (normalize(flavor) === '') flavor = '';
+          let finalTitle = p.name;
+          if (!finalTitle || finalTitle.toLowerCase().includes('null')) {
+            finalTitle = p.series || 'Vape Item';
+            if (flavor && !finalTitle.toLowerCase().includes(flavor.toLowerCase())) {
+              finalTitle += ` - ${flavor}`;
+            }
           }
 
           const newProduct = {
@@ -196,6 +191,7 @@ export default function App() {
           };
 
           finalProductsMap.set(normKey, newProduct);
+          seenNameKeys.add(normKey);
         });
 
         setBackendProducts(Array.from(finalProductsMap.values()));
