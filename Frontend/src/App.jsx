@@ -153,8 +153,12 @@ export default function App() {
             return finalProduct;
           }
 
-          // Static item not in backend - Show as Sold Out
-          const ghostProduct = { ...staticProduct, soldOut: true };
+          // Static item not in backend - Show its default stock
+          const ghostProduct = {
+            ...staticProduct,
+            stock: staticProduct.stock || 0,
+            soldOut: (staticProduct.stock || 0) <= 0
+          };
           finalProductsMap.set(staticNormKey, ghostProduct);
           return ghostProduct;
         });
@@ -536,6 +540,14 @@ export default function App() {
       }
     }
   }
+
+  // Refresh data
+  const handleRefresh = () => {
+    fetchData('/users', setUsers);
+    fetchData('/client-requirements', setClientRequirements);
+    fetchData('/orders', setOrders);
+    fetchStats();
+  };
 
   const handleCheckout = () => {
     if (cartItems.length === 0) {

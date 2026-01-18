@@ -65,7 +65,36 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
         if (endpoint.includes('/orders')) {
           setter(data.orders || (Array.isArray(data) ? data : []));
         } else if (endpoint.includes('/products')) {
-          setter(data.products || (Array.isArray(data) ? data : []));
+          const rawProducts = data.products || (Array.isArray(data) ? data : []);
+
+          // Process and Match Products
+          const processedLiveProducts = rawProducts.map(lp => {
+            const match = USER_PRODUCTS.find(up =>
+              up.id === lp.id || up.id === lp._id || up.id === lp.sku ||
+              (lp.brand && up.brand && lp.brand.toLowerCase() === up.brand.toLowerCase() && lp.flavor && up.flavor && lp.flavor.toLowerCase() === up.flavor.toLowerCase())
+            );
+            return {
+              ...lp,
+              image: lp.image || (lp.images && lp.images[0]) || (match ? (match.poster || match.cardImage) : ''),
+              isDemo: false
+            };
+          });
+
+          // Identify Demo items that aren't in the database yet
+          const missingDemoProducts = USER_PRODUCTS.filter(up => {
+            const isRepresented = rawProducts.some(lp =>
+              lp.id === up.id || lp._id === up.id || lp.sku === up.id ||
+              (lp.brand && lp.brand.toLowerCase() === up.brand.toLowerCase() && lp.flavor && lp.flavor.toLowerCase() === up.flavor.toLowerCase())
+            );
+            return !isRepresented;
+          }).map(up => ({
+            ...up,
+            _id: up.id,
+            image: up.poster || up.cardImage || '',
+            isDemo: true
+          }));
+
+          setter([...processedLiveProducts, ...missingDemoProducts]);
         } else if (endpoint.includes('/users')) {
           setter(data.users || (Array.isArray(data) ? data : []));
         } else if (endpoint.includes('/admins')) {
@@ -120,6 +149,7 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
     fetchData('/users', setUsers);
     fetchData('/client-requirements', setClientRequirements);
     fetchData('/orders', setOrders);
+    fetchData('/products?limit=1000', setProducts);
     fetchStats();
   };
 
@@ -161,7 +191,8 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
           brand: productToPromote.brand || originalDemoData.brand || 'Generic',
 
           price: Number(updates.price || productToPromote.price || originalDemoData.price || 0),
-          stock: Number(updates.stock || productToPromote.stock || 0)
+          stock: Number(updates.stock || productToPromote.stock || 0),
+          sku: productId // Preserve demo ID as SKU for storefront matching
         };
         // Remove system fields and IDs
         delete payload._id;
@@ -430,7 +461,7 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
           await fetchData('/admins', setAdmins);
           await fetchData('/client-requirements', setClientRequirements);
           await fetchData('/orders', setOrders);
-          await fetchData('/products', (backendProducts) => {
+          await fetchData('/products?limit=1000', (backendProducts) => {
             const liveProducts = backendProducts || [];
 
             // Merge Strategy:
