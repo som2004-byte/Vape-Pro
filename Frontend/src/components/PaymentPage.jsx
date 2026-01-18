@@ -36,21 +36,47 @@ export default function PaymentPage({
     setIsProcessing(true);
     setPaymentStatus('processing');
 
-    // Simulate ordering
-    setTimeout(() => {
+    try {
+      const response = await fetch(`${window.location.origin.includes('localhost') ? 'http://localhost:3000' : 'https://vape-pro-2.onrender.com'}/api/orders/checkout`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('vapesmart_token') || ''}`
+        },
+        body: JSON.stringify({
+          shippingAddress: `${selectedAddress.houseNo || ''}, ${selectedAddress.building || ''}, ${selectedAddress.landmark || ''}`.replace(/^, /, ''),
+          paymentMethod,
+          items: cartItems.map(item => ({
+            product: item._id || item.id,
+            quantity: item.quantity || 1
+          }))
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to place order');
+      }
+
+      const data = await response.json();
       setPaymentStatus('success');
-      const transactionId = `${paymentMethod.toUpperCase()}${Date.now()}${Math.floor(Math.random() * 1000)}`;
 
       setTimeout(() => {
         onPaymentSuccess({
-          transactionId,
+          transactionId: data.order?._id || data.order?.id || `ORD${Date.now()}`,
           paymentMethod,
           paymentStatus: paymentMethod === 'cod' ? 'pending' : 'completed',
           paidAt: paymentMethod === 'cod' ? null : new Date().toISOString(),
           shippingAddress: `${selectedAddress.houseNo || ''}, ${selectedAddress.building || ''}, ${selectedAddress.landmark || ''}`.replace(/^, /, '')
         });
-      }, 1500);
-    }, 2000);
+      }, 2000);
+
+    } catch (err) {
+      console.error('Checkout error:', err);
+      alert(err.message || 'Checkout failed. Please try again.');
+      setPaymentStatus(null);
+      setIsProcessing(false);
+    }
   };
 
   if (paymentStatus === 'success') {

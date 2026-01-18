@@ -45,10 +45,15 @@ router.post(
       for (const item of itemsToProcess) {
         const productId = item.product || item.id || item._id || item.productId;
 
-        // Try to find product in database, but don't fail if not found
+        // Try to find product in database using _id or SKU
         let product = null;
         try {
-          product = await Product.findOne({ productId: productId });
+          if (productId.match(/^[0-9a-fA-F]{24}$/)) {
+            product = await Product.findById(productId);
+          }
+          if (!product) {
+            product = await Product.findOne({ sku: productId });
+          }
         } catch (err) {
           console.log('Product lookup failed, using item data:', productId);
         }

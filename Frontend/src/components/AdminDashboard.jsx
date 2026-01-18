@@ -77,7 +77,9 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
           rawProducts.forEach(lp => {
             const match = USER_PRODUCTS.find(up =>
               up.id === lp.id || up.id === lp._id || up.id === lp.sku ||
-              (normalize(lp.brand) === normalize(up.brand) && normalize(lp.flavor) === normalize(up.flavor))
+              (normalize(lp.brand) === normalize(up.brand) &&
+                normalize(lp.series) === normalize(up.series) &&
+                normalize(lp.flavor) === normalize(up.flavor))
             );
 
             const brand = lp.brand || match?.brand || 'Generic';
@@ -522,6 +524,7 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
     const intervalId = setInterval(() => {
       if (adminToken) {
         fetchData('/orders', setOrders);
+        fetchData('/products?limit=1000', setProducts);
         fetchStats();
       }
     }, 10000);

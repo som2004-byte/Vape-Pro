@@ -105,9 +105,24 @@ export default function App() {
           // Find best backend match
           const matchingBackendProducts = data.filter(p => {
             if (matchedBackendIds.has(p._id)) return false;
+            const pBrand = normalize(p.brand);
+            const pSeries = normalize(p.series);
+            const pFlavor = normalize(p.flavor);
+            const pName = normalize(p.name);
+
+            const sBrand = normalize(staticProduct.brand);
+            const sSeries = normalize(staticProduct.series);
+            const sFlavor = normalize(staticProduct.flavor);
+
             const isIdMatch = p.sku === staticProduct.id || p._id === staticProduct.id;
-            const isFuzzyMatch = normalize(p.brand) === normalize(staticProduct.brand) &&
-              normalize(p.flavor) === normalize(staticProduct.flavor);
+
+            // Multi-stage fuzzy match:
+            // 1. Direct field match (Primary)
+            // 2. Name-contains-series match (Fallback for legacy DB items)
+            const isFuzzyMatch = pBrand === sBrand && pFlavor === sFlavor && (
+              pSeries === sSeries ||
+              (sSeries !== '' && pName.includes(sSeries))
+            );
             return isIdMatch || isFuzzyMatch;
           });
 
@@ -576,11 +591,14 @@ export default function App() {
           headers: getAuthHeaders(user.token),
           body: JSON.stringify({
             shippingAddress: paymentData.shippingAddress || pendingOrder.customerProfile.address || '',
-            paymentMethod: paymentData.paymentMethod || 'card',
+            paymentMethod: paymentData.paymentMethod || 'cod',
             items: pendingOrder.items.map(item => ({
-              ...item,
-              product: item._id || item.id, // Prefer MongoDB ID, fallback to SKU/ID
-              productId: item._id || item.id
+              product: item._id || item.id,
+              quantity: item.quantity || 1,
+              name: item.name,
+              brand: item.brand,
+              series: item.series,
+              flavor: item.flavor
             })),
           })
         });

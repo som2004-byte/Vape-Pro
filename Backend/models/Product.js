@@ -54,6 +54,10 @@ const productSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Product brand is required']
   },
+  series: {
+    type: String,
+    default: ''
+  },
   flavor: {
     type: String,
     default: ''
