@@ -127,7 +127,7 @@ export default function App() {
           });
 
           if (matchingBackendProducts.length > 0) {
-            const backendProduct = matchingBackendProducts.find(p => p.stock > 0) || matchingBackendProducts[0];
+            const backendProduct = matchingBackendProducts[0];
             matchingBackendProducts.forEach(p => matchedBackendIds.add(p._id));
 
             const backendSpecs = backendProduct.specifications || {};

@@ -131,8 +131,12 @@ export default function ProductModal({ product, onClose, onAddToCart, onBuyNow }
                 <div className="space-y-3 pt-2">
                   <div className="grid grid-cols-2 gap-3">
                     <button
-                      className="px-4 py-3.5 rounded-xl bg-yellow-500 text-black font-bold hover:bg-yellow-400 transition-all transform active:scale-95 shadow-lg shadow-yellow-500/20"
+                      className={`px-4 py-3.5 rounded-xl font-bold transition-all transform active:scale-95 shadow-lg ${product.soldOut
+                        ? 'bg-neutral-800 text-gray-500 cursor-not-allowed shadow-none'
+                        : 'bg-yellow-500 text-black hover:bg-yellow-400 shadow-yellow-500/20'}`}
+                      disabled={product.soldOut}
                       onClick={() => {
+                        if (product.soldOut) return;
                         if (onBuyNow) {
                           onBuyNow(product)
                         } else if (onAddToCart) {
@@ -141,16 +145,20 @@ export default function ProductModal({ product, onClose, onAddToCart, onBuyNow }
                         onClose?.()
                       }}
                     >
-                      Buy Now
+                      {product.soldOut ? 'Unavailable' : 'Buy Now'}
                     </button>
                     <button
-                      className="px-4 py-3.5 rounded-xl border border-neutral-700 bg-neutral-800/50 text-white font-semibold hover:bg-neutral-800 hover:border-neutral-600 transition-all transform active:scale-95"
+                      className={`px-4 py-3.5 rounded-xl border font-semibold transition-all transform active:scale-95 ${product.soldOut
+                        ? 'border-neutral-800 bg-neutral-900 text-gray-600 cursor-not-allowed'
+                        : 'border-neutral-700 bg-neutral-800/50 text-white hover:bg-neutral-800 hover:border-neutral-600'}`}
+                      disabled={product.soldOut}
                       onClick={() => {
+                        if (product.soldOut) return;
                         onAddToCart?.(product)
                         onClose?.()
                       }}
                     >
-                      Add to Cart
+                      {product.soldOut ? 'Sold Out' : 'Add to Cart'}
                     </button>
                   </div>
                   <div className="flex items-start gap-2 text-xs text-gray-500 bg-neutral-950/50 p-3 rounded-lg">
