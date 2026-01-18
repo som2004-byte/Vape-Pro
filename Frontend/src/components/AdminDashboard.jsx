@@ -135,7 +135,7 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
               ...up,
               _id: dbMatch?._id || up.id, // Prefer MongoID if exists, fallback to SKU
               stock: dbMatch ? Number(dbMatch.stock) : 100, // Default to 100 if new
-              backendPrice: dbMatch?.price,
+              price: (dbMatch?.price && dbMatch.price > 0) ? dbMatch.price : up.price, // Prefer Live DB price, but NEVER accept a 0
               isDemo: false, // In this mode, everything is manageable
               name: up.flavor ? `${up.brand} ${up.series} - ${up.flavor}` : `${up.brand} ${up.series}`,
               image: up.poster || up.cardImage || ''
@@ -518,7 +518,21 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
   const [showPendingStats, setShowPendingStats] = useState(false);
 
   // Derived Statistics for Revenue View
-  const averageOrderValue = stats.totalOrders > 0 ? (stats.totalRevenue / stats.totalOrders).toFixed(2) : '0';
+  const healedTotalRevenue = Array.isArray(orders) ? orders.reduce((sum, order) => {
+    if (order.status === 'cancelled') return sum;
+    const orderTotal = (order.total && order.total > 0) ? order.total : (order.items || []).reduce((iSum, item) => {
+      const prodId = item.productId || item.product;
+      let p = products.find(local => local._id?.toString() === prodId?.toString() || local.id?.toString() === prodId?.toString());
+      if (!p && item.name) {
+        p = products.find(local => local.name === item.name || (local.series && item.name.includes(local.series)));
+      }
+      const price = (item.price && item.price > 0) ? item.price : (p?.price || 0);
+      return iSum + (price * (item.quantity || 1));
+    }, 0);
+    return sum + orderTotal;
+  }, 0) : 0;
+
+  const averageOrderValue = stats.totalOrders > 0 ? (healedTotalRevenue / stats.totalOrders).toFixed(2) : '0';
   const recentTransactions = Array.isArray(orders) ? orders.slice(0, 5) : [];
 
   // Derived Data for Pending View
@@ -558,7 +572,7 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
                 <div>
                   <p className="text-[10px] font-black uppercase text-gray-500 tracking-widest mb-2">Total Revenue</p>
-                  <p className="text-4xl lg:text-5xl font-black text-white truncate">₹{(stats.totalRevenue || 0).toLocaleString()}</p>
+                  <p className="text-4xl lg:text-5xl font-black text-white truncate">₹{healedTotalRevenue.toLocaleString()}</p>
                 </div>
                 <div>
                   <p className="text-[10px] font-black uppercase text-gray-500 tracking-widest mb-2">Avg. Order Value</p>
@@ -575,18 +589,30 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
             <div className="bg-gray-900/50 border border-gray-800 rounded-[32px] p-8">
               <h3 className="text-xl font-bold mb-6">Recent Transactions</h3>
               <div className="space-y-4">
-                {recentTransactions.map(order => (
-                  <div key={order._id} className="flex justify-between items-center p-4 bg-black/40 rounded-xl border border-gray-800">
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center text-green-400">↓</div>
-                      <div>
-                        <p className="font-bold text-white text-sm">{order.userId?.name || order.userId?.email || 'Guest User'}</p>
-                        <p className="text-xs text-gray-500">Order #{order._id.slice(-6).toUpperCase()}</p>
+                {recentTransactions.map(order => {
+                  const healedOrderTotal = (order.total && order.total > 0) ? order.total : (order.items || []).reduce((sum, item) => {
+                    const prodId = item.productId || item.product;
+                    let p = products.find(local => local._id?.toString() === prodId?.toString() || local.id?.toString() === prodId?.toString());
+                    if (!p && item.name) {
+                      p = products.find(local => local.name === item.name);
+                    }
+                    const price = (item.price && item.price > 0) ? item.price : (p?.price || 0);
+                    return sum + (price * (item.quantity || 1));
+                  }, 0);
+
+                  return (
+                    <div key={order._id} className="flex justify-between items-center p-4 bg-black/40 rounded-xl border border-gray-800">
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center text-green-400">↓</div>
+                        <div>
+                          <p className="font-bold text-white text-sm">{order.userId?.name || order.userId?.email || 'Guest User'}</p>
+                          <p className="text-xs text-gray-500">Order #{order._id.slice(-6).toUpperCase()}</p>
+                        </div>
                       </div>
+                      <p className="font-mono font-bold text-green-400">+ ₹{healedOrderTotal.toFixed(2)}</p>
                     </div>
-                    <p className="font-mono font-bold text-green-400">+ ₹{order.total}</p>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -748,7 +774,7 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
         {[
           { id: 'users', label: 'Users', value: stats.totalUsers, icon: '👥', color: 'from-blue-600/20 to-blue-600/10', border: 'border-blue-500/30', textColor: 'text-blue-400' },
           { id: 'orders', label: 'Orders', value: stats.totalOrders, icon: '📦', color: 'from-purple-600/20 to-purple-600/10', border: 'border-purple-500/30', textColor: 'text-purple-400' },
-          { id: 'revenue', label: 'Revenue', value: `₹${(stats.totalRevenue || 0).toLocaleString()}`, icon: '💰', color: 'from-green-600/20 to-green-600/10', border: 'border-green-500/30', textColor: 'text-green-400' },
+          { id: 'revenue', label: 'Revenue', value: `₹${healedTotalRevenue.toLocaleString()}`, icon: '💰', color: 'from-green-600/20 to-green-600/10', border: 'border-green-500/30', textColor: 'text-green-400' },
           { id: 'pending', label: 'Pending', value: stats.pendingOrders, icon: '⏳', color: 'from-yellow-600/20 to-yellow-600/10', border: 'border-yellow-500/30', textColor: 'text-yellow-400' },
         ].map((stat, index) => (
           <button
@@ -826,7 +852,28 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
                             <td className="px-4 md:px-8 py-3 md:py-6 font-mono text-xs md:text-sm text-purple-400">#{order._id.slice(-6).toUpperCase()}</td>
                             <td className="px-4 md:px-8 py-3 md:py-6 text-xs md:text-sm text-gray-400">{new Date(order.createdAt || Date.now()).toLocaleDateString()}</td>
                             <td className="hidden md:table-cell px-8 py-6 text-sm font-bold text-white">{order.userId?.email || 'Guest'}</td>
-                            <td className="px-4 md:px-8 py-3 md:py-6 text-xs md:text-sm font-mono text-green-400">₹{(order.total || 0).toFixed(2)}</td>
+                            <td className="px-4 md:px-8 py-3 md:py-6 text-xs md:text-sm font-mono text-green-400">
+                              ₹{(() => {
+                                if (order.total && order.total > 0) return Number(order.total).toFixed(2);
+
+                                // Healing logic for zero-total orders
+                                const healedTotal = (order.items || []).reduce((sum, item) => {
+                                  const matchId = (id1, id2) => {
+                                    if (!id1 || !id2) return false;
+                                    return id1.toString() === id2.toString();
+                                  };
+                                  const prodId = item.productId || item.product;
+                                  let p = products.find(local => matchId(local._id, prodId) || matchId(local.id, prodId));
+                                  if (!p && item.name) {
+                                    p = products.find(local => local.name === item.name || (local.series && item.name.includes(local.series)));
+                                  }
+                                  const itemPrice = (item.price && item.price > 0) ? item.price : (p?.price || 0);
+                                  return sum + (itemPrice * (item.quantity || 1));
+                                }, 0);
+
+                                return healedTotal.toFixed(2);
+                              })()}
+                            </td>
                             <td className="px-4 md:px-8 py-3 md:py-6 text-right">
                               <span className={`inline-block px-2 md:px-3 py-1 rounded-full text-[8px] md:text-[10px] font-black uppercase tracking-widest border ${statusColors[order.status] || statusColors.pending}`}>
                                 {order.status || 'pending'}
@@ -926,14 +973,32 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
                 <div className="mt-6 pt-6 border-t border-gray-800 flex justify-between items-center">
                   <span className="text-sm font-black uppercase text-gray-500 tracking-widest">Total Value</span>
                   <span className="text-3xl font-black text-green-400">
-                    ₹{((selectedOrder.total && selectedOrder.total > 0)
-                      ? selectedOrder.total
-                      : selectedOrder.items.reduce((sum, item) => {
-                        const p = products.find(lp => lp._id === item.product || lp.id === item.product);
-                        const price = (item.price && item.price > 0) ? item.price : (p?.price || 0);
-                        return sum + (price * item.quantity);
-                      }, 0)
-                    ).toFixed(2)}
+                    ₹{(() => {
+                      if (selectedOrder.total && selectedOrder.total > 0) return Number(selectedOrder.total).toFixed(2);
+
+                      // Calculate healed total if DB total is 0
+                      const healedTotal = selectedOrder.items.reduce((sum, item) => {
+                        const resolved = (() => {
+                          const matchId = (id1, id2) => {
+                            if (!id1 || !id2) return false;
+                            return id1.toString() === id2.toString();
+                          };
+                          const prodId = item.productId || item.product;
+                          let p = products.find(local => matchId(local._id, prodId) || matchId(local.id, prodId));
+                          if (p) return p;
+                          if (item.name) {
+                            p = products.find(local => local.name === item.name || (local.series && item.name.includes(local.series)));
+                            if (p) return p;
+                          }
+                          return null;
+                        })();
+
+                        const itemPrice = (item.price && item.price > 0) ? item.price : (resolved?.price || 0);
+                        return sum + (itemPrice * (item.quantity || 1));
+                      }, 0);
+
+                      return healedTotal.toFixed(2);
+                    })()}
                   </span>
                 </div>
               </div>

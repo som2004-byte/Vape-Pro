@@ -641,16 +641,33 @@ router.get('/stats', authorizeAdmin, async (req, res) => {
     // Get total number of orders
     const totalOrders = await Order.countDocuments();
 
-    // Get total revenue (sum of all completed orders)
-    const result = await Order.aggregate([
-      { $match: { status: 'delivered' } },
-      { $group: { _id: null, total: { $sum: '$total' } } },
-    ]);
+    // Get total revenue (sum of all fulfilled/active orders with deep healing)
+    const allOrders = await Order.find({ status: { $nin: ['cancelled'] } });
+    let totalRevenue = 0;
 
-    const totalRevenue = result.length > 0 ? result[0].total : 0;
+    for (const order of allOrders) {
+      if (order.total && order.total > 0) {
+        totalRevenue += order.total;
+        continue;
+      }
 
-    // Get pending orders
-    const pendingOrders = await Order.countDocuments({ status: 'pending' });
+      // Deep Healing: Try to reconstruct the total
+      let healedOrderTotal = 0;
+      for (const item of (order.items || [])) {
+        let price = item.price || 0;
+
+        // If price is 0 in order, try to find current product price
+        if (price === 0 && item.productId) {
+          const p = await Product.findOne({ $or: [{ _id: item.productId.match(/^[0-9a-fA-F]{24}$/) ? item.productId : null }, { sku: item.productId }] });
+          if (p && p.price > 0) price = p.price;
+        }
+        healedOrderTotal += (price * (item.quantity || 1));
+      }
+      totalRevenue += healedOrderTotal;
+    }
+
+    // Get pending/active orders (anything not delivered or cancelled)
+    const pendingOrders = await Order.countDocuments({ status: { $in: ['pending', 'processing', 'shipped'] } });
 
     // Get client requirements stats
     const totalRequirements = await ClientRequirement.countDocuments();
