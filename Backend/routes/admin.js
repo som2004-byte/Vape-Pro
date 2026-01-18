@@ -414,7 +414,7 @@ router.patch(
 router.get('/orders/:orderId', authorizeAdmin, async (req, res) => {
   try {
     const order = await Order.findById(req.params.orderId)
-      .populate('user', 'name email phone address')
+      .populate('userId', 'name email phone phoneNumber address addresses')
       .populate('items.product');
 
     if (!order) {
@@ -636,6 +636,13 @@ router.get('/stats', authorizeAdmin, async (req, res) => {
 
     const totalRevenue = result.length > 0 ? result[0].total : 0;
 
+    // Get pending orders
+    const pendingOrders = await Order.countDocuments({ status: 'pending' });
+
+    // Get client requirements stats
+    const totalRequirements = await ClientRequirement.countDocuments();
+    const pendingRequirements = await ClientRequirement.countDocuments({ status: { $ne: 'completed' } });
+
     // Get recent orders
     const recentOrders = await Order.find()
       .sort({ createdAt: -1 })
@@ -662,6 +669,9 @@ router.get('/stats', authorizeAdmin, async (req, res) => {
       totalUsers,
       totalOrders,
       totalRevenue,
+      pendingOrders,
+      totalRequirements,
+      pendingRequirements,
       recentOrders,
       salesByMonth,
     });

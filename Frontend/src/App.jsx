@@ -69,7 +69,7 @@ export default function App() {
           adminToken={adminToken}
           onLogout={handleAdminLogout}
           onNavigateToStore={() => {
-            // Optional: Redirect to actual live storefront URL if needed
+            // Redirect to actual live storefront URL
             window.location.href = 'https://vapesmart.co.in';
           }}
         />

@@ -48,7 +48,13 @@ router.post(
         // Try to find product in database, but don't fail if not found
         let product = null;
         try {
-          product = await Product.findOne({ productId: productId });
+          // Check if it's a valid MongoId, otherwise look by SKU
+          const isValidObjectId = (id) => /^[0-9a-fA-F]{24}$/.test(id);
+          if (isValidObjectId(productId)) {
+            product = await Product.findById(productId);
+          } else {
+            product = await Product.findOne({ sku: productId });
+          }
         } catch (err) {
           console.log('Product lookup failed, using item data:', productId);
         }
@@ -164,7 +170,13 @@ router.post(
 
       for (const item of itemsToProcess) {
         const productId = item.product || item.id || item._id || item.productId;
-        const product = await Product.findOne({ productId: productId });
+        const isValidObjectId = (id) => /^[0-9a-fA-F]{24}$/.test(id);
+        let product;
+        if (isValidObjectId(productId)) {
+          product = await Product.findById(productId);
+        } else {
+          product = await Product.findOne({ sku: productId });
+        }
 
         if (!product) {
           return res.status(400).json({

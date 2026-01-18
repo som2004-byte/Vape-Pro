@@ -624,6 +624,7 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
     const intervalId = setInterval(() => {
       if (adminToken) {
         fetchData('/orders', setOrders);
+        fetchData('/products?limit=1000', setProducts);
         fetchStats();
       }
     }, 10000);
@@ -1037,8 +1038,13 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
                     };
 
                     const resolved = resolveProduct();
-                    const name = resolved?.name || resolved?.title || item.name || 'Unknown Product';
+                    let name = resolved?.name || resolved?.title || item.name || 'Unknown Product';
+                    // Clean 'null' strings
+                    name = name.replace(/\s*-\s*null/gi, '').replace(/null/gi, '').trim();
                     const image = resolved?.image || resolved?.poster || resolved?.cardImage;
+
+                    // Healing logic for zero prices from prior bug
+                    const itemPrice = (item.price && item.price > 0) ? item.price : (resolved?.price || 0);
 
                     return (
                       <div key={idx} className="flex items-center justify-between p-4 bg-gray-900/50 rounded-2xl border border-gray-800 gap-4">
@@ -1052,17 +1058,26 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
                           </div>
                           <div className="min-w-0 flex-1">
                             <p className="font-bold text-white line-clamp-2">{name}</p>
-                            <p className="text-xs text-gray-400">Unit Cost: ₹{item.price}</p>
+                            <p className="text-xs text-gray-400">Unit Cost: ₹{itemPrice}</p>
                           </div>
                         </div>
-                        <p className="font-mono text-green-400 font-bold flex-shrink-0 text-right">₹{(item.price * item.quantity).toFixed(2)}</p>
+                        <p className="font-mono text-green-400 font-bold flex-shrink-0 text-right">₹{(itemPrice * item.quantity).toFixed(2)}</p>
                       </div>
                     );
                   })}
                 </div>
                 <div className="mt-6 pt-6 border-t border-gray-800 flex justify-between items-center">
                   <span className="text-sm font-black uppercase text-gray-500 tracking-widest">Total Value</span>
-                  <span className="text-3xl font-black text-green-400">₹{(selectedOrder.total || 0).toFixed(2)}</span>
+                  <span className="text-3xl font-black text-green-400">
+                    ₹{((selectedOrder.total && selectedOrder.total > 0)
+                      ? selectedOrder.total
+                      : selectedOrder.items.reduce((sum, item) => {
+                        const p = products.find(lp => lp._id === item.product || lp.id === item.product);
+                        const price = (item.price && item.price > 0) ? item.price : (p?.price || 0);
+                        return sum + (price * item.quantity);
+                      }, 0)
+                    ).toFixed(2)}
+                  </span>
                 </div>
               </div>
 
@@ -1074,7 +1089,7 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
                     <p className="text-[10px] font-black uppercase text-gray-500 tracking-widest mb-2">Recipient</p>
                     <p className="text-lg font-bold text-white">{selectedOrder.userId?.name || 'Unknown'}</p>
                     <p className="text-sm text-gray-400">{selectedOrder.userId?.email}</p>
-                    <p className="text-sm text-gray-400">{selectedOrder.userId?.phoneNumber || 'No Contact'}</p>
+                    <p className="text-sm text-gray-400">{selectedOrder.userId?.phoneNumber || selectedOrder.userId?.phone || 'No Contact'}</p>
                   </div>
                   <div>
                     <p className="text-[10px] font-black uppercase text-gray-500 tracking-widest mb-2">Destination</p>
