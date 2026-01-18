@@ -48,20 +48,33 @@ router.post(
         // Try to find product in database with multiple fallback strategies
         let product = null;
         try {
-          const isValidObjectId = (id) => typeof id === 'string' && /^[0-9a-fA-F]{24}$/.test(id);
+          const isValidObjectId = (id) => {
+            if (!id) return false;
+            if (typeof id === 'object' && id.toString) id = id.toString();
+            return typeof id === 'string' && /^[0-9a-fA-F]{24}$/.test(id);
+          };
 
-          if (isValidObjectId(productId)) {
-            product = await Product.findById(productId);
+          const lookupId = productId && typeof productId === 'object' && productId.toString ? productId.toString() : productId;
+
+          if (isValidObjectId(lookupId)) {
+            product = await Product.findById(lookupId);
           }
 
           if (!product) {
-            product = await Product.findOne({ sku: productId });
+            product = await Product.findOne({
+              $or: [
+                { sku: lookupId },
+                { id: lookupId }
+              ]
+            });
           }
 
-          // Final fallback: Match by Name (fuzzy) to link demo orders to live products
+          // Final fallback: Match by Name (fuzzy)
           if (!product && item.name) {
+            // Escape special regex chars to avoid errors
+            const escapedName = item.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
             product = await Product.findOne({
-              name: { $regex: new RegExp(`^${item.name}$`, 'i') }
+              name: { $regex: new RegExp(`^${escapedName}$`, 'i') }
             });
           }
         } catch (err) {
