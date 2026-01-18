@@ -536,7 +536,7 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
   const recentTransactions = Array.isArray(orders) ? orders.slice(0, 5) : [];
 
   // Derived Data for Pending View
-  const pendingOrdersList = Array.isArray(orders) ? orders.filter(o => o.status === 'pending' || o.status === 'processing') : [];
+  const pendingOrdersList = Array.isArray(orders) ? orders.filter(o => ['pending', 'processing'].includes(o.status)) : [];
   const unverifiedUsers = Array.isArray(users) ? users.filter(u => !u.isVerified) : [];
 
   const handleStatClick = (type) => {

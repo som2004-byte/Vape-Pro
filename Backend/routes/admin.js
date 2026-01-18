@@ -352,7 +352,7 @@ router.put(
         { $set: updateData },
         { new: true }
       )
-        .populate('user', 'name email')
+        .populate('userId', 'name email')
         .populate('items.product');
 
       if (!order) {
@@ -742,8 +742,8 @@ router.get('/stats', authorizeAdmin, async (req, res) => {
       totalRevenue += healedOrderTotal;
     }
 
-    // Get pending/active orders (anything not delivered or cancelled)
-    const pendingOrders = await Order.countDocuments({ status: { $in: ['pending', 'processing', 'shipped'] } });
+    // Get pending/active orders (anything needing immediate action - excluding shipped)
+    const pendingOrders = await Order.countDocuments({ status: { $in: ['pending', 'processing'] } });
 
     // Get client requirements stats
     const totalRequirements = await ClientRequirement.countDocuments();
