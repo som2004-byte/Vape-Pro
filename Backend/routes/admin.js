@@ -291,7 +291,7 @@ router.get('/orders', authorizeAdmin, async (req, res) => {
     }
 
     const orders = await Order.find(query)
-      .populate('userId', 'name email')
+      .populate('userId', 'name email phone phoneNumber')
 
 
       .sort({ createdAt: -1 })

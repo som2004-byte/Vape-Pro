@@ -1021,13 +1021,27 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
                   {selectedOrder.items.map((item, idx) => {
                     // Smart resolve product
                     const resolveProduct = () => {
-                      let p = products.find(p => p._id === item.product || p.id === item.product);
+                      // Normalize ID comparison
+                      const matchId = (id1, id2) => {
+                        if (!id1 || !id2) return false;
+                        const s1 = id1.toString();
+                        const s2 = id2.toString();
+                        return s1 === s2;
+                      };
+
+                      let p = products.find(local => matchId(local._id, item.product) || matchId(local.id, item.product));
                       if (p) return p;
 
                       if (item.product && typeof item.product === 'object' && item.product._id) {
-                        p = products.find(local => local._id === item.product._id || local.id === item.product._id);
+                        p = products.find(local => matchId(local._id, item.product._id) || matchId(local.id, item.product._id));
                         if (p) return p;
                         return item.product;
+                      }
+
+                      // Fallback: Match by Name (Fuzzy)
+                      if (item.name) {
+                        p = products.find(local => local.name === item.name || (local.series && item.name.includes(local.series)));
+                        if (p) return p;
                       }
 
                       // Fallback: Match by Price
@@ -1041,7 +1055,7 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
                     let name = resolved?.name || resolved?.title || item.name || 'Unknown Product';
                     // Clean 'null' strings
                     name = name.replace(/\s*-\s*null/gi, '').replace(/null/gi, '').trim();
-                    const image = resolved?.image || resolved?.poster || resolved?.cardImage;
+                    const image = item.image || item.images?.[0] || resolved?.image || resolved?.poster || resolved?.cardImage || (resolved?.images && resolved.images[0]);
 
                     // Healing logic for zero prices from prior bug
                     const itemPrice = (item.price && item.price > 0) ? item.price : (resolved?.price || 0);
@@ -1050,8 +1064,8 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
                       <div key={idx} className="flex items-center justify-between p-4 bg-gray-900/50 rounded-2xl border border-gray-800 gap-4">
                         <div className="flex items-center gap-4 flex-1 min-w-0">
                           <div className="w-12 h-12 bg-gray-800 rounded-lg flex items-center justify-center overflow-hidden border border-gray-700 flex-shrink-0 relative">
-                            {(image || (resolved?.images && resolved.images[0])) ? (
-                              <img src={image || resolved.images[0]} alt="" className="w-full h-full object-cover" />
+                            {image ? (
+                              <img src={image} alt="" className="w-full h-full object-cover" />
                             ) : (
                               <span className="font-bold text-gray-500 text-xs">x{item.quantity}</span>
                             )}
@@ -1089,7 +1103,20 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
                     <p className="text-[10px] font-black uppercase text-gray-500 tracking-widest mb-2">Recipient</p>
                     <p className="text-lg font-bold text-white">{selectedOrder.userId?.name || 'Unknown'}</p>
                     <p className="text-sm text-gray-400">{selectedOrder.userId?.email}</p>
-                    <p className="text-sm text-gray-400">{selectedOrder.userId?.phoneNumber || selectedOrder.userId?.phone || 'No Contact'}</p>
+                    <p className="text-sm text-gray-400">
+                      {(() => {
+                        // Check primary phone fields
+                        let phone = selectedOrder.userId?.phoneNumber || selectedOrder.userId?.phone;
+                        if (phone) return phone;
+                        
+                        // Try to find a phone number in the address string (regex for 10 digits)
+                        const address = selectedOrder.shippingAddress || '';
+                        const phoneMatch = address.match(/(\+?\d{1,3}[- ]?)?\d{10}/);
+                        if (phoneMatch) return phoneMatch[0];
+                        
+                        return 'No Contact Provided';
+                      })()}
+                    </p>
                   </div>
                   <div>
                     <p className="text-[10px] font-black uppercase text-gray-500 tracking-widest mb-2">Destination</p>
