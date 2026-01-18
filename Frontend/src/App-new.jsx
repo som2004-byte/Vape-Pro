@@ -10,6 +10,7 @@ import AccountSection from './components/AccountSection';
 import CartPage from './components/CartPage';
 import PaymentPage from './components/PaymentPage';
 import AdminDashboard from './components/AdminDashboard';
+import { API_ENDPOINTS, apiCall } from './utils/apiConfig';
 
 // Load persisted state from localStorage
 const loadPersistedState = () => {
@@ -53,6 +54,77 @@ export default function App() {
   const [customerProfile, setCustomerProfile] = useState(null);
   const [orders, setOrders] = useState([]);
   const [pendingOrder, setPendingOrder] = useState(null);
+  const [backendProducts, setBackendProducts] = useState(PRODUCTS);
+  const [isLoadingProducts, setIsLoadingProducts] = useState(false);
+
+  // Dynamic product merging logic
+  const fetchProducts = async () => {
+    try {
+      setIsLoadingProducts(true);
+      const data = await apiCall(API_ENDPOINTS.PRODUCTS.ALL);
+      if (Array.isArray(data)) {
+        const normalize = (s) => (s || '').toString().toLowerCase().trim().replace(/[^a-z0-9]/g, '');
+
+        const matchedBackendIds = new Set();
+        const finalProductsMap = new Map();
+
+        // 1. Process Static Products first (The "Anchor" items)
+        PRODUCTS.forEach(staticProduct => {
+          const staticNormKey = `${normalize(staticProduct.brand)}|${normalize(staticProduct.series)}|${normalize(staticProduct.flavor)}`;
+
+          // Find best backend match using SKU or fuzzy name
+          const matchingBackendProducts = data.filter(p => {
+            if (matchedBackendIds.has(p._id)) return false;
+            return p.sku === staticProduct.id || p._id === staticProduct.id ||
+              (normalize(p.brand) === normalize(staticProduct.brand) && normalize(p.flavor) === normalize(staticProduct.flavor));
+          });
+
+          if (matchingBackendProducts.length > 0) {
+            const backendProduct = matchingBackendProducts[0];
+            matchedBackendIds.add(backendProduct._id);
+
+            const finalProduct = {
+              ...staticProduct,
+              ...backendProduct,
+              id: backendProduct._id || backendProduct.id,
+              stock: Number(backendProduct.stock || 0),
+              soldOut: Number(backendProduct.stock || 0) <= 0
+            };
+            finalProductsMap.set(staticNormKey, finalProduct);
+          } else {
+            // Static item not in backend - Show its default stock or availability
+            const ghostProduct = {
+              ...staticProduct,
+              stock: staticProduct.stock !== undefined ? staticProduct.stock : (staticProduct.soldOut ? 0 : 100),
+              soldOut: staticProduct.stock !== undefined ? staticProduct.stock <= 0 : !!staticProduct.soldOut
+            };
+            finalProductsMap.set(staticNormKey, ghostProduct);
+          }
+        });
+
+        // 2. Process remaining backend items (Unique items)
+        data.filter(p => !matchedBackendIds.has(p._id)).forEach(p => {
+          const normKey = `${normalize(p.brand)}|${normalize(p.series || '')}|${normalize(p.flavor || '')}`;
+          if (finalProductsMap.has(normKey)) return;
+
+          finalProductsMap.set(normKey, {
+            ...p,
+            id: p._id || p.id,
+            name: p.name ? p.name.replace(/\s-\snull/g, '').replace(/null/g, '') : (p.flavor ? `${p.brand} ${p.series} - ${p.flavor}` : `${p.brand} ${p.series}`),
+            image: p.image || (p.images && p.images[0]) || '',
+            stock: Number(p.stock || 0),
+            soldOut: Number(p.stock || 0) <= 0
+          });
+        });
+
+        setBackendProducts(Array.from(finalProductsMap.values()));
+      }
+    } catch (err) {
+      console.error('Failed to fetch products:', err);
+    } finally {
+      setIsLoadingProducts(false);
+    }
+  };
 
   // Load persisted state on component mount
   useEffect(() => {
@@ -62,6 +134,7 @@ export default function App() {
     setCartItems(persistedState.cartItems);
     setOrders(persistedState.orders);
     setCustomerProfile(persistedState.profile);
+    fetchProducts();
   }, []);
 
   // Handle user login
@@ -142,7 +215,7 @@ export default function App() {
 
   // Filter products based on search and filters
   const filteredProducts = useMemo(() => {
-    return PRODUCTS.filter(product => {
+    return backendProducts.filter(product => {
       const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         product.description.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesCategory = currentCategory === 'all' || product.category === currentCategory;
@@ -244,7 +317,7 @@ export default function App() {
 
       {toast && (
         <div className={`fixed bottom-4 right-4 px-4 py-2 rounded shadow-lg ${toast.type === 'error' ? 'bg-red-600' :
-            toast.type === 'success' ? 'bg-green-600' : 'bg-blue-600'
+          toast.type === 'success' ? 'bg-green-600' : 'bg-blue-600'
           } text-white`}>
           {toast.message}
         </div>

@@ -117,34 +117,100 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
         } else if (endpoint.includes('/products')) {
           const rawProducts = data.products || (Array.isArray(data) ? data : []);
 
-          const liveProducts = rawProducts;
-          const processedLiveProducts = liveProducts.map(lp => {
+          const normalize = (s) => (s || '').toString().toLowerCase().trim().replace(/[^a-z0-9]/g, '');
+
+          // Create a set of normalized keys for products already in the database
+          const databaseProductKeys = new Set();
+
+          const processedLiveProducts = rawProducts.map(lp => {
+            const normBrand = normalize(lp.brand);
+            const normFlavor = normalize(lp.flavor);
+            const normSeries = normalize(lp.series || '');
+
+            // Find match for image fallback
             const match = USER_PRODUCTS.find(up =>
               up.id === lp.id || up.id === lp._id || up.id === lp.sku ||
-              (lp.name && up.flavor && lp.name.includes(up.flavor)) ||
-              (lp.name && up.series && lp.name.includes(up.series))
+              (normalize(up.brand) === normBrand && normalize(up.flavor) === normFlavor)
             );
+
+            // Add to represented keys
+            if (normBrand && normFlavor) {
+              databaseProductKeys.add(`${normBrand}|${normSeries}|${normFlavor}`);
+              // Lens: also mark brand|flavor as represented to catch variations in series naming
+              databaseProductKeys.add(`${normBrand}|${normFlavor}`);
+            }
+            if (lp.sku) databaseProductKeys.add(lp.sku);
+
             return {
               ...lp,
+              name: (lp.name || '').replace(/\s-\snull/g, '').replace(/null/g, ''),
               image: (lp.image && lp.image !== '') ? lp.image : (lp.images && lp.images.length > 0) ? lp.images[0] : (match ? (match.poster || match.cardImage) : ''),
-              stock: Number(lp.stock || 0)
+              stock: Number(lp.stock || 0),
+              isDemo: false
             };
           });
 
           const missingDemoProducts = USER_PRODUCTS.filter(up => {
-            const isRepresented = liveProducts.some(lp =>
-              lp.id === up.id || lp._id === up.id || lp.sku === up.id || (lp.name && up.flavor && lp.name.includes(up.flavor))
-            );
+            const normBrand = normalize(up.brand);
+            const normFlavor = normalize(up.flavor);
+            const normSeries = normalize(up.series || '');
+
+            const specificKey = `${normBrand}|${normSeries}|${normFlavor}`;
+            const generalKey = `${normBrand}|${normFlavor}`;
+
+            const isRepresented = databaseProductKeys.has(specificKey) ||
+              databaseProductKeys.has(generalKey) ||
+              databaseProductKeys.has(up.id);
             return !isRepresented;
           }).map(up => ({
             ...up,
             _id: up.id,
-            name: `${up.brand} ${up.series} - ${up.flavor}`,
+            name: up.flavor ? `${up.brand} ${up.series} - ${up.flavor}` : `${up.brand} ${up.series}`,
             image: up.poster || up.cardImage || '',
             isDemo: true
           }));
 
-          setter([...processedLiveProducts, ...missingDemoProducts]);
+          const finalProductsMap = new Map();
+          const seenNameKeys = new Set();
+
+          // 1. Process Live Products (Priority)
+          processedLiveProducts.forEach(lp => {
+            const normBrand = normalize(lp.brand);
+            const normFlavor = normalize(lp.flavor);
+            const normSeries = normalize(lp.series || '');
+
+            const specificKey = `${normBrand}|${normSeries}|${normFlavor}`;
+            const generalKey = `${normBrand}|${normFlavor}`;
+            const skuKey = lp.sku;
+
+            // If we haven't seen this product by any of its identifiers, add it
+            if (!seenNameKeys.has(specificKey) && !seenNameKeys.has(generalKey) && (skuKey ? !seenNameKeys.has(skuKey) : true)) {
+              finalProductsMap.set(skuKey || specificKey, lp);
+              seenNameKeys.add(specificKey);
+              seenNameKeys.add(generalKey);
+              if (skuKey) seenNameKeys.add(skuKey);
+            }
+          });
+
+          // 2. Add Missing Demo Products
+          missingDemoProducts.forEach(dp => {
+            const normBrand = normalize(dp.brand);
+            const normFlavor = normalize(dp.flavor);
+            const normSeries = normalize(dp.series || '');
+
+            const specificKey = `${normBrand}|${normSeries}|${normFlavor}`;
+            const generalKey = `${normBrand}|${normFlavor}`;
+            const idKey = dp.id;
+
+            if (!seenNameKeys.has(specificKey) && !seenNameKeys.has(generalKey) && !seenNameKeys.has(idKey)) {
+              finalProductsMap.set(idKey || specificKey, dp);
+              seenNameKeys.add(specificKey);
+              seenNameKeys.add(generalKey);
+              seenNameKeys.add(idKey);
+            }
+          });
+
+          setter(Array.from(finalProductsMap.values()));
         } else if (endpoint.includes('/users')) {
           setter(data.users || (Array.isArray(data) ? data : []));
         } else if (endpoint.includes('/admins')) {
@@ -231,7 +297,11 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
           ...updates,          // Override with specific updates
 
           // Explicitly ensure required fields for Mongoose Schema
-          name: productToPromote.name || originalDemoData.name || `Product ${productId}`,
+          // Explicitly ensure required fields for Mongoose Schema 
+          // Build a clean name: prefer "Brand Series - Flavor" or just "Brand Series" if flavor is null
+          name: updates.name || productToPromote.name || (originalDemoData.flavor
+            ? `${originalDemoData.brand} ${originalDemoData.series} - ${originalDemoData.flavor}`
+            : `${originalDemoData.brand} ${originalDemoData.series}`),
           description: productToPromote.description || originalDemoData.features || `Premium vape product from ${productToPromote.brand || 'VapeSmart'}`,
           category: (() => {
             const validCategories = ['disposable', 'pod-systems', 'starter-kits', 'mods', 'tanks', 'coils', 'e-liquids', 'accessories'];
@@ -1138,8 +1208,7 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
             </table>
           </div>
         </div>
-      )
-      }
+      )}
 
 
 
@@ -1271,185 +1340,189 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
               </div>
             </div>
           </div>
-        )}
+        )
+      }
 
       {/* Create Admin Modal */}
-      {isCreatingAdmin && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="bg-gray-900 border border-gray-800 rounded-[32px] p-8 max-w-md w-full relative">
-            <button
-              onClick={() => setIsCreatingAdmin(false)}
-              className="absolute top-6 right-6 text-gray-500 hover:text-white"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-            </button>
-
-            <h3 className="text-2xl font-black italic uppercase mb-2">New Admin Node</h3>
-            <p className="text-sm text-gray-500 font-bold uppercase tracking-widest mb-8">Grant system access privileges</p>
-
-            <form onSubmit={handleCreateAdmin} className="space-y-6">
-              <div>
-                <label className="block text-[10px] font-black uppercase text-gray-500 tracking-widest mb-2">Admin Name</label>
-                <input
-                  required
-                  type="text"
-                  value={newAdminForm.name}
-                  onChange={e => setNewAdminForm({ ...newAdminForm, name: e.target.value })}
-                  className="w-full bg-black border border-gray-800 rounded-xl px-4 py-3 text-white font-bold focus:border-purple-500 focus:outline-none transition-colors"
-                  placeholder="e.g. System Admin"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-black uppercase text-gray-500 tracking-widest mb-2">Email Address</label>
-                <input
-                  required
-                  type="email"
-                  value={newAdminForm.email}
-                  onChange={e => setNewAdminForm({ ...newAdminForm, email: e.target.value })}
-                  className="w-full bg-black border border-gray-800 rounded-xl px-4 py-3 text-white font-bold focus:border-purple-500 focus:outline-none transition-colors"
-                  placeholder="admin@vapepro.com"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-black uppercase text-gray-500 tracking-widest mb-2">Secure Password</label>
-                <input
-                  required
-                  type="password"
-                  value={newAdminForm.password}
-                  onChange={e => setNewAdminForm({ ...newAdminForm, password: e.target.value })}
-                  className="w-full bg-black border border-gray-800 rounded-xl px-4 py-3 text-white font-bold focus:border-purple-500 focus:outline-none transition-colors"
-                  placeholder="••••••••"
-                  minLength={6}
-                />
-              </div>
-
+      {
+        isCreatingAdmin && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+            <div className="bg-gray-900 border border-gray-800 rounded-[32px] p-8 max-w-md w-full relative">
               <button
-                type="submit"
-                disabled={loading}
-                className="w-full py-4 rounded-xl bg-gradient-to-r from-purple-600 to-blue-600 text-white font-black uppercase tracking-widest hover:shadow-lg hover:shadow-purple-600/20 transition-all disabled:opacity-50"
+                onClick={() => setIsCreatingAdmin(false)}
+                className="absolute top-6 right-6 text-gray-500 hover:text-white"
               >
-                {loading ? 'Processing...' : 'Initialize Admin'}
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
-            </form>
+
+              <h3 className="text-2xl font-black italic uppercase mb-2">New Admin Node</h3>
+              <p className="text-sm text-gray-500 font-bold uppercase tracking-widest mb-8">Grant system access privileges</p>
+
+              <form onSubmit={handleCreateAdmin} className="space-y-6">
+                <div>
+                  <label className="block text-[10px] font-black uppercase text-gray-500 tracking-widest mb-2">Admin Name</label>
+                  <input
+                    required
+                    type="text"
+                    value={newAdminForm.name}
+                    onChange={e => setNewAdminForm({ ...newAdminForm, name: e.target.value })}
+                    className="w-full bg-black border border-gray-800 rounded-xl px-4 py-3 text-white font-bold focus:border-purple-500 focus:outline-none transition-colors"
+                    placeholder="e.g. System Admin"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-black uppercase text-gray-500 tracking-widest mb-2">Email Address</label>
+                  <input
+                    required
+                    type="email"
+                    value={newAdminForm.email}
+                    onChange={e => setNewAdminForm({ ...newAdminForm, email: e.target.value })}
+                    className="w-full bg-black border border-gray-800 rounded-xl px-4 py-3 text-white font-bold focus:border-purple-500 focus:outline-none transition-colors"
+                    placeholder="admin@vapepro.com"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-black uppercase text-gray-500 tracking-widest mb-2">Secure Password</label>
+                  <input
+                    required
+                    type="password"
+                    value={newAdminForm.password}
+                    onChange={e => setNewAdminForm({ ...newAdminForm, password: e.target.value })}
+                    className="w-full bg-black border border-gray-800 rounded-xl px-4 py-3 text-white font-bold focus:border-purple-500 focus:outline-none transition-colors"
+                    placeholder="••••••••"
+                    minLength={6}
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full py-4 rounded-xl bg-gradient-to-r from-purple-600 to-blue-600 text-white font-black uppercase tracking-widest hover:shadow-lg hover:shadow-purple-600/20 transition-all disabled:opacity-50"
+                >
+                  {loading ? 'Processing...' : 'Initialize Admin'}
+                </button>
+              </form>
+            </div>
           </div>
-        </div>
-      )}
+        )
+      }
 
       {/* Users Tab */}
-      {activeTab === 'users' && !selectedUser && (
-        <div className="bg-gray-900/50 border border-gray-800 rounded-[32px] overflow-hidden backdrop-blur-xl">
-          <div className="p-6 md:p-8 border-b border-gray-800">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-              <div className="flex flex-col gap-2">
-                <div>
-                  <h3 className="text-3xl font-black italic tracking-tighter uppercase">Registry Management</h3>
-                  <p className="text-sm text-gray-500 font-medium">Control and monitor all verified platform operators</p>
-                </div>
-                <button
-                  onClick={() => setIsCreatingAdmin(true)}
-                  className="px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg text-xs font-black uppercase tracking-widest hover:shadow-lg hover:shadow-purple-600/20 transition-all w-fit flex items-center gap-2"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-                  New Admin Node
-                </button>
-              </div>
-              <div className="relative w-full md:w-96">
-                <input
-                  type="text"
-                  placeholder="Search by name, email, or ID..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-12 pr-6 py-4 bg-black border border-gray-800 rounded-2xl text-sm italic font-bold focus:outline-none focus:border-purple-500 transition-all"
-                />
-                <svg className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-              </div>
-            </div>
-          </div>
-
-          {/* Admin Hierarchy Section */}
-          <div className="mt-8">
-            <h4 className="text-xl font-black italic uppercase text-gray-500 mb-4 tracking-widest">System Admins ({admins.length})</h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {admins.map((admin) => (
-                <div key={admin._id} className="bg-black/40 border border-gray-800 rounded-2xl p-6 flex items-center gap-4">
-                  <div className="w-12 h-12 bg-gradient-to-tr from-purple-600 to-blue-600 rounded-xl flex items-center justify-center text-lg font-black italic text-white shadow-lg shadow-purple-900/40">
-                    {admin.name?.charAt(0) || 'A'}
-                  </div>
+      {
+        activeTab === 'users' && !selectedUser && (
+          <div className="bg-gray-900/50 border border-gray-800 rounded-[32px] overflow-hidden backdrop-blur-xl">
+            <div className="p-6 md:p-8 border-b border-gray-800">
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                <div className="flex flex-col gap-2">
                   <div>
-                    <p className="font-bold text-white uppercase">{admin.name}</p>
-                    <p className="text-xs text-gray-500 font-medium">{admin.email}</p>
-                    <span className="inline-block mt-2 px-2 py-0.5 rounded bg-purple-900/30 border border-purple-500/30 text-[10px] font-black uppercase text-purple-400">
-                      Super Admin
-                    </span>
-                    <button
-                      onClick={() => handleDeleteAdmin(admin._id)}
-                      className="ml-2 px-2 py-0.5 rounded bg-red-900/30 border border-red-500/30 text-[10px] font-black uppercase text-red-400 hover:bg-red-900/50 transition-colors"
-                      title="Remove Admin Access"
-                    >
-                      Delete
-                    </button>
+                    <h3 className="text-3xl font-black italic tracking-tighter uppercase">Registry Management</h3>
+                    <p className="text-sm text-gray-500 font-medium">Control and monitor all verified platform operators</p>
                   </div>
+                  <button
+                    onClick={() => setIsCreatingAdmin(true)}
+                    className="px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg text-xs font-black uppercase tracking-widest hover:shadow-lg hover:shadow-purple-600/20 transition-all w-fit flex items-center gap-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                    New Admin Node
+                  </button>
                 </div>
-              ))}
+                <div className="relative w-full md:w-96">
+                  <input
+                    type="text"
+                    placeholder="Search by name, email, or ID..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-12 pr-6 py-4 bg-black border border-gray-800 rounded-2xl text-sm italic font-bold focus:outline-none focus:border-purple-500 transition-all"
+                  />
+                  <svg className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            {/* Admin Hierarchy Section */}
+            <div className="mt-8">
+              <h4 className="text-xl font-black italic uppercase text-gray-500 mb-4 tracking-widest">System Admins ({admins.length})</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {admins.map((admin) => (
+                  <div key={admin._id} className="bg-black/40 border border-gray-800 rounded-2xl p-6 flex items-center gap-4">
+                    <div className="w-12 h-12 bg-gradient-to-tr from-purple-600 to-blue-600 rounded-xl flex items-center justify-center text-lg font-black italic text-white shadow-lg shadow-purple-900/40">
+                      {admin.name?.charAt(0) || 'A'}
+                    </div>
+                    <div>
+                      <p className="font-bold text-white uppercase">{admin.name}</p>
+                      <p className="text-xs text-gray-500 font-medium">{admin.email}</p>
+                      <span className="inline-block mt-2 px-2 py-0.5 rounded bg-purple-900/30 border border-purple-500/30 text-[10px] font-black uppercase text-purple-400">
+                        Super Admin
+                      </span>
+                      <button
+                        onClick={() => handleDeleteAdmin(admin._id)}
+                        className="ml-2 px-2 py-0.5 rounded bg-red-900/30 border border-red-500/30 text-[10px] font-black uppercase text-red-400 hover:bg-red-900/50 transition-colors"
+                        title="Remove Admin Access"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="bg-black/40">
+                    <th className="px-8 py-5 text-left text-[10px] font-black text-gray-500 uppercase tracking-[0.3em]">Identity</th>
+                    <th className="px-8 py-5 text-left text-[10px] font-black text-gray-500 uppercase tracking-[0.3em]">Contact Vector</th>
+                    <th className="px-8 py-5 text-left text-[10px] font-black text-gray-500 uppercase tracking-[0.3em]">Registry Date</th>
+                    <th className="px-8 py-5 text-left text-[10px] font-black text-gray-500 uppercase tracking-[0.3em]">Current Loc</th>
+                    <th className="px-8 py-5 text-right text-[10px] font-black text-gray-500 uppercase tracking-[0.3em]">Access</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-800/50">
+                  {filteredUsers.length === 0 ? (
+                    <tr>
+                      <td colSpan="5" className="px-8 py-20 text-center text-gray-600 font-black italic">No records found matching criteria.</td>
+                    </tr>
+                  ) : (
+                    filteredUsers.map(user => (
+                      <tr key={user._id} className="group hover:bg-white/5 transition-all cursor-pointer" onClick={() => setSelectedUser(user)}>
+                        <td className="px-8 py-6">
+                          <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 bg-gradient-to-br from-purple-600 to-blue-600 rounded-xl flex items-center justify-center text-lg font-black italic shadow-lg shadow-purple-900/40 group-hover:scale-110 transition-transform">
+                              {user.name?.charAt(0) || user.email?.charAt(0).toUpperCase()}
+                            </div>
+                            <span className="font-bold text-gray-200 group-hover:text-white transition-colors">{user.name || 'ANONYMOUS'}</span>
+                          </div>
+                        </td>
+                        <td className="px-8 py-6">
+                          <div>
+                            <p className="text-sm font-bold text-gray-300">{user.email}</p>
+                            <p className="text-[10px] text-gray-500 font-black uppercase mt-1">{user.phoneNumber || 'STOCKED_NONE'}</p>
+                          </div>
+                        </td>
+                        <td className="px-8 py-6 text-sm font-bold text-gray-400">
+                          {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'LEGACY_USER'}
+                        </td>
+                        <td className="px-8 py-6 text-xs font-bold text-gray-500 uppercase truncate max-w-[200px]">
+                          {user.address || 'UNDEFINED_VECTOR'}
+                        </td>
+                        <td className="px-8 py-6 text-right">
+                          <button className="px-4 py-2 rounded-xl border border-gray-800 text-[10px] font-black uppercase hover:bg-gray-800 transition-colors">
+                            View Profile
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="bg-black/40">
-                  <th className="px-8 py-5 text-left text-[10px] font-black text-gray-500 uppercase tracking-[0.3em]">Identity</th>
-                  <th className="px-8 py-5 text-left text-[10px] font-black text-gray-500 uppercase tracking-[0.3em]">Contact Vector</th>
-                  <th className="px-8 py-5 text-left text-[10px] font-black text-gray-500 uppercase tracking-[0.3em]">Registry Date</th>
-                  <th className="px-8 py-5 text-left text-[10px] font-black text-gray-500 uppercase tracking-[0.3em]">Current Loc</th>
-                  <th className="px-8 py-5 text-right text-[10px] font-black text-gray-500 uppercase tracking-[0.3em]">Access</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-800/50">
-                {filteredUsers.length === 0 ? (
-                  <tr>
-                    <td colSpan="5" className="px-8 py-20 text-center text-gray-600 font-black italic">No records found matching criteria.</td>
-                  </tr>
-                ) : (
-                  filteredUsers.map(user => (
-                    <tr key={user._id} className="group hover:bg-white/5 transition-all cursor-pointer" onClick={() => setSelectedUser(user)}>
-                      <td className="px-8 py-6">
-                        <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 bg-gradient-to-br from-purple-600 to-blue-600 rounded-xl flex items-center justify-center text-lg font-black italic shadow-lg shadow-purple-900/40 group-hover:scale-110 transition-transform">
-                            {user.name?.charAt(0) || user.email?.charAt(0).toUpperCase()}
-                          </div>
-                          <span className="font-bold text-gray-200 group-hover:text-white transition-colors">{user.name || 'ANONYMOUS'}</span>
-                        </div>
-                      </td>
-                      <td className="px-8 py-6">
-                        <div>
-                          <p className="text-sm font-bold text-gray-300">{user.email}</p>
-                          <p className="text-[10px] text-gray-500 font-black uppercase mt-1">{user.phoneNumber || 'STOCKED_NONE'}</p>
-                        </div>
-                      </td>
-                      <td className="px-8 py-6 text-sm font-bold text-gray-400">
-                        {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'LEGACY_USER'}
-                      </td>
-                      <td className="px-8 py-6 text-xs font-bold text-gray-500 uppercase truncate max-w-[200px]">
-                        {user.address || 'UNDEFINED_VECTOR'}
-                      </td>
-                      <td className="px-8 py-6 text-right">
-                        <button className="px-4 py-2 rounded-xl border border-gray-800 text-[10px] font-black uppercase hover:bg-gray-800 transition-colors">
-                          View Profile
-                        </button>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )
+        )
       }
 
       {/* Selected User - (Existing) */}
@@ -1495,126 +1568,128 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
         )
       }
 
-      {isCreatingProduct && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="bg-gray-900 border border-gray-800 rounded-[32px] p-8 max-w-2xl w-full relative max-h-[90vh] overflow-y-auto custom-scrollbar">
-            <button
-              onClick={() => setIsCreatingProduct(false)}
-              className="absolute top-6 right-6 text-gray-500 hover:text-white"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-            </button>
-
-            <h3 className="text-2xl font-black italic uppercase mb-2">Initialize Supply Node</h3>
-            <p className="text-sm text-gray-500 font-bold uppercase tracking-widest mb-8">Register new inventory asset to the database</p>
-
-            <form onSubmit={handleCreateProduct} className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-[10px] font-black uppercase text-gray-500 tracking-widest mb-2">Product Name</label>
-                  <input
-                    required
-                    type="text"
-                    value={newProductForm.name}
-                    onChange={e => setNewProductForm({ ...newProductForm, name: e.target.value })}
-                    className="w-full bg-black border border-gray-800 rounded-xl px-4 py-3 text-white font-bold focus:border-purple-500 focus:outline-none transition-colors"
-                    placeholder="e.g. ELFBAR 5000"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-black uppercase text-gray-500 tracking-widest mb-2">Brand Identity</label>
-                  <input
-                    required
-                    type="text"
-                    value={newProductForm.brand}
-                    onChange={e => setNewProductForm({ ...newProductForm, brand: e.target.value })}
-                    className="w-full bg-black border border-gray-800 rounded-xl px-4 py-3 text-white font-bold focus:border-purple-500 focus:outline-none transition-colors"
-                    placeholder="e.g. Elfbar"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-black uppercase text-gray-500 tracking-widest mb-2">Description / Flavor Profile</label>
-                <textarea
-                  required
-                  rows={3}
-                  value={newProductForm.description}
-                  onChange={e => setNewProductForm({ ...newProductForm, description: e.target.value })}
-                  className="w-full bg-black border border-gray-800 rounded-xl px-4 py-3 text-white font-bold focus:border-purple-500 focus:outline-none transition-colors resize-none"
-                  placeholder="Detailed product specifications..."
-                />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-[10px] font-black uppercase text-gray-500 tracking-widest mb-2">Category Classification</label>
-                  <select
-                    value={newProductForm.category}
-                    onChange={e => setNewProductForm({ ...newProductForm, category: e.target.value })}
-                    className="w-full bg-black border border-gray-800 rounded-xl px-4 py-3 text-white font-bold focus:border-purple-500 focus:outline-none transition-colors appearance-none"
-                  >
-                    <option value="disposable">Disposable</option>
-                    <option value="pod-systems">Pod Systems</option>
-                    <option value="podkits">Pod Kits</option>
-                    <option value="starter-kits">Starter Kits</option>
-                    <option value="mods">Mods</option>
-                    <option value="tanks">Tanks</option>
-                    <option value="coils">Coils</option>
-                    <option value="e-liquids">E-Liquids</option>
-                    <option value="accessories">Accessories</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-[10px] font-black uppercase text-gray-500 tracking-widest mb-2">Image URL (Optional)</label>
-                  <input
-                    type="text"
-                    value={newProductForm.image}
-                    onChange={e => setNewProductForm({ ...newProductForm, image: e.target.value })}
-                    className="w-full bg-black border border-gray-800 rounded-xl px-4 py-3 text-white font-bold focus:border-purple-500 focus:outline-none transition-colors"
-                    placeholder="https://..."
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-[10px] font-black uppercase text-gray-500 tracking-widest mb-2">Unit Value (₹)</label>
-                  <input
-                    required
-                    type="number"
-                    min="0"
-                    value={newProductForm.price}
-                    onChange={e => setNewProductForm({ ...newProductForm, price: e.target.value })}
-                    className="w-full bg-black border border-gray-800 rounded-xl px-4 py-3 text-white font-bold focus:border-purple-500 focus:outline-none transition-colors"
-                    placeholder="0.00"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-black uppercase text-gray-500 tracking-widest mb-2">Initial Stock</label>
-                  <input
-                    required
-                    type="number"
-                    min="0"
-                    value={newProductForm.stock}
-                    onChange={e => setNewProductForm({ ...newProductForm, stock: e.target.value })}
-                    className="w-full bg-black border border-gray-800 rounded-xl px-4 py-3 text-white font-bold focus:border-purple-500 focus:outline-none transition-colors"
-                    placeholder="0"
-                  />
-                </div>
-              </div>
-
+      {
+        isCreatingProduct && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+            <div className="bg-gray-900 border border-gray-800 rounded-[32px] p-8 max-w-2xl w-full relative max-h-[90vh] overflow-y-auto custom-scrollbar">
               <button
-                type="submit"
-                disabled={loading}
-                className="w-full py-4 rounded-xl bg-gradient-to-r from-purple-600 to-blue-600 text-white font-black uppercase tracking-widest hover:shadow-lg hover:shadow-purple-600/20 transition-all disabled:opacity-50"
+                onClick={() => setIsCreatingProduct(false)}
+                className="absolute top-6 right-6 text-gray-500 hover:text-white"
               >
-                {loading ? 'Processing Registry...' : 'Create Supply Node'}
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
-            </form>
+
+              <h3 className="text-2xl font-black italic uppercase mb-2">Initialize Supply Node</h3>
+              <p className="text-sm text-gray-500 font-bold uppercase tracking-widest mb-8">Register new inventory asset to the database</p>
+
+              <form onSubmit={handleCreateProduct} className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-[10px] font-black uppercase text-gray-500 tracking-widest mb-2">Product Name</label>
+                    <input
+                      required
+                      type="text"
+                      value={newProductForm.name}
+                      onChange={e => setNewProductForm({ ...newProductForm, name: e.target.value })}
+                      className="w-full bg-black border border-gray-800 rounded-xl px-4 py-3 text-white font-bold focus:border-purple-500 focus:outline-none transition-colors"
+                      placeholder="e.g. ELFBAR 5000"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black uppercase text-gray-500 tracking-widest mb-2">Brand Identity</label>
+                    <input
+                      required
+                      type="text"
+                      value={newProductForm.brand}
+                      onChange={e => setNewProductForm({ ...newProductForm, brand: e.target.value })}
+                      className="w-full bg-black border border-gray-800 rounded-xl px-4 py-3 text-white font-bold focus:border-purple-500 focus:outline-none transition-colors"
+                      placeholder="e.g. Elfbar"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-black uppercase text-gray-500 tracking-widest mb-2">Description / Flavor Profile</label>
+                  <textarea
+                    required
+                    rows={3}
+                    value={newProductForm.description}
+                    onChange={e => setNewProductForm({ ...newProductForm, description: e.target.value })}
+                    className="w-full bg-black border border-gray-800 rounded-xl px-4 py-3 text-white font-bold focus:border-purple-500 focus:outline-none transition-colors resize-none"
+                    placeholder="Detailed product specifications..."
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-[10px] font-black uppercase text-gray-500 tracking-widest mb-2">Category Classification</label>
+                    <select
+                      value={newProductForm.category}
+                      onChange={e => setNewProductForm({ ...newProductForm, category: e.target.value })}
+                      className="w-full bg-black border border-gray-800 rounded-xl px-4 py-3 text-white font-bold focus:border-purple-500 focus:outline-none transition-colors appearance-none"
+                    >
+                      <option value="disposable">Disposable</option>
+                      <option value="pod-systems">Pod Systems</option>
+                      <option value="podkits">Pod Kits</option>
+                      <option value="starter-kits">Starter Kits</option>
+                      <option value="mods">Mods</option>
+                      <option value="tanks">Tanks</option>
+                      <option value="coils">Coils</option>
+                      <option value="e-liquids">E-Liquids</option>
+                      <option value="accessories">Accessories</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black uppercase text-gray-500 tracking-widest mb-2">Image URL (Optional)</label>
+                    <input
+                      type="text"
+                      value={newProductForm.image}
+                      onChange={e => setNewProductForm({ ...newProductForm, image: e.target.value })}
+                      className="w-full bg-black border border-gray-800 rounded-xl px-4 py-3 text-white font-bold focus:border-purple-500 focus:outline-none transition-colors"
+                      placeholder="https://..."
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-[10px] font-black uppercase text-gray-500 tracking-widest mb-2">Unit Value (₹)</label>
+                    <input
+                      required
+                      type="number"
+                      min="0"
+                      value={newProductForm.price}
+                      onChange={e => setNewProductForm({ ...newProductForm, price: e.target.value })}
+                      className="w-full bg-black border border-gray-800 rounded-xl px-4 py-3 text-white font-bold focus:border-purple-500 focus:outline-none transition-colors"
+                      placeholder="0.00"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black uppercase text-gray-500 tracking-widest mb-2">Initial Stock</label>
+                    <input
+                      required
+                      type="number"
+                      min="0"
+                      value={newProductForm.stock}
+                      onChange={e => setNewProductForm({ ...newProductForm, stock: e.target.value })}
+                      className="w-full bg-black border border-gray-800 rounded-xl px-4 py-3 text-white font-bold focus:border-purple-500 focus:outline-none transition-colors"
+                      placeholder="0"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full py-4 rounded-xl bg-gradient-to-r from-purple-600 to-blue-600 text-white font-black uppercase tracking-widest hover:shadow-lg hover:shadow-purple-600/20 transition-all disabled:opacity-50"
+                >
+                  {loading ? 'Processing Registry...' : 'Create Supply Node'}
+                </button>
+              </form>
+            </div>
           </div>
-        </div>
-      )}
+        )
+      }
 
       {/* Selected Requirement - (Existing) */}
       {
