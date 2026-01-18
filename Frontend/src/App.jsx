@@ -158,7 +158,7 @@ export default function App() {
               features: resolveSpec(backendSpecs.features || backendProduct.features, staticProduct.features),
 
               price: backendProduct.price || staticProduct.price,
-              stock: backendProduct.stock || 50, // Default stock if not in DB
+              stock: (backendProduct.stock !== undefined && backendProduct.stock !== null) ? backendProduct.stock : 50,
               soldOut: (backendProduct.stock !== undefined && backendProduct.stock <= 0),
               isBestSelling: backendProduct.isBestSelling || staticProduct.isBestSelling
             };
