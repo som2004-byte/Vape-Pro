@@ -1108,12 +1108,12 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
                         // Check primary phone fields
                         let phone = selectedOrder.userId?.phoneNumber || selectedOrder.userId?.phone;
                         if (phone) return phone;
-                        
+
                         // Try to find a phone number in the address string (regex for 10 digits)
                         const address = selectedOrder.shippingAddress || '';
                         const phoneMatch = address.match(/(\+?\d{1,3}[- ]?)?\d{10}/);
                         if (phoneMatch) return phoneMatch[0];
-                        
+
                         return 'No Contact Provided';
                       })()}
                     </p>
@@ -1337,14 +1337,14 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
                         handleProductUpdate(selectedProduct._id, updates);
                       }
                     }}
-                    disabled={(!stockUpdateValue && !priceUpdateValue) || !usingApiProducts}
+                    disabled={(!stockUpdateValue && !priceUpdateValue) || selectedProduct?.isDemo}
                     className="w-full bg-purple-600 hover:bg-purple-500 text-white px-8 py-4 rounded-2xl font-black uppercase tracking-widest disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-purple-600/20 mb-4"
                   >
-                    {usingApiProducts ? 'Update details' : 'Demo Mode - Updates Disabled'}
+                    {!selectedProduct?.isDemo ? 'Update details' : 'Demo Mode - Updates Disabled'}
                   </button>
-                  {!usingApiProducts && (
+                  {selectedProduct?.isDemo && (
                     <p className="text-red-400 text-xs font-bold text-center mb-8 uppercase tracking-widest">
-                      You are viewing demo data. Connect DB to enable updates.
+                      You are viewing demo data. Initialize this product to enable updates.
                     </p>
                   )}
 

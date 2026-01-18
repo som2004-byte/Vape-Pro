@@ -45,18 +45,27 @@ router.post(
       for (const item of itemsToProcess) {
         const productId = item.product || item.id || item._id || item.productId;
 
-        // Try to find product in database, but don't fail if not found
+        // Try to find product in database with multiple fallback strategies
         let product = null;
         try {
-          // Check if it's a valid MongoId, otherwise look by SKU
-          const isValidObjectId = (id) => /^[0-9a-fA-F]{24}$/.test(id);
+          const isValidObjectId = (id) => typeof id === 'string' && /^[0-9a-fA-F]{24}$/.test(id);
+
           if (isValidObjectId(productId)) {
             product = await Product.findById(productId);
-          } else {
+          }
+
+          if (!product) {
             product = await Product.findOne({ sku: productId });
           }
+
+          // Final fallback: Match by Name (fuzzy) to link demo orders to live products
+          if (!product && item.name) {
+            product = await Product.findOne({
+              name: { $regex: new RegExp(`^${item.name}$`, 'i') }
+            });
+          }
         } catch (err) {
-          console.log('Product lookup failed, using item data:', productId);
+          console.error('Product lookup error:', err);
         }
 
         // Use item data if product not found in database
@@ -74,12 +83,19 @@ router.post(
 
         total += itemPrice * item.quantity;
 
-        // Reduce product stock only if product exists in database
-        if (product && product.stock >= item.quantity) {
-          product.stock -= item.quantity;
-          await product.save();
-        } else if (product) {
-          console.warn(`Not enough stock for ${itemName}. Available: ${product?.stock || 0}, Requested: ${item.quantity}`);
+        // Reduce product stock and track in database
+        if (product) {
+          const requestedQty = Number(item.quantity) || 1;
+          if (product.stock >= requestedQty) {
+            // Atomic update is better
+            await Product.updateOne(
+              { _id: product._id },
+              { $inc: { stock: -requestedQty } }
+            );
+          } else {
+            console.warn(`Insufficient stock for ${itemName}. DB: ${product.stock}, Req: ${requestedQty}`);
+            // Still allow order to proceed but log the discrepancy
+          }
         }
       }
 
@@ -169,13 +185,28 @@ router.post(
       const orderItems = [];
 
       for (const item of itemsToProcess) {
-        const productId = item.product || item.id || item._id || item.productId;
-        const isValidObjectId = (id) => /^[0-9a-fA-F]{24}$/.test(id);
-        let product;
-        if (isValidObjectId(productId)) {
-          product = await Product.findById(productId);
-        } else {
-          product = await Product.findOne({ sku: productId });
+        // Try to find product in database with multiple fallback strategies
+        let product = null;
+        try {
+          const isValidObjectId = (id) => typeof id === 'string' && /^[0-9a-fA-F]{24}$/.test(id);
+
+          if (isValidObjectId(productId)) {
+            product = await Product.findById(productId);
+          }
+
+          if (!product) {
+            product = await Product.findOne({ sku: productId });
+          }
+
+          // Final fallback: Match by Name (fuzzy)
+          if (!product && (item.name || product.name)) {
+            const searchName = item.name || product.name;
+            product = await Product.findOne({
+              name: { $regex: new RegExp(`^${searchName}$`, 'i') }
+            });
+          }
+        } catch (err) {
+          console.error('Product lookup error:', err);
         }
 
         if (!product) {
@@ -201,8 +232,10 @@ router.post(
         total += product.price * item.quantity;
 
         // Reduce product stock
-        product.stock -= item.quantity;
-        await product.save();
+        await Product.updateOne(
+          { _id: product._id },
+          { $inc: { stock: -item.quantity } }
+        );
       }
 
       // Apply discount if any
