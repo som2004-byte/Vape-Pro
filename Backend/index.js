@@ -23,6 +23,7 @@ const adminRoutes = require('./routes/admin');
 const orderRoutes = require('./routes/order');
 const cartRoutes = require('./routes/cart');
 const productRoutes = require('./routes/product');
+const notificationRoutes = require('./routes/notification');
 
 const app = express();
 
@@ -210,6 +211,7 @@ app.use('/api/cart', cartRoutes);
 // Use product routes
 console.log('Mounting /api/products route...');
 app.use('/api/products', productRoutes);
+app.use('/api/notifications', notificationRoutes);
 app.get('/api/test-products', (req, res) => res.json({ message: 'Product test route working' }));
 
 app.get('/api/account', authenticateToken, async (req, res) => {

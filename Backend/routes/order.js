@@ -5,6 +5,7 @@ const Order = require('../models/Order');
 const Cart = require('../models/Cart');
 const Product = require('../models/Product');
 const User = require('../models/User');
+const Notification = require('../models/Notification');
 const { sendOrderConfirmationEmail, sendOrderDeliveredEmail, sendOrderCancellationEmail } = require('../utils/email');
 
 const router = express.Router();
@@ -193,6 +194,15 @@ router.post(
       // Send order confirmation email (non-blocking)
       sendOrderConfirmationEmail(user.email, createdOrder).catch(emailError => {
         console.error('Error sending order confirmation email:', emailError);
+      });
+
+      // Create notification
+      await Notification.create({
+        recipient: user._id,
+        type: 'order',
+        title: 'Order Placed Successfully',
+        message: `Your order #${createdOrder._id} has been placed successfully.`,
+        link: `/orders/${createdOrder._id}`
       });
 
 
@@ -437,6 +447,15 @@ router.put(
 
       const updatedOrder = await order.save();
 
+      // Create notification
+      await Notification.create({
+        recipient: req.user._id,
+        type: 'order',
+        title: 'Payment Received',
+        message: `Payment for order #${order._id} was successful.`,
+        link: `/orders/${order._id}`
+      });
+
       res.json({
         message: 'Order paid successfully',
         order: updatedOrder,
@@ -497,6 +516,15 @@ router.put(
         console.error('Error sending delivery confirmation email:', emailError);
         // Don't fail the request if email fails
       }
+
+      // Create notification for delivery
+      await Notification.create({
+        recipient: order.userId,
+        type: 'order',
+        title: 'Order Delivered',
+        message: `Your order #${order._id} has been delivered. Enjoy!`,
+        link: `/orders/${order._id}`
+      });
 
       res.json({
         message: 'Order marked as delivered',
@@ -570,6 +598,15 @@ router.post(
       }
 
       const updatedOrder = await order.save();
+
+      // Create notification
+      await Notification.create({
+        recipient: order.userId,
+        type: 'order',
+        title: 'Order Cancelled',
+        message: `Your order #${order._id} has been cancelled.`,
+        link: `/orders/${order._id}`
+      });
 
       // Send cancellation confirmation email
       try {

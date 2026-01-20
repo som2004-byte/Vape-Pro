@@ -69,6 +69,13 @@ export const API_ENDPOINTS = {
     CLIENT_REQUIREMENTS: {
         CREATE: `${API_BASE_URL}/api/admin/client-requirements`, // Or wherever users submit it
     },
+
+    // Notification endpoints
+    NOTIFICATIONS: {
+        GET_ALL: `${API_BASE_URL}/api/notifications`,
+        READ: (id) => `${API_BASE_URL}/api/notifications/${id}/read`,
+        READ_ALL: `${API_BASE_URL}/api/notifications/read-all`,
+    },
 };
 
 // Helper function to get auth headers

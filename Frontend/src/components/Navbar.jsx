@@ -1,9 +1,81 @@
-﻿import React, { useState } from 'react'
+﻿import React, { useState, useEffect } from 'react'
 import { MAIN_CATEGORIES, BRANDS, PRICE_RANGES, PUFF_RANGES, getSubCategoriesByBrand } from '../data.js'
+import { API_ENDPOINTS, apiCall, getAuthHeaders } from '../utils/apiConfig'
 
 export default function Navbar({ user, onLogout, currentCategory = 'all', onCategoryChange, onFilterChange, activeFilters = {}, onNavigate, cartItemCount, searchQuery, onSearchChange }) {
   const [activeDropdown, setActiveDropdown] = useState(null)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+
+  // Notification State
+  const [notifications, setNotifications] = useState([])
+  const [unreadCount, setUnreadCount] = useState(0)
+  const [showNotifications, setShowNotifications] = useState(false)
+
+  const getToken = () => {
+    if (user && user.token) return user.token
+    try {
+      const stored = JSON.parse(localStorage.getItem('vapesmart_user'))
+      return stored?.token
+    } catch (e) { return null }
+  }
+
+  const fetchNotifications = async () => {
+    const token = getToken()
+    if (!user || !token) return
+
+    try {
+      const data = await apiCall(API_ENDPOINTS.NOTIFICATIONS.GET_ALL, {
+        headers: getAuthHeaders(token)
+      })
+      setNotifications(data.notifications || [])
+      setUnreadCount(data.unreadCount || 0)
+    } catch (error) {
+      // Silent error
+    }
+  }
+
+  useEffect(() => {
+    fetchNotifications()
+    const interval = setInterval(fetchNotifications, 30000)
+    return () => clearInterval(interval)
+  }, [user])
+
+  const markAllAsRead = async () => {
+    const token = getToken()
+    if (!token) return
+
+    try {
+      await apiCall(API_ENDPOINTS.NOTIFICATIONS.READ_ALL, {
+        method: 'PUT',
+        headers: getAuthHeaders(token)
+      })
+      setNotifications(prev => prev.map(n => ({ ...n, isRead: true })))
+      setUnreadCount(0)
+    } catch (error) {
+      console.error(error)
+    }
+  }
+
+  const handleNotificationClick = async (notif) => {
+    if (!notif.isRead) {
+      const token = getToken()
+      if (token) {
+        try {
+          await apiCall(API_ENDPOINTS.NOTIFICATIONS.READ(notif._id), {
+            method: 'PUT',
+            headers: getAuthHeaders(token)
+          })
+          setNotifications(prev => prev.map(n => n._id === notif._id ? { ...n, isRead: true } : n))
+          setUnreadCount(prev => Math.max(0, prev - 1))
+        } catch (e) { }
+      }
+    }
+
+    if (notif.link && notif.link.includes('/orders/')) {
+      onNavigate('account', 'orders')
+    }
+    setShowNotifications(false)
+  }
 
   const scrollToProducts = () => {
     if (typeof window === 'undefined') return
@@ -130,6 +202,56 @@ export default function Navbar({ user, onLogout, currentCategory = 'all', onCate
               >
                 Logout
               </button>
+            </div>
+          )}
+          {user && (
+            <div className="relative">
+              <button
+                onClick={() => setShowNotifications(!showNotifications)}
+                className="p-2 text-cyan-400 hover:text-white transition-colors relative"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                </svg>
+                {unreadCount > 0 && (
+                  <span className="absolute top-0 right-0 bg-red-600 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center font-bold">
+                    {unreadCount}
+                  </span>
+                )}
+              </button>
+
+              {showNotifications && (
+                <div className="absolute top-full right-0 mt-2 w-80 bg-gray-900 border border-gray-700 rounded-lg shadow-xl z-50 overflow-hidden">
+                  <div className="p-3 border-b border-gray-700 flex justify-between items-center">
+                    <span className="text-white font-semibold">Notifications</span>
+                    {unreadCount > 0 && (
+                      <button
+                        onClick={markAllAsRead}
+                        className="text-xs text-cyan-400 hover:text-cyan-300"
+                      >
+                        Mark all read
+                      </button>
+                    )}
+                  </div>
+                  <div className="max-h-80 overflow-y-auto">
+                    {notifications.length === 0 ? (
+                      <div className="p-4 text-center text-gray-500 text-sm">No notifications</div>
+                    ) : (
+                      notifications.map(notif => (
+                        <div
+                          key={notif._id}
+                          className={`p-3 border-b border-gray-800 hover:bg-gray-800 transition-colors cursor-pointer ${!notif.isRead ? 'bg-gray-800/30' : ''}`}
+                          onClick={() => handleNotificationClick(notif)}
+                        >
+                          <div className="text-sm text-cyan-200 font-medium mb-1">{notif.title}</div>
+                          <div className="text-xs text-gray-400">{notif.message}</div>
+                          <div className="text-[10px] text-gray-600 mt-1">{new Date(notif.createdAt).toLocaleDateString()}</div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           )}
           <button

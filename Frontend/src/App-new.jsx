@@ -280,8 +280,11 @@ export default function App() {
         {currentPage === 'account' && (
           <AccountSection
             user={user}
+            activeTab={accountTab}
+            orders={orders}
             profile={customerProfile}
             onUpdateProfile={setCustomerProfile}
+            onNotify={setToast}
           />
         )}
 
