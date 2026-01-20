@@ -5,31 +5,48 @@ const User = require('../models/User');
 
 const router = express.Router();
 
-// Get all notifications for the current user
-router.get('/', authenticateToken, async (req, res) => {
+// Get all notifications for the current entity (User or Admin)
+router.get('/', async (req, res) => {
+    // Manual auth check to support both User and Admin without strictly enforcing one middleware
+    const authHeader = req.headers.authorization;
+    const token = authHeader && authHeader.split(' ')[1];
+    if (!token) return res.status(401).json({ message: 'No token provided' });
+
     try {
-        const notifications = await Notification.find({ recipient: req.user._id })
+        const jwt = require('jsonwebtoken');
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+        const recipientId = decoded.id || decoded._id;
+
+        const notifications = await Notification.find({ recipient: recipientId })
             .sort({ createdAt: -1 })
-            .limit(50); // Limit to last 50 notifications
+            .limit(50);
 
         const unreadCount = await Notification.countDocuments({
-            recipient: req.user._id,
+            recipient: recipientId,
             isRead: false
         });
 
         res.json({ notifications, unreadCount });
     } catch (error) {
         console.error('Get notifications error:', error);
-        res.status(500).json({ message: 'Server error', error: error.message });
+        return res.status(401).json({ message: 'Invalid token' });
     }
 });
 
 // Mark a notification as read
-router.put('/:id/read', authenticateToken, async (req, res) => {
+router.put('/:id/read', async (req, res) => {
+    const authHeader = req.headers.authorization;
+    const token = authHeader && authHeader.split(' ')[1];
+    if (!token) return res.status(401).json({ message: 'No token provided' });
+
     try {
+        const jwt = require('jsonwebtoken');
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+        const recipientId = decoded.id || decoded._id;
+
         const notification = await Notification.findOne({
             _id: req.params.id,
-            recipient: req.user._id
+            recipient: recipientId
         });
 
         if (!notification) {
@@ -47,10 +64,18 @@ router.put('/:id/read', authenticateToken, async (req, res) => {
 });
 
 // Mark all notifications as read
-router.put('/read-all', authenticateToken, async (req, res) => {
+router.put('/read-all', async (req, res) => {
+    const authHeader = req.headers.authorization;
+    const token = authHeader && authHeader.split(' ')[1];
+    if (!token) return res.status(401).json({ message: 'No token provided' });
+
     try {
+        const jwt = require('jsonwebtoken');
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+        const recipientId = decoded.id || decoded._id;
+
         await Notification.updateMany(
-            { recipient: req.user._id, isRead: false },
+            { recipient: recipientId, isRead: false },
             { $set: { isRead: true } }
         );
 

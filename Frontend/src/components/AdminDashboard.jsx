@@ -95,7 +95,87 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
   const [error, setError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Notification State
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [showNotifications, setShowNotifications] = useState(false);
+
+  // Chrome Notification Logic
+  useEffect(() => {
+    if ('Notification' in window && Notification.permission !== 'granted' && Notification.permission !== 'denied') {
+      Notification.requestPermission();
+    }
+  }, []);
+
+  const triggerBrowserNotification = (title, body) => {
+    if ('Notification' in window && Notification.permission === 'granted') {
+      new Notification(title, {
+        body: body,
+        icon: '/images/vapesmart-logo.png' // Ensure this path is correct
+      });
+    }
+  };
+
   const API_BASE_URL = `${API_BASE_URL_ROOT}/api/admin`;
+  const NOTIFICATION_URL = `${API_BASE_URL_ROOT}/api/notifications`;
+
+  // Track previous count to detect NEW notifications
+  const [prevUnreadCount, setPrevUnreadCount] = useState(0);
+
+  const fetchNotifications = async () => {
+    if (!adminToken) return;
+    try {
+      const response = await fetch(NOTIFICATION_URL, {
+        headers: { Authorization: `Bearer ${adminToken}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        const newUnreadCount = data.unreadCount || 0;
+        const newNotifications = data.notifications || [];
+
+        setNotifications(newNotifications);
+        setUnreadCount(newUnreadCount);
+
+        // Check if we have MORE unread items than before
+        if (newUnreadCount > prevUnreadCount) {
+          // Find the newest unread notification
+          const newest = newNotifications.find(n => !n.isRead);
+          if (newest) {
+            triggerBrowserNotification("VapeSmart Admin", newest.title || "New Notification");
+          }
+        }
+        setPrevUnreadCount(newUnreadCount);
+      }
+    } catch (error) {
+      console.error('Notification fetch error', error);
+    }
+  };
+
+  const markNotificationRead = async (id) => {
+    try {
+      const response = await fetch(`${NOTIFICATION_URL}/${id}/read`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${adminToken}` }
+      });
+      if (response.ok) {
+        setNotifications(prev => prev.map(n => n._id === id ? { ...n, isRead: true } : n));
+        setUnreadCount(prev => Math.max(0, prev - 1));
+      }
+    } catch (e) { console.error(e); }
+  };
+
+  const markAllNotificationsRead = async () => {
+    try {
+      const response = await fetch(`${NOTIFICATION_URL}/read-all`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${adminToken}` }
+      });
+      if (response.ok) {
+        setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+        setUnreadCount(0);
+      }
+    } catch (e) { console.error(e); }
+  };
 
   // Fetch data from API
   const fetchData = async (endpoint, setter) => {
@@ -443,6 +523,7 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
           await fetchData('/orders', setOrders);
           await fetchData('/products', setProducts);
           fetchStats();
+          fetchNotifications();
         } else {
           // Fallback for demo mode if no token
           const initialProducts = USER_PRODUCTS.map(p => ({
@@ -469,6 +550,7 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
         fetchData('/orders', setOrders);
         fetchData('/products?limit=1000', setProducts);
         fetchStats();
+        fetchNotifications();
       }
     }, 10000);
 
@@ -722,6 +804,67 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
                   ← Back
                 </button>
               )}
+
+              <div className="relative">
+                <button
+                  onClick={() => setShowNotifications(!showNotifications)}
+                  className="p-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-xl relative transition-all border border-gray-700 hover:border-gray-600"
+                >
+                  <svg className="w-5 h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                  </svg>
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[10px] rounded-full w-5 h-5 flex items-center justify-center font-bold border-2 border-black animate-pulse">
+                      {unreadCount}
+                    </span>
+                  )}
+                </button>
+
+                {showNotifications && (
+                  <div className="absolute top-12 right-0 mt-2 w-80 md:w-96 bg-gray-900 border border-gray-700 rounded-xl shadow-2xl z-50 overflow-hidden">
+                    <div className="p-3 border-b border-gray-700 flex justify-between items-center bg-black/40">
+                      <span className="text-white font-bold text-sm">Notifications</span>
+                      {unreadCount > 0 && (
+                        <button
+                          onClick={markAllNotificationsRead}
+                          className="text-xs text-purple-400 hover:text-purple-300 font-medium"
+                        >
+                          Mark all read
+                        </button>
+                      )}
+                    </div>
+                    <div className="max-h-[60vh] overflow-y-auto custom-scrollbar">
+                      {notifications.length === 0 ? (
+                        <div className="p-8 text-center text-gray-500 text-sm">No new notifications</div>
+                      ) : (
+                        notifications.map(notif => (
+                          <div
+                            key={notif._id}
+                            className={`p-4 border-b border-gray-800 hover:bg-gray-800/50 transition-colors cursor-pointer ${!notif.isRead ? 'bg-gray-800/30 border-l-2 border-l-purple-500' : ''}`}
+                            onClick={() => {
+                              markNotificationRead(notif._id);
+                              if (notif.link) {
+                                if (notif.link.includes('/orders/')) {
+                                  setActiveTab('logistics');
+                                } else if (notif.link.includes('/users/')) {
+                                  setActiveTab('users');
+                                }
+                              }
+                              setShowNotifications(false);
+                            }}
+                          >
+                            <div className="flex justify-between items-start mb-1">
+                              <span className={`text-sm font-bold ${!notif.isRead ? 'text-white' : 'text-gray-400'}`}>{notif.title}</span>
+                              <span className="text-[10px] text-gray-600 whitespace-nowrap ml-2">{new Date(notif.createdAt).toLocaleDateString()}</span>
+                            </div>
+                            <p className="text-xs text-gray-400 leading-relaxed">{notif.message}</p>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
 
               <button
                 onClick={handleRefresh}

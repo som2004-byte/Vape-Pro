@@ -5,6 +5,7 @@ const Order = require('../models/Order');
 const Cart = require('../models/Cart');
 const Product = require('../models/Product');
 const User = require('../models/User');
+const Admin = require('../models/Admin');
 const Notification = require('../models/Notification');
 const { sendOrderConfirmationEmail, sendOrderDeliveredEmail, sendOrderCancellationEmail } = require('../utils/email');
 
@@ -204,6 +205,19 @@ router.post(
         message: `Your order #${createdOrder._id} has been placed successfully.`,
         link: `/orders/${createdOrder._id}`
       });
+
+      // Notify Admins
+      const admins = await Admin.find({});
+      for (const admin of admins) {
+        await Notification.create({
+          recipient: admin._id,
+          recipientModel: 'Admin',
+          type: 'order',
+          title: 'New Order Received',
+          message: `New order #${createdOrder._id} from ${user.name} for ₹${finalTotal}`,
+          link: `/admin/orders/${createdOrder._id}`
+        });
+      }
 
 
       res.status(201).json({
@@ -455,6 +469,19 @@ router.put(
         message: `Payment for order #${order._id} was successful.`,
         link: `/orders/${order._id}`
       });
+
+      // Notify Admins
+      const admins = await Admin.find({});
+      for (const admin of admins) {
+        await Notification.create({
+          recipient: admin._id,
+          recipientModel: 'Admin',
+          type: 'order',
+          title: 'Order Paid',
+          message: `Order #${order._id} has been paid.`,
+          link: `/admin/orders/${order._id}`
+        });
+      }
 
       res.json({
         message: 'Order paid successfully',

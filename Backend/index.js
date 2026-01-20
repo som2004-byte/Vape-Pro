@@ -23,7 +23,8 @@ const adminRoutes = require('./routes/admin');
 const orderRoutes = require('./routes/order');
 const cartRoutes = require('./routes/cart');
 const productRoutes = require('./routes/product');
-const notificationRoutes = require('./routes/notification');
+const notificationRoutes = require('./routes/notification.js');
+const Notification = require('./models/Notification.js');
 
 const app = express();
 
@@ -128,6 +129,29 @@ app.post('/api/signup', async (req, res) => {
     // Notify Admin of new user
     sendTelegramNotification(`👤 *New User Signed Up*\nName: ${name}\nEmail: \`${email}\``);
 
+    // Get all admins
+    const admins = await Admin.find({});
+    for (const admin of admins) {
+      await Notification.create({
+        recipient: admin._id,
+        recipientModel: 'Admin',
+        type: 'system',
+        title: 'New User Signup',
+        message: `${name} (${email}) has just created an account.`,
+        link: `/users/${user._id}`
+      });
+    }
+
+    // Welcome Notification for User
+    await Notification.create({
+      recipient: user._id,
+      recipientModel: 'User',
+      type: 'info',
+      title: 'Welcome to VapePro!',
+      message: 'Thank you for creating an account. Happy shopping!',
+      link: '/products'
+    });
+
     const token = jwt.sign({ id: user._id, email: user.email }, JWT_SECRET, { expiresIn: '24h' });
     res.status(201).json({ token, user: { id: user._id, email: user.email, name: user.name } });
   } catch (error) { res.status(500).json({ error: error.message }); }
@@ -165,7 +189,9 @@ app.post('/api/google-login', async (req, res) => {
       ]
     });
 
+    let isNewUser = false;
     if (!user) {
+      isNewUser = true;
       // Create new user if doesn't exist
       user = new User({
         googleId,
@@ -182,6 +208,32 @@ app.post('/api/google-login', async (req, res) => {
         user.emailVerified = true;
         await user.save();
       }
+    }
+
+    // If it's a new user (created above), notify admins
+    if (isNewUser) {
+      // Get all admins
+      const admins = await Admin.find({});
+      for (const admin of admins) {
+        await Notification.create({
+          recipient: admin._id,
+          recipientModel: 'Admin',
+          type: 'system',
+          title: 'New User Signup (Google)',
+          message: `${name} (${email}) has joined via Google.`,
+          link: `/users/${user._id}`
+        });
+      }
+
+      // Welcome Notification
+      await Notification.create({
+        recipient: user._id,
+        recipientModel: 'User',
+        type: 'info',
+        title: 'Welcome to VapePro!',
+        message: 'Thank you for joining us using Google.',
+        link: '/products'
+      });
     }
 
     const token = jwt.sign({ id: user._id, email: user.email }, JWT_SECRET, { expiresIn: '24h' });
