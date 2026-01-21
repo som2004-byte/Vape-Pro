@@ -774,7 +774,7 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
   return (
     <div className="min-h-screen bg-black text-white p-4 md:p-8">
       {/* Header */}
-      <div className="bg-gradient-to-r from-gray-900 via-purple-900/20 to-gray-900 border-b border-gray-800/50 backdrop-blur-xl mb-8 rounded-2xl">
+      <div className="relative z-40 bg-gradient-to-r from-gray-900 via-purple-900/20 to-gray-900 border-b border-gray-800/50 backdrop-blur-xl mb-8 rounded-2xl">
         <div className="p-4 md:p-6">
           <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
             <div className="flex items-center gap-4">
@@ -821,7 +821,7 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
                 </button>
 
                 {showNotifications && (
-                  <div className="absolute top-12 right-0 mt-2 w-80 md:w-96 bg-gray-900 border border-gray-700 rounded-xl shadow-2xl z-50 overflow-hidden">
+                  <div className="absolute top-full left-0 md:left-auto md:right-0 mt-2 w-[85vw] sm:w-80 md:w-96 bg-gray-900 border border-gray-700 rounded-xl shadow-2xl z-50 overflow-hidden transform md:translate-x-0">
                     <div className="p-3 border-b border-gray-700 flex justify-between items-center bg-black/40">
                       <span className="text-white font-bold text-sm">Notifications</span>
                       {unreadCount > 0 && (
