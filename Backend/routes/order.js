@@ -7,7 +7,8 @@ const Product = require('../models/Product');
 const User = require('../models/User');
 const Admin = require('../models/Admin');
 const Notification = require('../models/Notification');
-const { sendOrderConfirmationEmail, sendOrderDeliveredEmail, sendOrderCancellationEmail } = require('../utils/email');
+const { sendOrderConfirmationEmail, sendOrderDeliveredEmail, sendOrderCancellationEmail, sendAdminNewOrderEmail } = require('../utils/email');
+const { sendTelegramNotification } = require('../utils/telegram');
 
 const router = express.Router();
 
@@ -219,6 +220,13 @@ router.post(
         });
       }
 
+      // Send Telegram Notification to Admin
+      sendTelegramNotification(`📦 *New Order Received!*
+Order ID: \`${createdOrder._id}\`
+User: ${user.name}
+Amount: *₹${finalTotal}*
+Items: ${createdOrder.items.length}`);
+
 
       res.status(201).json({
         message: 'Order created successfully',
@@ -357,6 +365,13 @@ router.post(
       sendOrderConfirmationEmail(user.email, createdOrder).catch(emailError => {
         console.error('Error sending order confirmation email:', emailError);
       });
+
+      // Send Telegram Notification to Admin
+      sendTelegramNotification(`📦 *New Order Received!*
+Order ID: \`${createdOrder._id}\`
+User: ${user.name}
+Amount: *₹${finalTotal}*
+Items: ${createdOrder.items.length}`);
 
 
       res.status(201).json({

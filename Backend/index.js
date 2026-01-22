@@ -5,7 +5,7 @@ const jwt = require('jsonwebtoken');
 const cors = require('cors');
 const mongoose = require('mongoose');
 const nodemailer = require('nodemailer');
-const https = require('https'); // For Telegram
+
 const { OAuth2Client } = require('google-auth-library');
 require('dotenv').config();
 
@@ -93,24 +93,8 @@ const sendOtpEmail = async (toEmail, code) => {
   ]);
 };
 
-// Telegram Helper
-const sendTelegramNotification = (message) => {
-  if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
-    console.log('Telegram not configured, skipping notification');
-    return;
-  }
-  const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
-  const data = JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text: message, parse_mode: 'Markdown' });
-  const req = https.request(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Content-Length': data.length }
-  }, (res) => {
-    res.on('data', () => { }); // Consume
-  });
-  req.on('error', (e) => console.error('Telegram Error:', e));
-  req.write(data);
-  req.end();
-};
+const { sendTelegramNotification } = require('./utils/telegram');
+const { sendAdminNewUserEmail } = require('./utils/email');
 
 // --- ROUTES ---
 
@@ -128,6 +112,7 @@ app.post('/api/signup', async (req, res) => {
 
     // Notify Admin of new user
     sendTelegramNotification(`👤 *New User Signed Up*\nName: ${name}\nEmail: \`${email}\``);
+    sendAdminNewUserEmail(user).catch(err => console.error('Failed to send admin signup email', err));
 
     // Get all admins
     const admins = await Admin.find({});
@@ -224,6 +209,8 @@ app.post('/api/google-login', async (req, res) => {
           link: `/users/${user._id}`
         });
       }
+
+      sendAdminNewUserEmail(user).catch(err => console.error('Failed to send admin google signup email', err));
 
       // Welcome Notification
       await Notification.create({

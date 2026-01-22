@@ -158,4 +158,62 @@ module.exports = {
   sendOrderDeliveredEmail,
   sendOrderCancellationEmail,
   isValidEmail,
+  sendAdminNewOrderEmail: async (order) => {
+    if (!process.env.ADMIN_EMAIL) {
+      console.warn('ADMIN_EMAIL not set, skipping admin email notification');
+      return false;
+    }
+    try {
+      const mailOptions = {
+        from: process.env.SMTP_FROM || 'noreply@vapepro.com',
+        to: process.env.ADMIN_EMAIL,
+        subject: `🚨 New Order Received - ${order._id}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #2c3e50;">New Order Alert! 📦</h2>
+            <p>A new order has just been placed on your store.</p>
+            <div style="background: #f8f9fa; border-left: 4px solid #fab1a0; padding: 15px; margin: 15px 0;">
+              <p><strong>Order ID:</strong> ${order._id}</p>
+              <p><strong>Amount:</strong> $${order.total || order.totalPrice}</p>
+              <p><strong>Customer ID:</strong> ${order.userId}</p>
+              <p><strong>Items:</strong> ${order.items ? order.items.length : 0}</p>
+            </div>
+            <a href="${process.env.FRONTEND_URL || 'https://vapesmart.co.in'}/admin/orders/${order._id}" style="display: inline-block; background: #000; color: #fff; padding: 10px 20px; text-decoration: none; border-radius: 5px;">View Order in Admin Panel</a>
+          </div>
+        `,
+      };
+      await transporter.sendMail(mailOptions);
+      return true;
+    } catch (error) {
+      console.error('Error sending admin order email:', error);
+      return false;
+    }
+  },
+  sendAdminNewUserEmail: async (user) => {
+    if (!process.env.ADMIN_EMAIL) {
+      return false;
+    }
+    try {
+      const mailOptions = {
+        from: process.env.SMTP_FROM || 'noreply@vapepro.com',
+        to: process.env.ADMIN_EMAIL,
+        subject: `👤 New User Signup - ${user.name}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #2c3e50;">New Customer Signup! 🎉</h2>
+            <div style="background: #f8f9fa; border-left: 4px solid #74b9ff; padding: 15px; margin: 15px 0;">
+              <p><strong>Name:</strong> ${user.name}</p>
+              <p><strong>Email:</strong> ${user.email}</p>
+              <p><strong>Joined:</strong> ${new Date().toLocaleDateString()}</p>
+            </div>
+          </div>
+        `,
+      };
+      await transporter.sendMail(mailOptions);
+      return true;
+    } catch (error) {
+      console.error('Error sending admin signup email:', error);
+      return false;
+    }
+  }
 };
