@@ -227,6 +227,9 @@ User: ${user.name}
 Amount: *₹${finalTotal}*
 Items: ${createdOrder.items.length}`);
 
+      // Send Email to Admin
+      sendAdminNewOrderEmail(createdOrder).catch(e => console.error('Failed to send admin order email', e));
+
 
       res.status(201).json({
         message: 'Order created successfully',
@@ -372,6 +375,9 @@ Order ID: \`${createdOrder._id}\`
 User: ${user.name}
 Amount: *₹${finalTotal}*
 Items: ${createdOrder.items.length}`);
+
+      // Send Email to Admin
+      sendAdminNewOrderEmail(createdOrder).catch(e => console.error('Failed to send admin order email', e));
 
 
       res.status(201).json({
