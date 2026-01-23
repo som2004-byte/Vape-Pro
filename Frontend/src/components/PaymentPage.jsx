@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import VapeSmokeEffect from './VapeSmokeEffect';
+import { apiCall, API_ENDPOINTS } from '../utils/apiConfig';
 
 export default function PaymentPage({
   cartItems = [],
@@ -13,6 +14,7 @@ export default function PaymentPage({
   const [cardName, setCardName] = useState('');
   const [expiry, setExpiry] = useState('');
   const [cvv, setCvv] = useState('');
+  const [orderNote, setOrderNote] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState(null); // 'processing', 'success', 'failed'
   const videoSrc = '/videos/login-bg.mp4';
@@ -78,32 +80,54 @@ export default function PaymentPage({
       }
     }
 
+
     setIsProcessing(true);
     setPaymentStatus('processing');
 
-    // Simulate payment processing delay (3 seconds)
-    setTimeout(() => {
-      // Simulate 90% success rate for demo
-      const isSuccess = Math.random() > 0.1;
+    try {
+      // Create order payload
+      const orderPayload = {
+        items: cartItems.map(item => ({
+          product: item.id || item._id,
+          name: item.name,
+          price: item.price,
+          quantity: item.quantity,
+          image: item.image
+        })),
+        total,
+        paymentMethod,
+        shippingAddress: customerProfile?.address || '',
+        note: orderNote, // User's message
+        paymentResult: {
+          status: 'pending',
+          method: paymentMethod
+        }
+      };
 
-      if (isSuccess) {
-        setPaymentStatus('success');
-        const transactionId = generateTransactionId();
+      // Call Backend API
+      const response = await apiCall(API_ENDPOINTS.ORDERS.CREATE, {
+        method: 'POST',
+        body: JSON.stringify(orderPayload)
+      });
 
-        // Wait a moment then call success handler
-        setTimeout(() => {
-          onPaymentSuccess({
-            transactionId,
-            paymentMethod,
-            paymentStatus: 'completed',
-            paidAt: new Date().toISOString(),
-          });
-        }, 1500);
-      } else {
-        setPaymentStatus('failed');
-        setIsProcessing(false);
-      }
-    }, 3000);
+      setPaymentStatus('success');
+      const transactionId = response.order._id || generateTransactionId();
+
+      setTimeout(() => {
+        onPaymentSuccess({
+          transactionId,
+          paymentMethod,
+          paymentStatus: 'pending',
+          paidAt: null,
+        });
+      }, 1500);
+
+    } catch (error) {
+      console.error('Order creation failed:', error);
+      alert(`Order Failed: ${error.message}`);
+      setPaymentStatus('failed');
+      setIsProcessing(false);
+    }
   };
 
   const formatCardNumber = (value) => {
@@ -232,7 +256,18 @@ export default function PaymentPage({
               </div>
             </div>
 
-
+            {/* Order Note Field */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-darkPurple-300 mb-3">
+                Order Notes / Message to Seller (Optional)
+              </label>
+              <textarea
+                value={orderNote}
+                onChange={(e) => setOrderNote(e.target.value)}
+                placeholder="Any special requests or details about your order..."
+                className="w-full bg-darkPurple-900/50 border border-darkPurple-700 rounded-lg p-3 text-white placeholder-darkPurple-400 focus:outline-none focus:border-yellow-500/50 resize-none h-24"
+              />
+            </div>
 
             {paymentMethod === 'cod' && (
               <div className="space-y-4">

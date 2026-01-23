@@ -22,6 +22,7 @@ const orderSchema = new mongoose.Schema({
   paymentStatus: { type: String, enum: ['pending', 'completed', 'failed', 'cod'], default: 'cod' },
   paymentMethod: { type: String, default: 'cod' },
   shippingAddress: { type: String, default: '' },
+  note: { type: String, default: '' },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 

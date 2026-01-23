@@ -29,7 +29,7 @@ router.post(
         return res.status(400).json({ errors: errors.array() });
       }
 
-      const { shippingAddress, paymentMethod, paymentResult, items: bodyItems } = req.body;
+      const { shippingAddress, paymentMethod, paymentResult, items: bodyItems, note } = req.body;
       const cart = req.cart;
       const user = req.user;
 
@@ -41,8 +41,7 @@ router.post(
         return res.status(400).json({ message: 'Order must contain items' });
       }
 
-      // Idempotency Check: Prevent double-submission of the same order
-      // Check if this user created an identical order (same items/total) in the last 30 seconds
+      // ... (idempotency check skipped for brevity in replacement, but keep existing code)
       const thirtySecondsAgo = new Date(Date.now() - 30000);
       const recentOrder = await Order.findOne({
         userId: user._id,
@@ -179,6 +178,7 @@ router.post(
         shippingAddress: shippingAddress || user.address,
         paymentMethod,
         paymentResult,
+        note, // Add note here
         total: finalTotal,
         status: 'processing',
         paymentStatus: paymentMethod === 'card' && paymentResult?.status === 'succeeded' ? 'completed' : 'cod',
@@ -225,7 +225,8 @@ router.post(
 Order ID: \`${createdOrder._id}\`
 User: ${user.name}
 Amount: *₹${finalTotal}*
-Items: ${createdOrder.items.length}`);
+Items: ${createdOrder.items.length}
+Note: ${note ? `_${note}_` : 'None'}`);
 
       // Send Email to Admin
       sendAdminNewOrderEmail(createdOrder).catch(e => console.error('Failed to send admin order email', e));

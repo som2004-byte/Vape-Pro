@@ -177,6 +177,7 @@ module.exports = {
               <p><strong>Amount:</strong> $${order.total || order.totalPrice}</p>
               <p><strong>Customer ID:</strong> ${order.userId}</p>
               <p><strong>Items:</strong> ${order.items ? order.items.length : 0}</p>
+              ${order.note ? `<p><strong>Note:</strong> ${order.note}</p>` : ''}
             </div>
             <a href="${process.env.FRONTEND_URL || 'https://vapesmart.co.in'}/admin/orders/${order._id}" style="display: inline-block; background: #000; color: #fff; padding: 10px 20px; text-decoration: none; border-radius: 5px;">View Order in Admin Panel</a>
           </div>
