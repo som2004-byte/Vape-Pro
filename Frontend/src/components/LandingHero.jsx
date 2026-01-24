@@ -31,10 +31,10 @@ export default function LandingHero({ onNavigate, onCategoryChange, onFilterChan
       {/* Background Logo */}
       <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none overflow-hidden">
         <img
-          src="/images/vapesmart-logo.png"
+          src="/images/vapesmart-logo-removebg-preview.jpg"
           alt="VapeSmart Logo"
           onError={(e) => {
-            console.error('Logo image failed to load. Please ensure the image is at /public/images/vapesmart-logo.png');
+            console.error('Logo image failed to load. Please ensure the image is at /public/images/vapesmart-logo-removebg-preview.jpg');
           }}
           className="w-[1100px] h-[1100px] object-contain opacity-100"
           style={{ filter: 'blur(10px)' }}

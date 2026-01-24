@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import VapeSmokeEffect from './VapeSmokeEffect';
 import API_BASE_URL from '../config';
 
-const logo = '/images/vapesmart-logo.png';
+const logo = '/images/vapesmart-logo-removebg-preview.jpg';
 
 export default function AdminLogin({ onAdminLogin }) {
   const [email, setEmail] = useState('');

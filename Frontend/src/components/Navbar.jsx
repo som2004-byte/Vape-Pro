@@ -96,7 +96,7 @@ export default function Navbar({ user, onLogout, currentCategory = 'all', onCate
           }}
           className="flex items-center gap-2 md:gap-3 hover:opacity-80 transition-opacity flex-shrink-0"
         >
-          <img src="/images/vapesmart-logo.png" alt="logo" className="h-10 md:h-12 w-auto object-contain" />
+          <img src="/images/vapesmart-logo-removebg-preview.jpg" alt="logo" className="h-10 md:h-12 w-auto object-contain" />
           <div className="flex flex-col items-start">
             <div className="font-bold text-lg md:text-xl bg-gradient-to-r from-white via-cyan-300 to-white bg-clip-text text-transparent">VapeSmart</div>
             <div className="hidden md:block font-semibold text-xs md:text-sm text-cyan-300">Smart vaping starts here</div>
@@ -351,7 +351,7 @@ export default function Navbar({ user, onLogout, currentCategory = 'all', onCate
             <div className="p-6">
               <div className="flex items-center justify-between mb-8">
                 <div className="flex items-center gap-3">
-                  <img src="/images/vapesmart-logo.png" alt="logo" className="h-10 w-auto" />
+                  <img src="/images/vapesmart-logo-removebg-preview.jpg" alt="logo" className="h-10 w-auto" />
                   <div>
                     <div className="font-bold text-lg text-white">VapeSmart</div>
                     <div className="text-xs text-cyan-400 font-medium tracking-wider">PREMIUM VAPE SHOP</div>
