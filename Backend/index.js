@@ -94,7 +94,7 @@ const sendOtpEmail = async (toEmail, code) => {
 };
 
 const { sendTelegramNotification } = require('./utils/telegram');
-const { sendAdminNewUserEmail } = require('./utils/email');
+const { sendAdminNewUserEmail, sendWelcomeEmail } = require('./utils/email');
 
 // --- ROUTES ---
 
@@ -113,6 +113,7 @@ app.post('/api/signup', async (req, res) => {
     // Notify Admin of new user
     sendTelegramNotification(`👤 *New User Signed Up*\nName: ${name}\nEmail: \`${email}\``);
     sendAdminNewUserEmail(user).catch(err => console.error('Failed to send admin signup email', err));
+    sendWelcomeEmail(user.email, user.name).catch(err => console.error('Failed to send welcome email', err));
 
     // Get all admins
     const admins = await Admin.find({});
@@ -137,7 +138,7 @@ app.post('/api/signup', async (req, res) => {
       link: '/products'
     });
 
-    const token = jwt.sign({ id: user._id, email: user.email }, JWT_SECRET, { expiresIn: '24h' });
+    const token = jwt.sign({ id: user._id, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
     res.status(201).json({ token, user: { id: user._id, email: user.email, name: user.name } });
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
@@ -149,7 +150,7 @@ app.post('/api/login', async (req, res) => {
     if (!user || !user.password || !(await bcrypt.compare(password, user.password))) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
-    const token = jwt.sign({ id: user._id, email: user.email }, JWT_SECRET, { expiresIn: '24h' });
+    const token = jwt.sign({ id: user._id, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
     res.json({ token, user: { id: user._id, email: user.email, name: user.name } });
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
@@ -211,6 +212,7 @@ app.post('/api/google-login', async (req, res) => {
       }
 
       sendAdminNewUserEmail(user).catch(err => console.error('Failed to send admin google signup email', err));
+      sendWelcomeEmail(user.email, user.name).catch(err => console.error('Failed to send welcome email', err));
 
       // Welcome Notification
       await Notification.create({
@@ -223,7 +225,7 @@ app.post('/api/google-login', async (req, res) => {
       });
     }
 
-    const token = jwt.sign({ id: user._id, email: user.email }, JWT_SECRET, { expiresIn: '24h' });
+    const token = jwt.sign({ id: user._id, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
     res.json({
       token,
       user: {
@@ -422,6 +424,13 @@ app.listen(PORT, '0.0.0.0', () => {
   🚀 Registry:     Frontend-First Dynamic Mode
   🚀 ==========================================
   `);
+
+  console.log('--- ENV VARIABLE CHECK ---');
+  console.log('ADMIN_EMAIL:', process.env.ADMIN_EMAIL ? `SET (${process.env.ADMIN_EMAIL})` : '❌ MISSING');
+  console.log('SMTP_PASS:', process.env.SMTP_PASS ? '✅ SET' : '❌ MISSING');
+  console.log('TELEGRAM_BOT_TOKEN:', process.env.TELEGRAM_BOT_TOKEN ? '✅ SET' : '❌ MISSING');
+  console.log('TELEGRAM_CHAT_ID:', process.env.TELEGRAM_CHAT_ID ? '✅ SET' : '❌ MISSING');
+  console.log('--------------------------');
 
   // Connect to DB after starting server to avoid binding timeouts
   if (typeof MONGODB_URI === 'string' && MONGODB_URI.trim()) {

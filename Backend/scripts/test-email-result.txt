@@ -1,7 +1,0 @@
-Starting Test...
-Testing Email Configuration...
-SMTP_HOST: smtp.gmail.com
-SMTP_USER: VapeSmart.vs@gmail.com
-ADMIN_EMAIL: VapeSmart.vs@gmail.com
-✅ Email sent successfully!
-Message ID: <281b6395-864b-cd61-5800-a81f7da3c955@gmail.com>

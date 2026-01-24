@@ -20,7 +20,7 @@ const isValidEmail = (email) => {
 const sendOtpEmail = async (to, otp) => {
   try {
     const mailOptions = {
-      from: process.env.SMTP_FROM || 'noreply@vapepro.com',
+      from: process.env.SMTP_FROM || process.env.SMTP_USER || 'noreply@vapepro.com',
       to,
       subject: 'Your Verification Code',
       text: `Your verification code is: ${otp}\nThis code will expire in 10 minutes.`,
@@ -51,7 +51,7 @@ const sendOtpEmail = async (to, otp) => {
 const sendOrderConfirmationEmail = async (toEmail, order) => {
   try {
     const mailOptions = {
-      from: process.env.SMTP_FROM || 'noreply@vapepro.com',
+      from: process.env.SMTP_FROM || process.env.SMTP_USER || 'noreply@vapepro.com',
       to: toEmail,
       subject: `Order Confirmation - ${order._id}`,
       html: `
@@ -88,7 +88,7 @@ const sendOrderConfirmationEmail = async (toEmail, order) => {
 const sendOrderDeliveredEmail = async (toEmail, order) => {
   try {
     const mailOptions = {
-      from: process.env.SMTP_FROM || 'noreply@vapepro.com',
+      from: process.env.SMTP_FROM || process.env.SMTP_USER || 'noreply@vapepro.com',
       to: toEmail,
       subject: `Order Delivered - ${order._id}`,
       html: `
@@ -118,7 +118,7 @@ const sendOrderDeliveredEmail = async (toEmail, order) => {
 const sendOrderCancellationEmail = async (toEmail, order, reason) => {
   try {
     const mailOptions = {
-      from: process.env.SMTP_FROM || 'noreply@vapepro.com',
+      from: process.env.SMTP_FROM || process.env.SMTP_USER || 'noreply@vapepro.com',
       to: toEmail,
       subject: `Order Cancelled - ${order._id}`,
       html: `
@@ -152,12 +152,44 @@ const sendOrderCancellationEmail = async (toEmail, order, reason) => {
   }
 };
 
+
+// Send welcome email
+const sendWelcomeEmail = async (toEmail, name) => {
+  try {
+    const mailOptions = {
+      from: process.env.SMTP_FROM || process.env.SMTP_USER || 'noreply@vapepro.com',
+      to: toEmail,
+      subject: 'Welcome to VapePro!',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>Welcome to VapePro! 🎉</h2>
+          <p>Hi ${name},</p>
+          <p>Thank you for creating an account with us. We're excited to have you on board!</p>
+          <p>You can now browse our wide selection of products and place orders.</p>
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${process.env.FRONTEND_URL || 'https://vapesmart.co.in'}/products" style="display: inline-block; background: #000; color: #fff; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold;">Shop Now</a>
+          </div>
+          <p>If you have any questions, feel free to reply to this email.</p>
+          <p style="color: #888; font-size: 12px; margin-top: 20px;">This is an automated message.</p>
+        </div>
+      `,
+    };
+
+    await transporter.sendMail(mailOptions);
+    return true;
+  } catch (error) {
+    console.error('Error sending welcome email:', error);
+    return false;
+  }
+};
+
 module.exports = {
   sendOtpEmail,
   sendOrderConfirmationEmail,
   sendOrderDeliveredEmail,
   sendOrderCancellationEmail,
   isValidEmail,
+  sendWelcomeEmail,
   sendAdminNewOrderEmail: async (order) => {
     if (!process.env.ADMIN_EMAIL) {
       console.warn('ADMIN_EMAIL not set, skipping admin email notification');
@@ -165,7 +197,7 @@ module.exports = {
     }
     try {
       const mailOptions = {
-        from: process.env.SMTP_FROM || 'noreply@vapepro.com',
+        from: process.env.SMTP_FROM || process.env.SMTP_USER || 'noreply@vapepro.com',
         to: process.env.ADMIN_EMAIL,
         subject: `🚨 New Order Received - ${order._id}`,
         html: `
@@ -196,7 +228,7 @@ module.exports = {
     }
     try {
       const mailOptions = {
-        from: process.env.SMTP_FROM || 'noreply@vapepro.com',
+        from: process.env.SMTP_FROM || process.env.SMTP_USER || 'noreply@vapepro.com',
         to: process.env.ADMIN_EMAIL,
         subject: `👤 New User Signup - ${user.name}`,
         html: `

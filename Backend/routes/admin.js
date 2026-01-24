@@ -46,7 +46,7 @@ router.post(
       const token = jwt.sign(
         { id: admin._id, email: admin.email, isAdmin: true },
         process.env.JWT_SECRET || 'your-secret-key',
-        { expiresIn: '24h' }
+        { expiresIn: '7d' }
       );
 
       res.json({
