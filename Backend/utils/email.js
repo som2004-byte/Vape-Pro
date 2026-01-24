@@ -60,7 +60,7 @@ const sendOrderConfirmationEmail = async (toEmail, order) => {
           <p>Thank you for your order! Here are your order details:</p>
           <div style="background: #f4f4f4; padding: 15px; margin: 10px 0;">
             <h3>Order ID: ${order._id}</h3>
-            <p><strong>Total Amount:</strong> $${order.totalPrice}</p>
+            <p><strong>Total Amount:</strong> ₹${order.total || order.totalPrice}</p>
             <p><strong>Status:</strong> ${order.status || 'Processing'}</p>
             <p><strong>Payment Method:</strong> ${order.paymentMethod}</p>
           </div>
@@ -68,7 +68,7 @@ const sendOrderConfirmationEmail = async (toEmail, order) => {
           ${order.items.map(item => `
             <div style="border-bottom: 1px solid #ddd; padding: 10px 0;">
               <p><strong>${item.name}</strong></p>
-              <p>Quantity: ${item.quantity} | Price: $${item.price}</p>
+              <p>Quantity: ${item.quantity} | Price: ₹${item.price}</p>
             </div>
           `).join('')}
           <p style="color: #888; font-size: 12px; margin-top: 20px;">This is an automated message, please do not reply.</p>
@@ -97,7 +97,7 @@ const sendOrderDeliveredEmail = async (toEmail, order) => {
           <p>Great news! Your order has been delivered successfully.</p>
           <div style="background: #f4f4f4; padding: 15px; margin: 10px 0;">
             <h3>Order ID: ${order._id}</h3>
-            <p><strong>Total Amount:</strong> $${order.totalPrice}</p>
+            <p><strong>Total Amount:</strong> ₹${order.total || order.totalPrice}</p>
             <p><strong>Delivery Date:</strong> ${order.deliveredAt ? new Date(order.deliveredAt).toLocaleDateString() : 'Today'}</p>
           </div>
           <p>Thank you for shopping with us!</p>
@@ -127,14 +127,14 @@ const sendOrderCancellationEmail = async (toEmail, order, reason) => {
           <p>Your order has been cancelled as requested.</p>
           <div style="background: #f4f4f4; padding: 15px; margin: 10px 0;">
             <h3>Order ID: ${order._id}</h3>
-            <p><strong>Total Amount:</strong> $${order.totalPrice}</p>
+            <p><strong>Total Amount:</strong> ₹${order.total || order.totalPrice}</p>
             <p><strong>Cancellation Reason:</strong> ${reason || 'Cancelled by customer'}</p>
             <p><strong>Cancellation Date:</strong> ${order.cancelledAt ? new Date(order.cancelledAt).toLocaleDateString() : 'Today'}</p>
           </div>
           ${order.refund ? `
             <div style="background: #e8f5e8; padding: 15px; margin: 10px 0;">
               <h4>Refund Information:</h4>
-              <p><strong>Refund Amount:</strong> $${order.refund.amount}</p>
+              <p><strong>Refund Amount:</strong> ₹${order.refund.amount}</p>
               <p><strong>Status:</strong> ${order.refund.status}</p>
             </div>
           ` : ''}
