@@ -1,6 +1,13 @@
 const nodemailer = require('nodemailer');
 
 // Configure SMTP transport with pooling and better timeout management
+console.log('--- SMTP DIAGNOSTICS ---');
+console.log('SMTP_HOST:', process.env.SMTP_HOST ? '✅ SET' : '❌ MISSING (Defaulting to smtp.gmail.com)');
+console.log('SMTP_USER:', process.env.SMTP_USER ? '✅ SET' : '❌ MISSING');
+console.log('SMTP_PASS:', process.env.SMTP_PASS ? '✅ SET' : '❌ MISSING');
+console.log('SMTP_PORT:', process.env.SMTP_PORT || 'Default (465)');
+console.log('------------------------');
+
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || 'smtp.gmail.com',
   port: parseInt(process.env.SMTP_PORT || '465'),
@@ -10,20 +17,19 @@ const transporter = nodemailer.createTransport({
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,
   },
-  pool: true, // Use pooling for better performance on Render
-  maxConnections: 5,
-  maxMessages: 100,
-  connectionTimeout: 10000, // 10 seconds timeout
-  greetingTimeout: 10000,
-  socketTimeout: 20000,
-  debug: false,
-  logger: false
+  pool: true,
+  maxConnections: 3,
+  maxMessages: 50,
+  connectionTimeout: 20000, // Increased to 20s for Render
+  greetingTimeout: 20000,
+  socketTimeout: 30000,
 });
 
 // Verify connection on startup
 transporter.verify((error, success) => {
   if (error) {
     console.error('📧 SMTP Verification Failed:', error.message);
+    console.error('📧 FULL ERROR:', JSON.stringify(error));
   } else {
     console.log('✅ SMTP Connection ready to send emails');
   }
