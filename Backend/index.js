@@ -69,32 +69,8 @@ if (typeof MONGODB_URI === 'string' && MONGODB_URI.trim()) {
     .catch((err) => console.error('❌ MongoDB connection error:', err));
 }
 
-// Mail transporter
-let mailTransporter = null;
-if (SMTP_HOST && SMTP_USER && SMTP_PASS) {
-  mailTransporter = nodemailer.createTransport({
-    host: SMTP_HOST,
-    port: SMTP_PORT || (SMTP_SECURE ? 465 : 587),
-    secure: SMTP_SECURE,
-    auth: { user: SMTP_USER, pass: SMTP_PASS },
-    connectionTimeout: 5000,
-    greetingTimeout: 5000,
-    socketTimeout: 8000,
-  });
-}
-
-// Helpers
-const sendOtpEmail = async (toEmail, code) => {
-  if (!mailTransporter) throw new Error('Mail transport not configured');
-  const html = `<div style="font-family: Arial; color: #111;"><h2>Your Verification Code</h2><div style="font-size: 24px; font-weight: bold;">${code}</div></div>`;
-  await Promise.race([
-    mailTransporter.sendMail({ from: SMTP_FROM || SMTP_USER, to: toEmail, subject: 'Your verification code', html }),
-    new Promise((_, reject) => setTimeout(() => reject(new Error('Email send timeout')), 15000)),
-  ]);
-};
-
 const { sendTelegramNotification } = require('./utils/telegram');
-const { sendAdminNewUserEmail, sendWelcomeEmail } = require('./utils/email');
+const { sendOtpEmail, sendAdminNewUserEmail, sendWelcomeEmail } = require('./utils/email');
 
 // --- ROUTES ---
 

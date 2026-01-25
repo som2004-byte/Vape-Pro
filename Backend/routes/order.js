@@ -277,6 +277,7 @@ router.post(
       const orderItems = [];
 
       for (const item of itemsToProcess) {
+        const productId = item.product || item.id || item._id || item.productId;
         // Try to find product in database with multiple fallback strategies
         let product = null;
         try {
