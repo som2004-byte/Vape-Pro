@@ -226,15 +226,21 @@ const sendAdminNewOrderEmail = async (order, customer = null) => {
   console.log(`[EMAIL] 🔔 Triggering admin notification for order: ${orderId}`);
 
   if (!process.env.ADMIN_EMAIL) {
-    console.warn('[EMAIL] ⚠️ ADMIN_EMAIL environment variable is missing. Cannot send admin alert.');
-    return false;
+    console.warn('[EMAIL] ⚠️ ADMIN_EMAIL variable is missing. Falling back to SMTP_USER.');
   }
 
   try {
     const totalAmount = order.total || order.totalPrice || 0;
     const customerName = customer?.name || 'A Customer';
 
-    const targetEmail = process.env.ADMIN_EMAIL.trim();
+    // Use ADMIN_EMAIL, or fall back to the SMTP sender address
+    const targetEmail = (process.env.ADMIN_EMAIL || process.env.SMTP_USER || '').trim();
+
+    if (!targetEmail) {
+      console.error('[EMAIL] ❌ No Admin Email configured (ADMIN_EMAIL or SMTP_USER missing). Skipping.');
+      return false;
+    }
+
     console.log(`[EMAIL] 📧 Sending admin alert to: ${targetEmail}`);
 
     const mailOptions = {
