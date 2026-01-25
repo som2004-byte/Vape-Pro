@@ -5,7 +5,7 @@ const Order = require('../models/Order');
 const Cart = require('../models/Cart');
 const Product = require('../models/Product');
 const User = require('../models/User');
-const { sendOrderConfirmationEmail, sendOrderDeliveredEmail, sendOrderCancellationEmail } = require('../utils/email');
+const { sendOrderConfirmationEmail, sendOrderDeliveredEmail, sendOrderCancellationEmail, sendAdminNewOrderEmail } = require('../utils/email');
 
 const router = express.Router();
 
@@ -143,20 +143,22 @@ router.post(
       cart.totalAfterDiscount = undefined;
       await cart.save();
 
-      // Send order confirmation email (non-blocking)
-      sendOrderConfirmationEmail(user.email, createdOrder).catch(emailError => {
-        console.error('Error sending order confirmation email:', emailError);
-      });
+    });
+
+// Notify Admin (non-blocking)
+sendAdminNewOrderEmail(createdOrder).catch(adminEmailError => {
+  console.error('Error sending admin order notification:', adminEmailError);
+});
 
 
-      res.status(201).json({
-        message: 'Order created successfully',
-        order: createdOrder,
-      });
+res.status(201).json({
+  message: 'Order created successfully',
+  order: createdOrder,
+});
     } catch (error) {
-      console.error('Create order error:', error);
-      res.status(500).json({ message: 'Server error', error: error.message });
-    }
+  console.error('Create order error:', error);
+  res.status(500).json({ message: 'Server error', error: error.message });
+}
   }
 );
 
