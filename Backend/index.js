@@ -23,7 +23,7 @@ const adminRoutes = require('./routes/admin');
 const orderRoutes = require('./routes/order');
 const cartRoutes = require('./routes/cart');
 const productRoutes = require('./routes/product');
-const { sendOtpEmail } = require('./utils/email'); // Unified email utility
+const { sendOtpEmail, sendWelcomeEmail, sendAdminNewUserEmail } = require('./utils/email'); // Unified email utility
 
 const app = express();
 
@@ -105,6 +105,10 @@ app.post('/api/signup', async (req, res) => {
 
     // Notify Admin of new user
     sendTelegramNotification(`👤 *New User Signed Up*\nName: ${name}\nEmail: \`${email}\``);
+    sendAdminNewUserEmail(user).catch(err => console.error('Admin Email Alert Error:', err));
+
+    // Send Welcome Email
+    sendWelcomeEmail(email, name).catch(err => console.error('Welcome Email Error:', err));
 
     const token = jwt.sign({ id: user._id, email: user.email }, JWT_SECRET, { expiresIn: '24h' });
     res.status(201).json({ token, user: { id: user._id, email: user.email, name: user.name } });
@@ -153,6 +157,8 @@ app.post('/api/google-login', async (req, res) => {
       });
       await user.save();
       sendTelegramNotification(`👤 *New Google Sign Up*\nName: ${name}\nEmail: \`${email}\``);
+      sendAdminNewUserEmail(user).catch(err => console.error('Admin Email Alert Error:', err));
+      sendWelcomeEmail(email, name).catch(err => console.error('Welcome Email Error:', err));
     } else {
       // Update existing user with googleId if they didn't have it
       if (!user.googleId) {
