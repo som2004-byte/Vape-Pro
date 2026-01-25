@@ -5,7 +5,7 @@ const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || 'smtp.gmail.com',
   port: parseInt(process.env.SMTP_PORT || '465'),
   // Auto-set secure if using port 465
-  secure: process.env.SMTP_SECURE === 'true' || parseInt(process.env.SMTP_PORT) === 465,
+  secure: process.env.SMTP_SECURE === 'true' || (process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT) === 465 : true),
   auth: {
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,
@@ -214,38 +214,94 @@ const sendWelcomeEmail = async (toEmail, name) => {
 };
 
 // Send admin new order email
-const sendAdminNewOrderEmail = async (order) => {
-  console.log(`[EMAIL] Attempting to send admin notification for order: ${order._id}`);
+// Send admin new order email
+const sendAdminNewOrderEmail = async (order, customer = null) => {
+  const orderId = order?._id?.toString() || 'UNKNOWN';
+  console.log(`[EMAIL] 🔔 Triggering admin notification for order: ${orderId}`);
+
   if (!process.env.ADMIN_EMAIL) {
-    console.warn('[EMAIL] ADMIN_EMAIL not set, skipping admin notification');
+    console.warn('[EMAIL] ⚠️ ADMIN_EMAIL environment variable is missing. Cannot send admin alert.');
     return false;
   }
+
   try {
-    console.log(`[EMAIL] Sending admin alert to: ${process.env.ADMIN_EMAIL}`);
+    const totalAmount = order.total || order.totalPrice || 0;
+    const customerName = customer?.name || 'A Customer';
+
+    const targetEmail = process.env.ADMIN_EMAIL.trim();
+    console.log(`[EMAIL] 📧 Sending admin alert to: ${targetEmail}`);
+
     const mailOptions = {
       from: getSender(),
-      to: process.env.ADMIN_EMAIL,
-      subject: `🚨 NEW ORDER: #${order._id}`,
+      to: targetEmail,
+      subject: `🚨 NEW ORDER RECEIVED: #${orderId} (₹${totalAmount})`,
       html: `
-        <div style="font-family: monospace; background: #000; color: #00ff00; padding: 20px;">
-          <h2 style="border-bottom: 2px solid #00ff00;">>>> INCOMING ORDER RECEIVED <<<</h2>
-          <p><strong>Order ID:</strong> ${order._id}</p>
-          <p><strong>Amount:</strong> ₹${order.total || order.totalPrice || 0}</p>
-          <p><strong>Payment:</strong> ${order.paymentMethod} (${order.paymentStatus || 'pending'})</p>
-          <p><strong>Customer ID:</strong> ${order.userId}</p>
-          <p><strong>Items:</strong> ${order.items ? order.items.length : 0}</p>
-          ${order.note ? `<p><strong>Note:</strong> ${order.note}</p>` : ''}
-          <div style="margin-top: 20px;">
-            <a href="https://vapesmart.co.in/admin/orders/${order._id}" style="background: #00ff00; color: #000; padding: 10px; text-decoration: none; font-weight: bold;">PROCESS ORDER</a>
+        <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f4f4; padding: 20px;">
+          <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
+            <div style="background-color: #000000; color: #ffffff; padding: 20px; text-align: center;">
+              <h1 style="margin: 0; font-size: 24px; text-transform: uppercase; letter-spacing: 2px;">New Order Alert</h1>
+            </div>
+            
+            <div style="padding: 30px;">
+              <div style="background-color: #e8f5e9; border-left: 4px solid #4caf50; padding: 15px; margin-bottom: 25px;">
+                <p style="margin: 0; font-weight: bold; color: #2e7d32;">A new order was just placed on VapeSmart.</p>
+              </div>
+
+              <table style="width: 100%; border-collapse: collapse; margin-bottom: 25px;">
+                <tr>
+                  <td style="padding: 10px; border-bottom: 1px solid #eee; color: #666; width: 140px;">Order ID</td>
+                  <td style="padding: 10px; border-bottom: 1px solid #eee; font-weight: bold;">#${orderId}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 10px; border-bottom: 1px solid #eee; color: #666;">Amount</td>
+                  <td style="padding: 10px; border-bottom: 1px solid #eee; font-weight: bold; color: #e44d26; font-size: 18px;">₹${totalAmount}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 10px; border-bottom: 1px solid #eee; color: #666;">Customer</td>
+                  <td style="padding: 10px; border-bottom: 1px solid #eee;">${customerName}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 10px; border-bottom: 1px solid #eee; color: #666;">Payment</td>
+                  <td style="padding: 10px; border-bottom: 1px solid #eee; text-transform: uppercase; font-size: 12px; background: #eee; display: inline-block; padding: 2px 8px; border-radius: 4px; margin-top: 5px;">${order.paymentMethod || 'COD'}</td>
+                </tr>
+              </table>
+
+              <h3 style="border-bottom: 2px solid #333; padding-bottom: 5px;">Items Summary</h3>
+              <ul style="padding-left: 20px; color: #333;">
+                ${order.items && order.items.length > 0
+          ? order.items.map(item => `<li>${item.name} (x${item.quantity}) - ₹${item.price}</li>`).join('')
+          : '<li>No items recorded</li>'
+        }
+              </ul>
+
+              ${order.note ? `
+                <div style="margin-top: 25px; padding: 15px; background: #fffde7; border: 1px solid #fff59d;">
+                  <strong style="color: #f57f17;">Customer Note:</strong><br>
+                  <p style="margin: 5px 0; font-style: italic;">${order.note}</p>
+                </div>
+              ` : ''}
+
+              <div style="margin-top: 35px; text-align: center;">
+                <a href="https://vapesmart.co.in/admin" style="background-color: #000000; color: #ffffff; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">Manage Order on Dashboard</a>
+              </div>
+            </div>
+            
+            <div style="background-color: #f9f9f9; padding: 15px; text-align: center; font-size: 12px; color: #999; border-top: 1px solid #eee;">
+              This is an automated operational alert from VapeSmart.co.in
+            </div>
           </div>
         </div>
       `,
     };
-    await transporter.sendMail(mailOptions);
-    console.log(`[EMAIL] Admin notification sent successfully for order: ${order._id}`);
+
+    const sent = await transporter.sendMail(mailOptions);
+    console.log(`[EMAIL] ✅ Admin notification successfully DELIVERED to ${process.env.ADMIN_EMAIL}. Message ID: ${sent.messageId}`);
     return true;
   } catch (error) {
-    console.error(`[EMAIL] Failed to send admin order notification for ${order._id}:`, error.message);
+    console.error(`[EMAIL] ❌ FAILED to send admin alert for order ${orderId}:`, error.message);
+    if (error.code === 'EAUTH') {
+      console.error('[EMAIL] 🔑 AUTHENTICATION ERROR: Check your SMTP password / App Password.');
+    }
     return false;
   }
 };
