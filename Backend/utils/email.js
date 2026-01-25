@@ -8,7 +8,7 @@ const transporter = nodemailer.createTransport({
   secure: process.env.SMTP_SECURE === 'true' || parseInt(process.env.SMTP_PORT) === 465,
   auth: {
     user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
+    pass: (process.env.SMTP_PASS || '').replace(/\s+/g, ''), // Fix: Remove spaces from app password
   },
   pool: true, // Use pooling for better performance on Render
   maxConnections: 5,
