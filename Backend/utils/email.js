@@ -29,6 +29,12 @@ transporter.verify((error, success) => {
   }
 });
 
+// Email validation helper
+const isValidEmail = (email) => {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+};
+
 // Helper to get consistent sender address
 const getSender = () => {
   return process.env.SMTP_FROM || process.env.SMTP_USER || 'VapePro Support <noreply@vapepro.com>';
