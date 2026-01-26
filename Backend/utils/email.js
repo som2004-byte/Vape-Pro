@@ -324,11 +324,18 @@ const sendAdminNewOrderEmail = async (order, customer = null) => {
 
 // Send admin new user email
 const sendAdminNewUserEmail = async (user) => {
-  if (!process.env.ADMIN_EMAIL) return false;
+  // Use ADMIN_EMAIL, or fall back to the SMTP sender address
+  const targetEmail = (process.env.ADMIN_EMAIL || process.env.SMTP_USER || '').trim();
+
+  if (!targetEmail) {
+    console.error('[EMAIL] ❌ No Admin Email configured for User Signup Alert. Skipping.');
+    return false;
+  }
+
   try {
     const mailOptions = {
       from: getSender(),
-      to: process.env.ADMIN_EMAIL,
+      to: targetEmail,
       subject: `👤 NEW USER SIGNUP: ${user.name}`,
       html: `
         <div style="font-family: Arial; padding: 20px; border: 4px solid #3498db;">
@@ -336,10 +343,13 @@ const sendAdminNewUserEmail = async (user) => {
           <p><strong>Name:</strong> ${user.name}</p>
           <p><strong>Email:</strong> ${user.email}</p>
           <p><strong>Date:</strong> ${new Date().toLocaleString()}</p>
+          <br>
+          <p style="color: #666; font-size: 12px;">You are receiving this because you are the admin of VapeSmart.</p>
         </div>
       `,
     };
     await transporter.sendMail(mailOptions);
+    console.log(`[EMAIL] ✅ Admin Signup Alert sent to ${targetEmail}`);
     return true;
   } catch (error) {
     console.error('❌ Error sending admin signup notification:', error.message);
