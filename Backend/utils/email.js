@@ -2,27 +2,34 @@ const nodemailer = require('nodemailer');
 
 // Configure SMTP transport with pooling and better timeout management
 console.log('--- SMTP DIAGNOSTICS ---');
-console.log('SMTP_HOST:', process.env.SMTP_HOST ? '✅ SET' : '❌ MISSING (Defaulting to smtp.gmail.com)');
-console.log('SMTP_USER:', process.env.SMTP_USER ? '✅ SET' : '❌ MISSING');
-console.log('SMTP_PASS:', process.env.SMTP_PASS ? '✅ SET' : '❌ MISSING');
-console.log('SMTP_PORT:', process.env.SMTP_PORT || 'Default (465)');
+const smtpHost = (process.env.SMTP_HOST || 'smtp.gmail.com').trim();
+const smtpPort = parseInt(process.env.SMTP_PORT || '587'); // Default to 587 (STARTTLS) for better reliability
+const smtpUser = (process.env.SMTP_USER || '').trim();
+const smtpPass = (process.env.SMTP_PASS || '').replace(/\s+/g, '');
+
+console.log(`SMTP_HOST: '${smtpHost}'`);
+console.log(`SMTP_PORT: ${smtpPort}`);
+console.log(`SMTP_USER: '${smtpUser}'`);
+console.log(`SMTP_PASS: ${smtpPass ? '✅ LOADED' : '❌ MISSING'}`);
 console.log('------------------------');
 
 const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || 'smtp.gmail.com',
-  port: parseInt(process.env.SMTP_PORT || '465'),
-  // Auto-set secure if using port 465
-  secure: process.env.SMTP_SECURE === 'true' || (process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT) === 465 : true),
+  host: smtpHost,
+  port: smtpPort,
+  // Secure is true for 465, false for 587
+  secure: process.env.SMTP_SECURE === 'true' || smtpPort === 465,
   auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
+    user: smtpUser,
+    pass: smtpPass,
   },
   pool: true,
   maxConnections: 3,
   maxMessages: 50,
-  connectionTimeout: 20000, // Increased to 20s for Render
+  connectionTimeout: 20000,
   greetingTimeout: 20000,
   socketTimeout: 30000,
+  debug: true, // Show detailed SMTP logs
+  logger: true // Log to console
 });
 
 // Verify connection on startup
@@ -30,6 +37,10 @@ transporter.verify((error, success) => {
   if (error) {
     console.error('📧 SMTP Verification Failed:', error.message);
     console.error('📧 FULL ERROR:', JSON.stringify(error));
+    if (error.code === 'ETIMEDOUT') {
+      console.warn('⚠️ CRITICAL: CONNECTION TIMEOUT.');
+      console.warn(`👉 ACTION REQUIRED: Go to Render -> Environment. Change 'SMTP_PORT' to '587' and 'SMTP_SECURE' to 'false'.`);
+    }
   } else {
     console.log('✅ SMTP Connection ready to send emails');
   }
