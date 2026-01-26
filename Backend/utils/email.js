@@ -24,55 +24,22 @@ let transporter = nodemailer.createTransport({
   pool: true,
   maxConnections: 3,
   maxMessages: 50,
-  connectionTimeout: 60000, // Increased to 60s
-  greetingTimeout: 30000,   // Increased to 30s
-  socketTimeout: 60000,     // Increased to 60s
+  connectionTimeout: 60000,
+  greetingTimeout: 30000,
+  socketTimeout: 60000,
   debug: true,
   logger: true
 });
 
-// Auto-Healing: Verify connection and switch to fallback if blocked
+// Verify connection
 transporter.verify((error) => {
   if (error) {
-    console.error('📧 Primary SMTP Connection Failed:', error.message);
-
-    // If blocked/timeout, try automatic fallback to Port 587
-    if (error.code === 'ETIMEDOUT' || error.command === 'CONN') {
-      console.log('🔄 ACTIVATING AUTO-HEALING: Switching to Port 587 (STARTTLS)...');
-
-      try {
-        // Overwrite the transporter with the fallback configuration
-        transporter = nodemailer.createTransport({
-          host: 'smtp.gmail.com',
-          port: 587,
-          secure: false, // STARTTLS
-          auth: {
-            user: smtpUser,
-            pass: smtpPass,
-          },
-          pool: true,
-          maxConnections: 3,
-          connectionTimeout: 60000, // Increased to 60s
-          greetingTimeout: 30000,   // Increased to 30s
-          socketTimeout: 60000,     // Increased to 60s
-          debug: true,
-          logger: true
-        });
-
-        // Verify the new fallback connection
-        transporter.verify((fallbackErr) => {
-          if (fallbackErr) {
-            console.error('❌ FATAL: Fallback connection also failed.', fallbackErr.message);
-          } else {
-            console.log('✅ AUTO-HEALING SUCCESSFUL: SMTP Connection established on Port 587');
-          }
-        });
-      } catch (err) {
-        console.error('❌ Auto-healing crashed:', err.message);
-      }
+    console.error('❌ SMTP Connection Failed:', error.message);
+    if (error.code === 'EAUTH') {
+      console.error('� Tip: Check your SMTP_USER and SMTP_PASS. If using Gmail, ensure you are using an APP PASSWORD.');
     }
   } else {
-    console.log('✅ SMTP Connection ready to send emails');
+    console.log(`✅ SMTP Connection Established (${smtpHost}:${smtpPort})`);
   }
 });
 
