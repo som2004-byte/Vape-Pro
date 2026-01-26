@@ -13,10 +13,9 @@ console.log(`SMTP_USER: '${smtpUser}'`);
 console.log(`SMTP_PASS: ${smtpPass ? '✅ LOADED' : '❌ MISSING'}`);
 console.log('------------------------');
 
-const transporter = nodemailer.createTransport({
+let transporter = nodemailer.createTransport({
   host: smtpHost,
   port: smtpPort,
-  // Secure is true for 465, false for 587
   secure: process.env.SMTP_SECURE === 'true' || smtpPort === 465,
   auth: {
     user: smtpUser,
@@ -25,21 +24,50 @@ const transporter = nodemailer.createTransport({
   pool: true,
   maxConnections: 3,
   maxMessages: 50,
-  connectionTimeout: 20000,
-  greetingTimeout: 20000,
+  connectionTimeout: 10000,
+  greetingTimeout: 10000,
   socketTimeout: 30000,
-  debug: true, // Show detailed SMTP logs
-  logger: true // Log to console
+  debug: true,
+  logger: true
 });
 
-// Verify connection on startup
-transporter.verify((error, success) => {
+// Auto-Healing: Verify connection and switch to fallback if blocked
+transporter.verify((error) => {
   if (error) {
-    console.error('📧 SMTP Verification Failed:', error.message);
-    console.error('📧 FULL ERROR:', JSON.stringify(error));
-    if (error.code === 'ETIMEDOUT') {
-      console.warn('⚠️ CRITICAL: CONNECTION TIMEOUT.');
-      console.warn(`👉 ACTION REQUIRED: Go to Render -> Environment. Change 'SMTP_PORT' to '587' and 'SMTP_SECURE' to 'false'.`);
+    console.error('📧 Primary SMTP Connection Failed:', error.message);
+
+    // If blocked/timeout, try automatic fallback to Port 587
+    if (error.code === 'ETIMEDOUT' || error.command === 'CONN') {
+      console.log('🔄 ACTIVATING AUTO-HEALING: Switching to Port 587 (STARTTLS)...');
+
+      try {
+        // Overwrite the transporter with the fallback configuration
+        transporter = nodemailer.createTransport({
+          host: 'smtp.gmail.com',
+          port: 587,
+          secure: false, // STARTTLS
+          auth: {
+            user: smtpUser,
+            pass: smtpPass,
+          },
+          pool: true,
+          maxConnections: 3,
+          connectionTimeout: 10000,
+          debug: true,
+          logger: true
+        });
+
+        // Verify the new fallback connection
+        transporter.verify((fallbackErr) => {
+          if (fallbackErr) {
+            console.error('❌ FATAL: Fallback connection also failed.', fallbackErr.message);
+          } else {
+            console.log('✅ AUTO-HEALING SUCCESSFUL: SMTP Connection established on Port 587');
+          }
+        });
+      } catch (err) {
+        console.error('❌ Auto-healing crashed:', err.message);
+      }
     }
   } else {
     console.log('✅ SMTP Connection ready to send emails');
