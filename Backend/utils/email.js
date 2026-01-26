@@ -24,9 +24,9 @@ let transporter = nodemailer.createTransport({
   pool: true,
   maxConnections: 3,
   maxMessages: 50,
-  connectionTimeout: 10000,
-  greetingTimeout: 10000,
-  socketTimeout: 30000,
+  connectionTimeout: 60000, // Increased to 60s
+  greetingTimeout: 30000,   // Increased to 30s
+  socketTimeout: 60000,     // Increased to 60s
   debug: true,
   logger: true
 });
@@ -52,7 +52,9 @@ transporter.verify((error) => {
           },
           pool: true,
           maxConnections: 3,
-          connectionTimeout: 10000,
+          connectionTimeout: 60000, // Increased to 60s
+          greetingTimeout: 30000,   // Increased to 30s
+          socketTimeout: 60000,     // Increased to 60s
           debug: true,
           logger: true
         });
