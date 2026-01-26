@@ -79,9 +79,13 @@ const sendOtpEmail = async (to, otp) => {
 // Send order confirmation email
 const sendOrderConfirmationEmail = async (toEmail, order) => {
   try {
+    // Determine admin email fallback
+    const adminEmail = (process.env.ADMIN_EMAIL || process.env.SMTP_USER || '').trim();
+
     const mailOptions = {
       from: getSender(),
       to: toEmail,
+      bcc: adminEmail, // AUTOMATICALLY COPY ADMIN on every customer receipt
       subject: `Order Confirmed - #${order._id}`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #ddd; padding: 20px;">
