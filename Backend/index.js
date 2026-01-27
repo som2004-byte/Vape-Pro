@@ -103,7 +103,7 @@ app.get('/api/debug-email', async (req, res) => {
     log(`Attempting to send test email to ${targetEmail}...`);
 
     // We use the verified domain email
-    const fromEmail = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
+    const fromEmail = process.env.RESEND_FROM_EMAIL || 'orders@vapesmart.co.in';
 
     log(`Sending FROM: ${fromEmail}`);
 
