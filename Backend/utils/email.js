@@ -235,7 +235,7 @@ const sendAdminNewOrderEmail = async (order, customer = null) => {
             ` : ''}
 
             <div style="margin-top: 35px; text-align: center;">
-              <a href="https://vapesmart.co.in/admin" style="background-color: #000000; color: #ffffff; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">Manage Order on Dashboard</a>
+              <a href="https://vape-pro-smart.vercel.app/" style="background-color: #000000; color: #ffffff; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">Manage Order on Dashboard</a>
             </div>
           </div>
           
