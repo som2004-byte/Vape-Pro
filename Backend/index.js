@@ -76,6 +76,63 @@ const { sendOtpEmail, sendAdminNewUserEmail, sendWelcomeEmail } = require('./uti
 
 app.get('/api/im-alive', (req, res) => res.json({ message: 'Server is updated (v2) and routes are ready', timestamp: new Date() }));
 
+app.get('/api/debug-email', async (req, res) => {
+  const logs = [];
+  const log = (msg) => logs.push(`[${new Date().toISOString()}] ${msg}`);
+
+  try {
+    log('--- STARTING EMAIL DEBUG ---');
+    log(`ADMIN_EMAIL: ${process.env.ADMIN_EMAIL || 'MISSING'}`);
+    log(`SMTP_HOST: ${process.env.SMTP_HOST || 'MISSING'}`);
+    log(`SMTP_PORT: ${process.env.SMTP_PORT || 'MISSING'}`);
+    log(`SMTP_USER: ${process.env.SMTP_USER || 'MISSING'}`);
+    log(`SMTP_PASS: ${process.env.SMTP_PASS ? 'PRESENT (First 3 chars: ' + process.env.SMTP_PASS.substring(0, 3) + '...)' : 'MISSING'}`);
+    log(`SMTP_SECURE: ${process.env.SMTP_SECURE}`);
+
+    const transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST || 'smtp.gmail.com',
+      port: parseInt(process.env.SMTP_PORT || '465'),
+      secure: process.env.SMTP_SECURE === 'true' || parseInt(process.env.SMTP_PORT || '465') === 465,
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+      },
+      debug: true,
+      logger: true
+    });
+
+    log('Transporter created. Verifying connection...');
+    await new Promise((resolve, reject) => {
+      transporter.verify((error, success) => {
+        if (error) {
+          log(`❌ Verify Error: ${error.message}`);
+          reject(error);
+        } else {
+          log('✅ Server is ready to take our messages');
+          resolve(success);
+        }
+      });
+    });
+
+    log('Attempting to send test email...');
+    const info = await transporter.sendMail({
+      from: process.env.SMTP_FROM || process.env.SMTP_USER,
+      to: process.env.ADMIN_EMAIL || process.env.SMTP_USER,
+      subject: 'Debug Email Test from VapeSmart',
+      text: 'If you are reading this, your email configuration is WORKING!',
+      html: '<h1>Success!</h1><p>Your email configuration is working correctly.</p>'
+    });
+
+    log(`✅ Email sent: ${info.messageId}`);
+    log(`Response: ${info.response}`);
+
+    res.json({ success: true, logs });
+  } catch (error) {
+    log(`❌ CRITICAL FAILURE: ${error.message}`);
+    res.status(500).json({ success: false, error: error.message, logs });
+  }
+});
+
 app.post('/api/signup', async (req, res) => {
   try {
     const { email, password, name } = req.body;
