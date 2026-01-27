@@ -4,11 +4,8 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 
 // Helper to get consistent sender address
 const getSender = () => {
-  // If user has a verified domain on Resend, they should put it here.
-  // Otherwise, strictly for testing/onboarding, Resend uses 'onboarding@resend.dev'
-  // BUT that only sends to the account owner's email.
-  // We encourage the user to verify their domain.
-  return process.env.RESEND_FROM_EMAIL || 'VapeSmart <onboarding@resend.dev>';
+  // Use verified domain email
+  return process.env.RESEND_FROM_EMAIL || 'VapeSmart <orders@vapesmart.co.in>';
 };
 
 // Generic helper to send emails via Resend
