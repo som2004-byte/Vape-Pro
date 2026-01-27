@@ -21,10 +21,15 @@ let transporter = nodemailer.createTransport({
     user: smtpUser,
     pass: smtpPass,
   },
-  pool: false,
-  connectionTimeout: 60000,
-  greetingTimeout: 30000,
-  socketTimeout: 60000,
+  tls: {
+    ciphers: 'SSLv3', // Help with some older handshake issues
+    rejectUnauthorized: false
+  },
+  family: 4, // Force IPv4 to prevent IPv6 timeouts
+  pool: false, // Ensure we don't hold open broken connections
+  connectionTimeout: 10000, // Wait 10s max (default is too long)
+  greetingTimeout: 10000,
+  socketTimeout: 10000,
   debug: true,
   logger: true
 });
