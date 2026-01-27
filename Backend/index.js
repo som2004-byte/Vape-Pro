@@ -79,62 +79,84 @@ app.get('/api/im-alive', (req, res) => res.json({ message: 'Server is updated (v
 app.get('/api/debug-email', async (req, res) => {
   const logs = [];
   const log = (msg) => logs.push(`[${new Date().toISOString()}] ${msg}`);
+  const dns = require('dns');
+  const net = require('net');
+
+  log('--- STARTING NETWORK DIAGNOSTICS ---');
 
   try {
-    log('--- STARTING EMAIL DEBUG ---');
-    log(`ADMIN_EMAIL: ${process.env.ADMIN_EMAIL || 'MISSING'}`);
-    log(`SMTP_HOST: ${process.env.SMTP_HOST || 'MISSING'}`);
-    log(`SMTP_PORT: ${process.env.SMTP_PORT || 'MISSING'}`);
-    log(`SMTP_USER: ${process.env.SMTP_USER || 'MISSING'}`);
-    log(`SMTP_PASS: ${process.env.SMTP_PASS ? 'PRESENT (First 3 chars: ' + process.env.SMTP_PASS.substring(0, 3) + '...)' : 'MISSING'}`);
-    log(`SMTP_SECURE: ${process.env.SMTP_SECURE}`);
-
-    const transporter = nodemailer.createTransport({
-      host: 'smtp.gmail.com',
-      port: 587,
-      secure: false, // Use STARTTLS
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
-      },
-      tls: {
-        rejectUnauthorized: false
-      },
-      family: 4, // Force IPv4
-      connectionTimeout: 10000,
-      debug: true,
-      logger: true
-    });
-
-    log('Transporter created. Verifying connection...');
-    await new Promise((resolve, reject) => {
-      transporter.verify((error, success) => {
-        if (error) {
-          log(`❌ Verify Error: ${error.message}`);
-          reject(error);
+    // 1. Check DNS Resolution
+    log('1. Testing DNS resolution for smtp.gmail.com...');
+    await new Promise((resolve) => {
+      dns.resolve('smtp.gmail.com', (err, addresses) => {
+        if (err) {
+          log(`❌ DNS Error: ${err.message}`);
         } else {
-          log('✅ Server is ready to take our messages');
-          resolve(success);
+          log(`✅ DNS Resolved: ${JSON.stringify(addresses)}`);
         }
+        resolve();
       });
     });
 
-    log('Attempting to send test email...');
-    const info = await transporter.sendMail({
-      from: process.env.SMTP_FROM || process.env.SMTP_USER,
-      to: process.env.ADMIN_EMAIL || process.env.SMTP_USER,
-      subject: 'Debug Email Test from VapeSmart',
-      text: 'If you are reading this, your email configuration is WORKING!',
-      html: '<h1>Success!</h1><p>Your email configuration is working correctly.</p>'
-    });
+    // 2. Test TCP Connectivity
+    const testPort = async (host, port) => {
+      return new Promise((resolve) => {
+        log(`2. Testing TCP connection to ${host}:${port}...`);
+        const socket = new net.Socket();
+        socket.setTimeout(5000); // 5 second timeout
 
-    log(`✅ Email sent: ${info.messageId}`);
-    log(`Response: ${info.response}`);
+        socket.on('connect', () => {
+          log(`✅ SUCCESS: Connected to ${host}:${port}`);
+          socket.destroy();
+          resolve(true);
+        });
+
+        socket.on('timeout', () => {
+          log(`❌ TIMEOUT: Could not connect to ${host}:${port}`);
+          socket.destroy();
+          resolve(false);
+        });
+
+        socket.on('error', (err) => {
+          log(`❌ ERROR: ${err.message}`);
+          socket.destroy();
+          resolve(false);
+        });
+
+        socket.connect(port, host);
+      });
+    };
+
+    const port465 = await testPort('smtp.gmail.com', 465);
+    const port587 = await testPort('smtp.gmail.com', 587);
+
+    // 3. Try Nodemailer only if ports are open
+    if (port465 || port587) {
+      log('3. Proceeding to SMTP Auth Test...');
+      const transportConfig = {
+        host: 'smtp.gmail.com',
+        port: port587 ? 587 : 465,
+        secure: !port587, // true for 465, false for 587
+        auth: {
+          user: process.env.SMTP_USER,
+          pass: process.env.SMTP_PASS,
+        },
+        tls: { rejectUnauthorized: false },
+        connectionTimeout: 10000,
+      };
+
+      const transporter = nodemailer.createTransport(transportConfig);
+      await transporter.verify();
+      log('✅ SMTP Auth Successful!');
+    } else {
+      log('⚠️ SKIPPING SMTP AUTH: Network ports are blocked.');
+    }
 
     res.json({ success: true, logs });
+
   } catch (error) {
-    log(`❌ CRITICAL FAILURE: ${error.message}`);
-    res.status(500).json({ success: false, error: error.message, logs });
+    log(`❌ UNEXPECTED ERROR: ${error.message}`);
+    res.status(500).json({ success: false, logs });
   }
 });
 
