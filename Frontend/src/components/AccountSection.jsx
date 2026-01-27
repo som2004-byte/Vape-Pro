@@ -533,7 +533,7 @@ export default function AccountSection({
                               {(order.status || 'processing').charAt(0).toUpperCase() + (order.status || 'processing').slice(1)}
                             </div>
                             <div className="text-xs text-darkPurple-300 mt-1">
-                              {new Date(order.placedAt || order.createdAt || new Date()).toLocaleDateString()}
+                              {new Date(order.placedAt || order.createdAt || new Date()).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                             </div>
                           </div>
                         </div>

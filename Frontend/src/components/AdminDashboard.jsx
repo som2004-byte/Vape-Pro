@@ -993,7 +993,7 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
                         return (
                           <tr key={order._id} className="group hover:bg-white/5 transition-all cursor-pointer" onClick={() => setSelectedOrder(order)}>
                             <td className="px-4 md:px-8 py-3 md:py-6 font-mono text-xs md:text-sm text-purple-400">#{order._id.slice(-6).toUpperCase()}</td>
-                            <td className="px-4 md:px-8 py-3 md:py-6 text-xs md:text-sm text-gray-400">{new Date(order.createdAt || Date.now()).toLocaleDateString()}</td>
+                            <td className="px-4 md:px-8 py-3 md:py-6 text-xs md:text-sm text-gray-400">{new Date(order.createdAt || Date.now()).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</td>
                             <td className="hidden md:table-cell px-8 py-6 text-sm font-bold text-white">{order.userId?.email || 'Guest'}</td>
                             <td className="px-4 md:px-8 py-3 md:py-6 text-xs md:text-sm font-mono text-green-400">
                               ₹{(() => {
@@ -1149,7 +1149,16 @@ export default function AdminDashboard({ adminUser, adminToken, onLogout, onNavi
               {/* Delivery Info */}
               <div className="bg-black/40 border border-gray-800 p-8 rounded-[32px]">
                 <h4 className="text-xl font-black italic uppercase mb-6">Delivery Vector</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div>
+                    <p className="text-[10px] font-black uppercase text-gray-500 tracking-widest mb-2">Timestamp</p>
+                    <p className="text-sm font-bold text-white leading-relaxed">
+                      {new Date(selectedOrder.createdAt || Date.now()).toLocaleString('en-IN', {
+                        day: 'numeric', month: 'short', year: 'numeric',
+                        hour: '2-digit', minute: '2-digit'
+                      })}
+                    </p>
+                  </div>
                   <div>
                     <p className="text-[10px] font-black uppercase text-gray-500 tracking-widest mb-2">Recipient</p>
                     <p className="text-lg font-bold text-white">{selectedOrder.userId?.name || 'Unknown'}</p>
