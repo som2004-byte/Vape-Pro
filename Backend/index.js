@@ -79,84 +79,53 @@ app.get('/api/im-alive', (req, res) => res.json({ message: 'Server is updated (v
 app.get('/api/debug-email', async (req, res) => {
   const logs = [];
   const log = (msg) => logs.push(`[${new Date().toISOString()}] ${msg}`);
-  const dns = require('dns');
-  const net = require('net');
+  const { Resend } = require('resend');
 
-  log('--- STARTING NETWORK DIAGNOSTICS ---');
+  log('--- STARTING RESEND EMAIL DEBUG ---');
 
   try {
-    // 1. Check DNS Resolution
-    log('1. Testing DNS resolution for smtp.gmail.com...');
-    await new Promise((resolve) => {
-      dns.resolve('smtp.gmail.com', (err, addresses) => {
-        if (err) {
-          log(`❌ DNS Error: ${err.message}`);
-        } else {
-          log(`✅ DNS Resolved: ${JSON.stringify(addresses)}`);
-        }
-        resolve();
-      });
-    });
+    const apiKey = process.env.RESEND_API_KEY;
+    log(`RESEND_API_KEY: ${apiKey ? '✅ PRESENT (Starts with ' + apiKey.substring(0, 5) + '...)' : '❌ MISSING'}`);
+    log(`ADMIN_EMAIL: ${process.env.ADMIN_EMAIL || '❌ MISSING'}`);
 
-    // 2. Test TCP Connectivity
-    const testPort = async (host, port) => {
-      return new Promise((resolve) => {
-        log(`2. Testing TCP connection to ${host}:${port}...`);
-        const socket = new net.Socket();
-        socket.setTimeout(5000); // 5 second timeout
-
-        socket.on('connect', () => {
-          log(`✅ SUCCESS: Connected to ${host}:${port}`);
-          socket.destroy();
-          resolve(true);
-        });
-
-        socket.on('timeout', () => {
-          log(`❌ TIMEOUT: Could not connect to ${host}:${port}`);
-          socket.destroy();
-          resolve(false);
-        });
-
-        socket.on('error', (err) => {
-          log(`❌ ERROR: ${err.message}`);
-          socket.destroy();
-          resolve(false);
-        });
-
-        socket.connect(port, host);
-      });
-    };
-
-    const port465 = await testPort('smtp.gmail.com', 465);
-    const port587 = await testPort('smtp.gmail.com', 587);
-
-    // 3. Try Nodemailer only if ports are open
-    if (port465 || port587) {
-      log('3. Proceeding to SMTP Auth Test...');
-      const transportConfig = {
-        host: 'smtp.gmail.com',
-        port: port587 ? 587 : 465,
-        secure: !port587, // true for 465, false for 587
-        auth: {
-          user: process.env.SMTP_USER,
-          pass: process.env.SMTP_PASS,
-        },
-        tls: { rejectUnauthorized: false },
-        connectionTimeout: 10000,
-      };
-
-      const transporter = nodemailer.createTransport(transportConfig);
-      await transporter.verify();
-      log('✅ SMTP Auth Successful!');
-    } else {
-      log('⚠️ SKIPPING SMTP AUTH: Network ports are blocked.');
+    if (!apiKey) {
+      throw new Error('RESEND_API_KEY is missing');
     }
 
+    const resend = new Resend(apiKey);
+
+    // Send a test email to the admin
+    const targetEmail = process.env.ADMIN_EMAIL;
+    if (!targetEmail) {
+      throw new Error('ADMIN_EMAIL is missing, cannot send test email');
+    }
+
+    log(`Attempting to send test email to ${targetEmail}...`);
+
+    // We use a safe sender for onboarding/testing if usage of own domain is not yet verified
+    // User should update RESEND_FROM_EMAIL in .env once they verify domain
+    const fromEmail = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
+
+    log(`Sending FROM: ${fromEmail}`);
+
+    const { data, error } = await resend.emails.send({
+      from: fromEmail,
+      to: targetEmail,
+      subject: 'VapeSmart Resend Test',
+      html: '<strong>It works!</strong> Your Resend configuration is valid.',
+    });
+
+    if (error) {
+      log(`❌ Resend API Error: ${JSON.stringify(error)}`);
+      throw new Error(error.message);
+    }
+
+    log(`✅ SUCCESS! Email ID: ${data.id}`);
     res.json({ success: true, logs });
 
   } catch (error) {
-    log(`❌ UNEXPECTED ERROR: ${error.message}`);
-    res.status(500).json({ success: false, logs });
+    log(`❌ FAILURE: ${error.message}`);
+    res.status(500).json({ success: false, error: error.message, logs });
   }
 });
 
@@ -487,7 +456,7 @@ app.listen(PORT, '0.0.0.0', () => {
 
   console.log('--- ENV VARIABLE CHECK ---');
   console.log('ADMIN_EMAIL:', process.env.ADMIN_EMAIL ? `SET (${process.env.ADMIN_EMAIL})` : '❌ MISSING');
-  console.log('SMTP_PASS:', process.env.SMTP_PASS ? '✅ SET' : '❌ MISSING');
+  console.log('RESEND_API_KEY:', process.env.RESEND_API_KEY ? '✅ SET' : '❌ MISSING');
   console.log('TELEGRAM_BOT_TOKEN:', process.env.TELEGRAM_BOT_TOKEN ? '✅ SET' : '❌ MISSING');
   console.log('TELEGRAM_CHAT_ID:', process.env.TELEGRAM_CHAT_ID ? '✅ SET' : '❌ MISSING');
   console.log('--------------------------');
