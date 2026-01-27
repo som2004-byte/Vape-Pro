@@ -97,6 +97,11 @@ app.get('/api/debug-email', async (req, res) => {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS,
       },
+      tls: {
+        rejectUnauthorized: false
+      },
+      family: 4, // Force IPv4
+      connectionTimeout: 10000,
       debug: true,
       logger: true
     });
