@@ -5,7 +5,7 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 // Helper to get consistent sender address
 const getSender = () => {
   // Use verified domain email
-  return process.env.RESEND_FROM_EMAIL || 'VapeSmart <orders@vapesmart.co.in>';
+  return process.env.RESEND_FROM_EMAIL || 'VapeSmart <onboarding@resend.dev>';
 };
 
 // Generic helper to send emails via Resend
