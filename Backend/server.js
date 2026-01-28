@@ -9,6 +9,7 @@ const userRoutes = require('./routes/user');
 const adminRoutes = require('./routes/admin');
 const cartRoutes = require('./routes/cart');
 const orderRoutes = require('./routes/order');
+const telegramRoutes = require('./routes/telegram');
 
 // Initialize Express
 const app = express();
@@ -36,6 +37,7 @@ app.use('/api/user', userRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/cart', cartRoutes);
 app.use('/api/orders', orderRoutes);
+app.use('/api/telegram', telegramRoutes);
 
 // Health check endpoint
 app.get('/', (req, res) => {
