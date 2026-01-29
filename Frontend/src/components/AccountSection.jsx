@@ -144,7 +144,20 @@ export default function AccountSection({
     setIsAddingAddress(false);
     setEditingAddressId(null);
     setAddressForm({ label: 'Home', houseNo: '', building: '', landmark: '', receiverName: name, receiverPhone: phoneNumber });
-    onNotify?.({ type: 'success', message: 'Address saved locally', subTitle: 'Remember to save profile to persist changes' });
+
+    // Auto-save profile to persist the new address immediately
+    const profileToSave = {
+      name: name.trim(),
+      email: email.trim().toLowerCase(),
+      phoneNumber: phoneNumber.trim(),
+      addresses: updatedAddresses,
+      address: updatedAddresses[0] ? `${updatedAddresses[0].houseNo ? updatedAddresses[0].houseNo + ', ' : ''}${updatedAddresses[0].building}${updatedAddresses[0].landmark ? ', ' + updatedAddresses[0].landmark : ''}` : '',
+      emailVerified: isEmailVerified,
+      phoneVerified: true
+    };
+
+    onSaveProfile?.(profileToSave);
+    onNotify?.({ type: 'success', message: 'Address saved successfully' });
   };
 
   const handleDeleteAddress = (id) => {
@@ -636,16 +649,16 @@ export default function AccountSection({
       {isAddingAddress && (
         <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => setIsAddingAddress(false)} />
-          <div className="relative bg-neutral-900 border border-white/10 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+          <div className="relative bg-neutral-900 border border-white/10 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[85vh]">
 
-            <div className="p-6 pb-0 flex items-center justify-between">
+            <div className="p-6 pb-0 flex items-center justify-between flex-shrink-0">
               <h4 className="text-xl font-bold text-white tracking-tight">Add Address Details</h4>
               <button onClick={() => setIsAddingAddress(false)} className="text-gray-500 hover:text-white transition-colors">
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
 
-            <div className="p-6 space-y-5">
+            <div className="p-6 space-y-5 overflow-y-auto custom-scrollbar">
               {/* Google Map Placeholder Image style from screenshot */}
               <div className="h-28 bg-white/5 rounded-2xl overflow-hidden relative">
                 <img src="https://images.unsplash.com/photo-1526778548025-fa2f459cd5c1?auto=format&fit=crop&q=80&w=400" className="w-full h-full object-cover opacity-50 gray-grayscale" alt="Map View" />
@@ -741,6 +754,13 @@ export default function AccountSection({
           </div>
         </div>
       )}
-    </div>
+
+      <style dangerouslySetInnerHTML={{
+        __html: `
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
+      `}} />
+    </div >
   );
 }
