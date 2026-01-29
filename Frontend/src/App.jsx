@@ -778,11 +778,9 @@ export default function App() {
               if (isLoggedIn && user?.token) {
                 try {
                   await apiCall(API_ENDPOINTS.USER.UPDATE_PROFILE, { method: 'PUT', headers: getAuthHeaders(user.token), body: JSON.stringify(saved) });
-                  // Re-fetch to ensure backend sync
-                  await fetchUserData(user.token);
                 } catch (err) { console.error('Failed to sync profile:', err); }
               }
-              setToast({ type: 'success', message: 'Profile saved successfully' });
+              setToast({ type: 'success', message: 'Address saved successfully' });
             }}
             orders={orders}
             onNotify={setToast}
