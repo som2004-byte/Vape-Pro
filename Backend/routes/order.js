@@ -12,6 +12,15 @@ const { sendTelegramNotification } = require('../utils/telegram');
 
 const router = express.Router();
 
+// Escape user-provided text so Telegram "Markdown" parse_mode doesn't break formatting.
+// Note: Telegram's legacy Markdown is limited; we escape the common control chars.
+const escapeTelegramMarkdown = (value) => {
+  if (value === null || value === undefined) return '';
+  return String(value)
+    .replace(/\\/g, '\\\\')
+    .replace(/([_*[\]()`])/g, '\\$1');
+};
+
 // Create a new order - checkout endpoint
 router.post(
   '/checkout',
@@ -221,12 +230,15 @@ router.post(
       }
 
       // Send Telegram Notification to Admin
+      const resolvedShippingAddress = createdOrder.shippingAddress || shippingAddress || user.address || '';
       sendTelegramNotification(`📦 *New Order Received!*
 Order ID: \`${createdOrder._id}\`
-User: ${user.name}
+User: ${escapeTelegramMarkdown(user.name)}
+Phone: \`${escapeTelegramMarkdown(user.phoneNumber || 'N/A')}\`
 Amount: *₹${finalTotal}*
 Items: ${createdOrder.items.length}
-Note: ${note ? `_${note}_` : 'None'}`);
+Shipping Address: ${resolvedShippingAddress ? escapeTelegramMarkdown(resolvedShippingAddress) : 'Not provided'}
+Note: ${note ? escapeTelegramMarkdown(note) : 'None'}`);
 
       // Send Email to Admin
       sendAdminNewOrderEmail(createdOrder, user).catch(e => console.error('Failed to send admin order email', e));
@@ -372,11 +384,14 @@ router.post(
       });
 
       // Send Telegram Notification to Admin
+      const resolvedShippingAddress = createdOrder.shippingAddress || shippingAddress || user.address || '';
       sendTelegramNotification(`📦 *New Order Received!*
 Order ID: \`${createdOrder._id}\`
-User: ${user.name}
+User: ${escapeTelegramMarkdown(user.name)}
+Phone: \`${escapeTelegramMarkdown(user.phoneNumber || 'N/A')}\`
 Amount: *₹${finalTotal}*
-Items: ${createdOrder.items.length}`);
+Items: ${createdOrder.items.length}
+Shipping Address: ${resolvedShippingAddress ? escapeTelegramMarkdown(resolvedShippingAddress) : 'Not provided'}`);
 
       // Send Email to Admin
       sendAdminNewOrderEmail(createdOrder, user).catch(e => console.error('Failed to send admin order email', e));
