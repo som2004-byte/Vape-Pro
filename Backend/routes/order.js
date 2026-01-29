@@ -21,6 +21,26 @@ const escapeTelegramMarkdown = (value) => {
     .replace(/([_*[\]()`])/g, '\\$1');
 };
 
+const formatUserDefaultAddress = (user) => {
+  if (!user) return '';
+  if (user.address && String(user.address).trim()) return String(user.address).trim();
+
+  const addresses = Array.isArray(user.addresses) ? user.addresses : [];
+  const chosen = addresses.find(a => a && a.isDefault) || addresses.find(a => a);
+  if (!chosen) return '';
+
+  const parts = [
+    chosen.label,
+    chosen.receiverName,
+    chosen.receiverPhone,
+    chosen.houseNo,
+    chosen.building,
+    chosen.landmark,
+  ].filter(Boolean);
+
+  return parts.join(', ');
+};
+
 // Create a new order - checkout endpoint
 router.post(
   '/checkout',
@@ -230,7 +250,11 @@ router.post(
       }
 
       // Send Telegram Notification to Admin
-      const resolvedShippingAddress = createdOrder.shippingAddress || shippingAddress || user.address || '';
+      const resolvedShippingAddress =
+        createdOrder.shippingAddress ||
+        shippingAddress ||
+        formatUserDefaultAddress(user) ||
+        '';
       sendTelegramNotification(`📦 *New Order Received!*
 Order ID: \`${createdOrder._id}\`
 User: ${escapeTelegramMarkdown(user.name)}
@@ -384,7 +408,11 @@ router.post(
       });
 
       // Send Telegram Notification to Admin
-      const resolvedShippingAddress = createdOrder.shippingAddress || shippingAddress || user.address || '';
+      const resolvedShippingAddress =
+        createdOrder.shippingAddress ||
+        shippingAddress ||
+        formatUserDefaultAddress(user) ||
+        '';
       sendTelegramNotification(`📦 *New Order Received!*
 Order ID: \`${createdOrder._id}\`
 User: ${escapeTelegramMarkdown(user.name)}
