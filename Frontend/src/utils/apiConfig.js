@@ -49,6 +49,7 @@ export const API_ENDPOINTS = {
         BY_ID: (orderId) => `${API_BASE_URL}/api/orders/${orderId}`,
         UPDATE_PAYMENT: (orderId) => `${API_BASE_URL}/api/orders/${orderId}/payment`,
         CANCEL: (orderId) => `${API_BASE_URL}/api/orders/${orderId}/cancel`,
+        DELETE: (orderId) => `${API_BASE_URL}/api/orders/${orderId}`,
     },
 
     // User endpoints

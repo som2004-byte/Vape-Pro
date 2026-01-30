@@ -566,6 +566,30 @@ export default function App() {
     fetchStats();
   };
 
+  // Delete order handler
+  const handleDeleteOrder = async (orderId) => {
+    if (isLoggedIn && user?.token) {
+      if (!window.confirm('Are you sure you want to delete this order? This action cannot be undone.')) {
+        return;
+      }
+      try {
+        await apiCall(API_ENDPOINTS.ORDERS.DELETE(orderId), {
+          method: 'DELETE',
+          headers: getAuthHeaders(user.token)
+        });
+
+        // Remove from local state
+        const updatedOrders = orders.filter(o => (o._id || o.id) !== orderId);
+        setOrders(updatedOrders);
+        localStorage.setItem('vapesmart_orders', JSON.stringify(updatedOrders));
+
+        setToast({ type: 'success', message: 'Order deleted successfully' });
+      } catch (err) {
+        setToast({ type: 'error', message: 'Failed to delete order', subTitle: err.message });
+      }
+    }
+  };
+
   const handleCheckout = () => {
     if (cartItems.length === 0) {
       setToast({ type: 'error', message: 'Your cart is empty' })
@@ -784,6 +808,7 @@ export default function App() {
             }}
             orders={orders}
             onNotify={setToast}
+            onDeleteOrder={handleDeleteOrder}
           />
         )}
 

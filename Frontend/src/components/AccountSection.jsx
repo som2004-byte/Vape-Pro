@@ -6,6 +6,7 @@ export default function AccountSection({
   activeTab = 'profile',
   profile,
   onSaveProfile,
+  onDeleteOrder, // Add onDeleteOrder prop
   orders = [],
   products = [],
   onNotify,
@@ -482,7 +483,7 @@ export default function AccountSection({
                 ) : (
                   <div className="space-y-4">
                     {orders.map(order => (
-                      <div key={order._id || order.id} className="bg-black/20 border border-white/5 rounded-2xl p-6 hover:border-cyan-500/30 transition-all duration-300">
+                      <div key={order._id || order.id} className="bg-black/20 border border-white/5 rounded-2xl p-6 hover:border-cyan-500/30 transition-all duration-300 group">
                         <div className="flex flex-wrap justify-between items-start gap-4 mb-6">
                           <div>
                             <p className="text-cyan-400 font-mono text-[10px] uppercase font-bold tracking-widest">ORDER #{(order.orderNumber || (order._id || '------').slice(-6)).toUpperCase()}</p>
@@ -540,7 +541,22 @@ export default function AccountSection({
                         </div>
 
                         <div className="pt-4 border-t border-white/5 flex justify-between items-center">
-                          <span className="text-gray-500 text-xs font-bold uppercase tracking-widest">Total Amount</span>
+                          <div className="flex items-center gap-4">
+                            {onDeleteOrder && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onDeleteOrder(order._id || order.id);
+                                }}
+                                className="text-red-400/80 hover:text-red-400 hover:bg-red-500/10 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all opacity-0 group-hover:opacity-100 -ml-2"
+                                title="Delete Order from History"
+                              >
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                DELETE
+                              </button>
+                            )}
+                            <span className="text-gray-500 text-xs font-bold uppercase tracking-widest">Total Amount</span>
+                          </div>
                           <span className="text-2xl font-black text-white">
                             ₹{(order.total && order.total > 0 ? order.total : (order.items || []).reduce((sum, item) => {
                               let startPrice = (item.price && item.price > 0) ? item.price : 0;

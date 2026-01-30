@@ -631,6 +631,51 @@ router.post(
 );
 
 // Webhook for payment confirmation (for Stripe or other payment processors)
+// Delete order (user side)
+router.delete(
+  '/:orderId',
+  authenticateToken,
+  [
+    param('orderId').isMongoId().withMessage('Valid order ID is required'),
+  ],
+  async (req, res) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+      }
+
+      const order = await Order.findOne({
+        _id: req.params.orderId,
+        userId: req.user._id,
+      });
+
+      if (!order) {
+        return res.status(404).json({ message: 'Order not found' });
+      }
+
+      // If order is processing/pending, restore stock
+      if (order.status === 'processing' || order.status === 'pending') {
+        for (const item of order.items) {
+          if (item.productId) {
+            await Product.updateOne(
+              { _id: item.productId },
+              { $inc: { stock: item.quantity } }
+            );
+          }
+        }
+      }
+
+      await Order.findByIdAndDelete(order._id);
+
+      res.json({ message: 'Order deleted successfully' });
+    } catch (error) {
+      console.error('Delete order error:', error);
+      res.status(500).json({ message: 'Server error', error: error.message });
+    }
+  }
+);
+
 router.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
   try {
     // In a real app, you would verify the webhook signature here
