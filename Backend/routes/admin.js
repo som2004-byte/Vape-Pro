@@ -10,6 +10,7 @@ const Order = require('../models/Order');
 const Product = require('../models/Product');
 const Cart = require('../models/Cart');
 const ClientRequirement = require('../models/ClientRequirement');
+const { sendTelegramNotification } = require('../utils/telegram');
 
 const router = express.Router();
 
@@ -359,6 +360,14 @@ router.put(
         return res.status(404).json({ message: 'Order not found' });
       }
 
+      // Notify User via Telegram (if Admin wants to be notified of their own action)
+      try {
+        const telegramMessage = `🛠 *Order Status Updated*\nOrder ID: \`#${req.params.orderId}\`\nNew Status: *${finalStatus}*\nUpdated By: Admin`;
+        sendTelegramNotification(telegramMessage);
+      } catch (tgError) {
+        console.error('Telegram Notification Error:', tgError);
+      }
+
       res.json({
         message: 'Order updated successfully',
         order,
@@ -468,6 +477,14 @@ router.post(
       const product = new Product(req.body);
       await product.save();
 
+      // Notify Admin via Telegram
+      try {
+        const telegramMessage = `✨ *New Product Added*\nName: ${product.name}\nPrice: ₹${product.price}\nStock: ${product.stock}\nCategory: ${product.category}`;
+        sendTelegramNotification(telegramMessage);
+      } catch (tgError) {
+        console.error('Telegram Notification Error:', tgError);
+      }
+
       res.status(201).json({
         message: 'Product created successfully',
         product,
@@ -506,6 +523,15 @@ router.put(
 
       if (!product) {
         return res.status(404).json({ message: 'Product not found' });
+      }
+
+      // Notify Admin via Telegram
+      try {
+        const changes = Object.keys(req.body).join(', ');
+        const telegramMessage = `🔄 *Product Updated*\nName: ${product.name}\nUpdated Fields: ${changes}\nNew Price: ₹${product.price}\nNew Stock: ${product.stock}`;
+        sendTelegramNotification(telegramMessage);
+      } catch (tgError) {
+        console.error('Telegram Notification Error:', tgError);
       }
 
       res.json({
