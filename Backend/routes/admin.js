@@ -362,7 +362,11 @@ router.put(
 
       // Notify User via Telegram (if Admin wants to be notified of their own action)
       try {
-        const telegramMessage = `🛠 *Order Status Updated*\nOrder ID: \`#${req.params.orderId}\`\nNew Status: *${finalStatus}*\nUpdated By: Admin`;
+        const itemsList = order.items && order.items.length > 0
+          ? order.items.map(i => `- ${i.name || 'Product'} (x${i.quantity})`).join('\n')
+          : 'No items';
+
+        const telegramMessage = `🛠 *Order Status Updated*\nOrder ID: \`#${req.params.orderId}\`\nNew Status: *${finalStatus}*\nUpdated By: Admin\n\n*Items:*\n${itemsList}`;
         sendTelegramNotification(telegramMessage);
       } catch (tgError) {
         console.error('Telegram Notification Error:', tgError);
