@@ -145,12 +145,14 @@ router.post(
         const itemName = product?.name || item.name || 'Product';
         const itemPrice = product?.price || item.price || 0;
         const itemImage = product?.images?.[0] || item.image || '';
+        const itemCategory = product?.category || item.category || 'N/A';
 
         orderItems.push({
           productId: productId,
           name: itemName,
           image: itemImage,
           price: itemPrice,
+          category: itemCategory,
           quantity: item.quantity,
         });
 
@@ -255,12 +257,20 @@ router.post(
         shippingAddress ||
         formatUserDefaultAddress(user) ||
         '';
+      // Build items summary for Telegram
+      const itemsSummary = createdOrder.items
+        .map(item => `- ${escapeTelegramMarkdown(item.name)} (${escapeTelegramMarkdown(item.category)}) x${item.quantity}`)
+        .join('\n');
+
       sendTelegramNotification(`📦 *New Order Received!*
 Order ID: \`${createdOrder._id}\`
 User: ${escapeTelegramMarkdown(user.name)}
 Phone: \`${escapeTelegramMarkdown(user.phoneNumber || 'N/A')}\`
 Amount: *₹${finalTotal}*
-Items: ${createdOrder.items.length}
+
+*Items:*
+${itemsSummary}
+
 Shipping Address: ${resolvedShippingAddress ? escapeTelegramMarkdown(resolvedShippingAddress) : 'Not provided'}
 Note: ${note ? escapeTelegramMarkdown(note) : 'None'}`);
 
@@ -328,8 +338,8 @@ router.post(
           }
 
           // Final fallback: Match by Name (fuzzy)
-          if (!product && (item.name || product.name)) {
-            const searchName = item.name || product.name;
+          if (!product && item.name) {
+            const searchName = item.name;
             product = await Product.findOne({
               name: { $regex: new RegExp(`^${searchName}$`, 'i') }
             });
@@ -353,6 +363,7 @@ router.post(
         orderItems.push({
           productId: productId,
           name: product.name,
+          category: product.category,
           image: product.images?.[0] || null,
           price: product.price,
           quantity: item.quantity,
@@ -413,12 +424,20 @@ router.post(
         shippingAddress ||
         formatUserDefaultAddress(user) ||
         '';
+      // Build items summary for Telegram
+      const itemsSummary = createdOrder.items
+        .map(item => `- ${escapeTelegramMarkdown(item.name)} (${escapeTelegramMarkdown(item.category)}) x${item.quantity}`)
+        .join('\n');
+
       sendTelegramNotification(`📦 *New Order Received!*
 Order ID: \`${createdOrder._id}\`
 User: ${escapeTelegramMarkdown(user.name)}
 Phone: \`${escapeTelegramMarkdown(user.phoneNumber || 'N/A')}\`
 Amount: *₹${finalTotal}*
-Items: ${createdOrder.items.length}
+
+*Items:*
+${itemsSummary}
+
 Shipping Address: ${resolvedShippingAddress ? escapeTelegramMarkdown(resolvedShippingAddress) : 'Not provided'}`);
 
       // Send Email to Admin

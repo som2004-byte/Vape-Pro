@@ -8,6 +8,7 @@ const orderItemSchema = new mongoose.Schema(
     image: { type: String, default: '' },
     flavor: { type: String, default: '' },
     series: { type: String, default: '' },
+    category: { type: String, default: '' },
     quantity: { type: Number, default: 1, min: 1 }
   },
   { _id: false }
